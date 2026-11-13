@@ -1,0 +1,414 @@
+{
+  "release": {
+    "name": "A",
+    "files": [
+      {
+        "file": "clinical.tsv",
+        "sha256": "39eb3be0fb86e6a577bd2cc01502a7fa5a271e1e1cba294e9dc644ad99580d7f"
+      },
+      {
+        "file": "survival.tsv",
+        "sha256": "6c9e18ae9c2b8bacc48cd5a60cde97e8880ae2e84e48df437a0378b17e659b73"
+      },
+      {
+        "file": "mutation_gene_level.tsv.gz",
+        "sha256": "ceaf6a01fd983cefc7fca8b52f6c65121acc87b75f4d170b9fcdc07ee16a3813"
+      },
+      {
+        "file": "copy_number_gistic.tsv.gz",
+        "sha256": "c45b1f8ea19c8dc20bd614d0863a40cccc633518d0ad05d2c7fff5f75781e980"
+      },
+      {
+        "file": "protein_rppa.tsv.gz",
+        "sha256": "7823a7a375495f7e5f114d0c7ec8773e070cb9ac409785f98045d12ab71195e6"
+      }
+    ]
+  },
+  "claims": [
+    {
+      "claim": {
+        "id": "C1",
+        "text": "Of the 1,101 primary tumors in the release, 535 have survival, mutation, copy number, RNA and protein data.",
+        "sentence_index": 1,
+        "type": "COUNT",
+        "params": {
+          "stated_value": 535,
+          "stated_high": null,
+          "stated_total": 1101,
+          "unit": "count",
+          "decimals": null,
+          "approximate": false,
+          "subject": "all_five_layers",
+          "subtype": null,
+          "direction": null,
+          "measure": null,
+          "group_a": null,
+          "group_b": null
+        },
+        "needed_data": null,
+        "clinical_terms": []
+      },
+      "verdict": "supported",
+      "solidity": "not_applicable",
+      "fact": {
+        "label": "primary tumors with data in all five layers",
+        "value": 535,
+        "numerator": 535,
+        "denominator": 1101,
+        "sample_ids": [
+          "TCGA-3C-AAAU-01",
+          "TCGA-3C-AALI-01",
+          "TCGA-3C-AALJ-01",
+          "TCGA-3C-AALK-01",
+          "TCGA-4H-AAAK-01"
+        ],
+        "files": [
+          "clinical.tsv",
+          "survival.tsv",
+          "mutation_gene_level.tsv.gz",
+          "copy_number_gistic.tsv.gz",
+          "protein_rppa.tsv.gz"
+        ],
+        "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor'].index\nlayers = [pd.read_csv(f, sep='\\t', index_col=0, nrows=0).columns for f in\n          ['survival.tsv', 'mutation_gene_level.tsv.gz', 'copy_number_gistic.tsv.gz', 'protein_rppa.tsv.gz']]\n# RNA layer is not in this release; see audit notes\nhave_all = [s for s in primary if all(s in set(l) for l in layers)]\nprint(len(have_all), 'of', len(primary))",
+        "unknown_count": 0,
+        "extra": {}
+      },
+      "correct_value": null,
+      "missing_evidence": null,
+      "variants": [],
+      "flips_on": [],
+      "skeptic": null,
+      "ladder": [
+        {
+          "text": "Of the 1,101 primary tumors in the release, 535 have survival, mutation, copy number, RNA and protein data.",
+          "struck": false,
+          "inserted": false
+        }
+      ],
+      "limitation": null,
+      "review": null
+    },
+    {
+      "claim": {
+        "id": "C2",
+        "text": "Luminal A is the largest RNA subtype, accounting for about 62% of primary tumors with an RNA subtype call.",
+        "sentence_index": 2,
+        "type": "SHARE",
+        "params": {
+          "stated_value": 62,
+          "stated_high": null,
+          "stated_total": null,
+          "unit": "percent",
+          "decimals": null,
+          "approximate": true,
+          "subject": "primary_tumors",
+          "subtype": "Luminal A",
+          "direction": null,
+          "measure": null,
+          "group_a": null,
+          "group_b": null
+        },
+        "needed_data": null,
+        "clinical_terms": []
+      },
+      "verdict": "contradicted",
+      "solidity": "holds_under_every_variant",
+      "fact": {
+        "label": "primary tumors with a PAM50 RNA-seq call that are Luminal A",
+        "value": 49.9,
+        "numerator": 421,
+        "denominator": 844,
+        "sample_ids": [
+          "TCGA-3C-AAAU-01",
+          "TCGA-3C-AALI-01",
+          "TCGA-3C-AALK-01",
+          "TCGA-4H-AAAK-01",
+          "TCGA-A1-A0SE-01"
+        ],
+        "files": [
+          "clinical.tsv"
+        ],
+        "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+        "unknown_count": 257,
+        "extra": {}
+      },
+      "correct_value": "49.9% (421 of 844)",
+      "missing_evidence": null,
+      "variants": [
+        {
+          "variant_id": "rna_call|everyone|primary_tumors",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (rna_call|everyone|primary_tumors)",
+            "value": 49.9,
+            "numerator": 421,
+            "denominator": 844,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        },
+        {
+          "variant_id": "rna_call|women_only|primary_tumors",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (rna_call|women_only|primary_tumors)",
+            "value": 49.9,
+            "numerator": 416,
+            "denominator": 833,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        },
+        {
+          "variant_id": "rna_call|everyone|all_samples",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (rna_call|everyone|all_samples)",
+            "value": 45.4,
+            "numerator": 434,
+            "denominator": 956,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        },
+        {
+          "variant_id": "rna_call|women_only|all_samples",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (rna_call|women_only|all_samples)",
+            "value": 45.4,
+            "numerator": 428,
+            "denominator": 943,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        },
+        {
+          "variant_id": "study_2012_label|everyone|primary_tumors",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (study_2012_label|everyone|primary_tumors)",
+            "value": 44.3,
+            "numerator": 231,
+            "denominator": 522,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        },
+        {
+          "variant_id": "study_2012_label|women_only|primary_tumors",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (study_2012_label|women_only|primary_tumors)",
+            "value": 44.6,
+            "numerator": 230,
+            "denominator": 516,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        },
+        {
+          "variant_id": "study_2012_label|everyone|all_samples",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (study_2012_label|everyone|all_samples)",
+            "value": 44.3,
+            "numerator": 231,
+            "denominator": 522,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        },
+        {
+          "variant_id": "study_2012_label|women_only|all_samples",
+          "fact": {
+            "label": "Luminal A share of tumors with a subtype call (study_2012_label|women_only|all_samples)",
+            "value": 44.6,
+            "numerator": 230,
+            "denominator": 516,
+            "sample_ids": [
+              "TCGA-3C-AAAU-01",
+              "TCGA-3C-AALI-01",
+              "TCGA-3C-AALK-01",
+              "TCGA-4H-AAAK-01",
+              "TCGA-A1-A0SE-01"
+            ],
+            "files": [
+              "clinical.tsv"
+            ],
+            "code": "import pandas as pd\nclin = pd.read_csv('clinical.tsv', sep='\\t', index_col=0)\nprimary = clin[clin['sample_type'] == 'Primary Tumor']\ncalled = primary['PAM50Call_RNAseq'].dropna()\nlum_a = called[called == 'LumA']\nprint(len(lum_a), 'of', len(called), round(100 * len(lum_a) / len(called), 1))",
+            "unknown_count": 0,
+            "extra": {}
+          },
+          "verdict": "contradicted"
+        }
+      ],
+      "flips_on": [],
+      "skeptic": null,
+      "ladder": [
+        {
+          "text": "Luminal A is the largest RNA subtype, accounting for ",
+          "struck": false,
+          "inserted": false
+        },
+        {
+          "text": "about 62%",
+          "struck": true,
+          "inserted": false
+        },
+        {
+          "text": "49.9% (421 of 844)",
+          "struck": false,
+          "inserted": true
+        },
+        {
+          "text": " of primary tumors with an RNA subtype call.",
+          "struck": false,
+          "inserted": false
+        }
+      ],
+      "limitation": "Subtype calls exist for 844 of 1,101 primary tumors.",
+      "review": null
+    },
+    {
+      "claim": {
+        "id": "C3",
+        "text": "Patients whose tumors had the highest ER-alpha protein responded best to hormone therapy, which suggests protein data could guide treatment research.",
+        "sentence_index": 3,
+        "type": "NOT_ANSWERABLE",
+        "params": {
+          "stated_value": null,
+          "stated_high": null,
+          "stated_total": null,
+          "unit": null,
+          "decimals": null,
+          "approximate": false,
+          "subject": null,
+          "subtype": null,
+          "direction": null,
+          "measure": null,
+          "group_a": null,
+          "group_b": null
+        },
+        "needed_data": "treatment and treatment-response data",
+        "clinical_terms": [
+          "responded",
+          "hormone therapy",
+          "guide treatment"
+        ]
+      },
+      "verdict": "insufficient_evidence",
+      "solidity": "not_applicable",
+      "fact": null,
+      "correct_value": null,
+      "missing_evidence": "treatment and treatment-response data",
+      "variants": [],
+      "flips_on": [],
+      "skeptic": null,
+      "ladder": [
+        {
+          "text": "Patients whose tumors had the highest ER-alpha protein ",
+          "struck": false,
+          "inserted": false
+        },
+        {
+          "text": "responded best to hormone therapy",
+          "struck": true,
+          "inserted": false
+        },
+        {
+          "text": "— not answerable from this data; would need: treatment and treatment-response data",
+          "struck": false,
+          "inserted": true
+        },
+        {
+          "text": ", which suggests protein data could guide treatment research.",
+          "struck": false,
+          "inserted": false
+        }
+      ],
+      "limitation": null,
+      "review": null
+    }
+  ],
+  "notes": [
+    "No RNA file in this release."
+  ]
+}

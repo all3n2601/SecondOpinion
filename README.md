@@ -24,7 +24,8 @@ For each claim the tool shows:
 
 1. **Verdict:** `supported`, `contradicted` or `insufficient_evidence`. Verdicts come only from code.
 2. **Solidity:** whether the verdict holds under all 8 reasonable ways of counting (RNA-seq subtype
-   call vs 2012 study label × everyone vs women only × primary tumors vs all samples), or only some.
+   call vs 2012 study label × everyone vs women only × primary tumors vs all samples), or only some,
+   plus two skeptic tests: shuffle the labels, and leave one tissue source site out.
 3. **Strongest honest sentence (Claim Ladder):** the claim with the over-strong part crossed out,
    e.g. ~~about 62%~~ **49.9% (421 of 844)** of primary tumors with an RNA subtype call were Luminal A.
 4. **Proof:** the number with its denominator, the sample IDs, the release files and a pandas
@@ -117,20 +118,13 @@ These are shown in the product next to the claims they affect, not only here.
   `insufficient_evidence` with the data that would be needed. The tool does not guess.
 - **Envelope releases have no RNA file and no manifest:** claims about RNA or "all five layers" say
   so in the audit notes instead of failing.
-- **Sex and sample type:** 12 male samples, 4 with no recorded sex, and 139 normal-tissue and 7
-  metastasis samples are mixed in. "Women only" excludes unknown-sex rows and reports how many.
+- **Sex and sample type:** 13 male samples (12 of them primary tumors), 4 with no recorded sex, and
+  139 normal-tissue and 7 metastasis samples are mixed in. "Women only" excludes unknown-sex rows and reports how many.
 - **Claim types covered:** counts, shares, coverage, group comparisons and agreement between labels.
   Any other kind of claim gets `insufficient_evidence` ("No check exists yet for this kind of
   claim") for a person to check.
 - **The suggested decision is advice.** Every verdict needs a human review before export, and the
   Decision Record names who must sign off.
-
-## Status (Saturday code freeze)
-
-Working end to end through the API and CLI: release loading, checks, verdicts, robustness across
-the 8 ways of counting, review, decision, `audit.json` export (passes the organizers' validator) and
-the Decision Record. Report sentence extraction (`/extract`) is still being finished. Until it
-lands, the CLI can take `--claims-json`.
 
 ## How it is built
 

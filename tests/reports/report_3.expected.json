@@ -1,0 +1,12 @@
+[
+  {"claim_contains": "ER-alpha protein is higher", "type": "COMPARISON", "verdict": "supported",
+   "why": "reference analysis A1: ER-positive minus ER-negative = 3.051 (529 vs 169)"},
+  {"claim_contains": "HER2 protein is lower", "type": "COMPARISON", "verdict": "contradicted",
+   "why": "HER2 protein is higher in HER2-positive tumors - confirm the difference with pandas"},
+  {"claim_contains": "Seven samples are metastatic", "type": "COUNT", "verdict": "supported",
+   "why": "plan Review Focus: 7 metastasis samples; spelled-out number. Needs check_count to support metastatic_samples"},
+  {"claim_contains": "roughly 47%", "type": "SHARE", "verdict": "contradicted",
+   "why": "49.9% is 2.9 points from 47, outside the 2-point tolerance (fragile: all-samples 45.4% is within it)"},
+  {"claim_contains": "predicts longer survival", "type": "NOT_ANSWERABLE", "verdict": "insufficient_evidence",
+   "why": "prediction wording; needs data that can test prediction"}
+]

@@ -22,3 +22,12 @@ def mini_release(tmp_path: Path) -> Path:
     from tests.helpers import make_mini_release
 
     return make_mini_release(tmp_path / "mini_release")
+
+
+@pytest.fixture(autouse=True)
+def _ai_off_by_default(monkeypatch):
+    """No test reaches a real AI service, even if the developer has a key in the environment or .env.
+
+    Tests that want the layer on pass a ScriptedClient or set the SO_AI_* variables themselves.
+    """
+    monkeypatch.setenv("SO_AI", "off")

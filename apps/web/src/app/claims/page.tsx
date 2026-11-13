@@ -4,6 +4,7 @@ import { CircleAlert, ClipboardCheck, FileText, LoaderCircle } from "lucide-reac
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import AiStatusChip from "@/components/AiStatusChip";
 import ClaimRow from "@/components/ClaimRow";
 import { runAudit } from "@/lib/api";
 import { useAudit } from "@/lib/audit-context";
@@ -57,7 +58,7 @@ export default function ClaimsPage() {
             <div>
               <h2 className={sectionTitle}>No report yet</h2>
               <p className="mt-1 text-ink-soft">Add a report and press Find claims.</p>
-              <Link href="/" className={`${buttonSecondary} mt-4`}>
+              <Link href="/start" className={`${buttonSecondary} mt-4`}>
                 Go to Start
               </Link>
             </div>
@@ -71,7 +72,10 @@ export default function ClaimsPage() {
 
   return (
     <main className={pageWidth}>
-      <h1 className={pageTitle}>Claims</h1>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <h1 className={pageTitle}>Claims</h1>
+        <AiStatusChip />
+      </div>
       <p className="mt-3 max-w-prose text-ink-soft">
         Every sentence of the report, in order. Ticked sentences will be checked against the data. Untick a sentence
         that is not a real claim, or tick one we missed.
@@ -121,7 +125,7 @@ export default function ClaimsPage() {
           {noRelease && (
             <p className="text-sm text-ink-soft">
               Choose a release folder on{" "}
-              <Link href="/" className="font-medium text-pen underline underline-offset-4">
+              <Link href="/start" className="font-medium text-pen underline underline-offset-4">
                 Start
               </Link>{" "}
               first.

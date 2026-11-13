@@ -31,7 +31,7 @@ Icons: `lucide-react` only (stroke icons, `aria-hidden` when decorative, 16 or 2
 - Page container: `<main className={pageWidth}>` (max 56rem, generous padding); the shell already supplies the left step rail, skip link and research banner.
 - One primary action per screen. Disabled primary actions say why in text next to them.
 - Touch targets at least 44px (`min-h-11`). Visible focus (already global). `cursor-pointer` on clickable things. Hover and press feedback 150-200ms colour/opacity only, never layout shift. Respect reduced motion (already global).
-- Motion only answers an action (expanding, copying, confirming). No entrance animations on load.
+- Motion only answers an action (expanding, copying, confirming). No entrance animations on load. The one exception is the landing hero's cohort figure (`components/landing/CohortCanvas.tsx`): it plays once, can be paused, is stepped through by hand from its text list, and opens on its last stage with reduced motion.
 - Plain words from the user's side: "Check the files", not "Validate release". Buttons name the action. Errors say what happened and what to do, in `role="alert"` or `aria-live="polite"` regions.
 - Responsive from 375px: single column, no horizontal page scroll; wide tables scroll inside their own container with a visible label. Test mentally at 375, 768, 1280.
 - Redline styling is global: `<del>` is a red line-through, `<ins>` is the underlined green correction. Use those elements for the Claim Ladder, never custom spans.

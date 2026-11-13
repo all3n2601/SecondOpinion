@@ -1,6 +1,7 @@
 import { CircleHelp } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { formatFact } from "@/lib/claim-format";
+import { describeStated, paramsFromAiPlan } from "@/lib/ai-plan";
+import { formatFact, formatResultFact } from "@/lib/claim-format";
 import type { ClaimParams, ClaimResult, Verdict } from "@/lib/types";
 import { sectionTitle } from "@/lib/ui";
 
@@ -370,11 +371,58 @@ function Needs({ result }: { result: ClaimResult }) {
   );
 }
 
+/**
+ * Report says X, data shows Y, in plain words. For results whose plan is a rank, an order or a summary
+ * statistic, where a 0 to 100 gauge would mislead.
+ */
+function PlainPair({ result }: { result: ClaimResult }) {
+  const { fact, verdict } = result;
+  const stated = result.ai_plan?.stated ?? null;
+  if (!fact) return null;
+  const says = stated?.span ?? "";
+  const reading = stated ? describeStated(stated) : "";
+  const shows = verdict === "contradicted" && result.correct_value ? result.correct_value : formatResultFact(result);
+  const summary = `${says ? `Report says: ${says}. ` : "The report states no figure. "}The data shows ${shows}.`;
+
+  return (
+    <Figure title="Report versus data" summary={summary}>
+      <dl className="mt-3 grid gap-x-6 gap-y-3 border-y border-rule py-4 sm:grid-cols-[8rem_1fr]">
+        <dt className="text-sm font-medium text-ink-soft sm:pt-0.5">Report says</dt>
+        <dd className="min-w-0">
+          {says ? <q className="reported text-ink">{says}</q> : <span className="text-ink-soft">No figure stated</span>}
+          {reading && <span className="mt-0.5 block text-sm text-ink-soft">Read as: {reading}</span>}
+        </dd>
+        <dt className="text-sm font-medium text-ink-soft sm:pt-0.5">Data shows</dt>
+        <dd className="num font-mono font-semibold text-ink">{shows}</dd>
+      </dl>
+    </Figure>
+  );
+}
+
 /** "Stated vs actual": what the report says beside what the data says, labelled directly on the chart. */
 export default function ClaimVsData({ result }: { result: ClaimResult }) {
   if (result.verdict === "insufficient_evidence") return <Needs result={result} />;
   const { claim, fact } = result;
   if (!fact) return null;
+
+  const ai = result.ai_plan;
+  if (ai?.plan) {
+    // The helper's own reading of the sentence fills in what the rules left blank, so the gauges can draw the stated figure.
+    const filled: ClaimResult = {
+      ...result,
+      claim: { ...claim, params: paramsFromAiPlan(claim.params, ai.plan, ai.stated) },
+    };
+    switch (ai.plan.op) {
+      case "share":
+        return <ShareGauge result={filled} />;
+      case "count":
+        return fact.denominator !== null && fact.denominator > 0 ? <CountGauge result={filled} /> : <PlainPair result={filled} />;
+      case "compare_means":
+        return <ComparisonGauge result={filled} />;
+      default:
+        return <PlainPair result={filled} />;
+    }
+  }
 
   if (claim.type === "COMPARISON") return <ComparisonGauge result={result} />;
   if (claim.type === "SHARE" || (claim.params.unit === "percent" && fact.value !== null)) {

@@ -256,3 +256,26 @@ def test_filtered_counts_are_not_judged_against_everyone(mini_release):
     claims = extract_claims("Two samples are male.").claims
     result = audit_claims(claims, mini_release)
     assert result.claims[0].verdict is not Verdict.CONTRADICTED
+
+
+def test_claims_carry_the_sentence_as_written_and_repeats_give_one_claim():
+    report = "**Luminal A** is the largest subtype, at about 62%.\n\nLuminal A is the largest subtype, at about 62%."
+    result = extract_claims(report)
+    assert [c.original_text for c in result.claims] == ["**Luminal A** is the largest subtype, at about 62%."]
+
+
+def test_an_age_is_not_a_count_of_the_noun_before_it():
+    assert claim("HER2-enriched tumors are more aggressive, and the median age at diagnosis was 58 years.").type is ClaimType.UNMAPPED
+
+
+def test_male_and_female_counts_in_one_sentence_are_not_one_count():
+    assert claim("There are 1,085 female patients and 12 male patients.").type is ClaimType.UNMAPPED
+
+
+def test_a_sentence_about_named_genes_is_not_a_layer_coverage_claim():
+    c = claim("Roughly 80 percent of patients with a mutation call have a TP53 or PIK3CA mutation.")
+    assert c.type is ClaimType.UNMAPPED
+
+
+def test_layer_coverage_without_a_gene_is_still_coverage():
+    assert claim("About 72% of primary tumors have a mutation call.").type is ClaimType.COVERAGE

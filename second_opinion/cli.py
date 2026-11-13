@@ -3,6 +3,7 @@
 import argparse
 import dataclasses
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -47,12 +48,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--report", help="report to audit (Markdown or text); not needed with --claims-json")
     parser.add_argument("--claims-json", help="JSON list of claims; skips claim extraction")
     parser.add_argument("--out", default="audit.json", help="where to write audit.json")
+    parser.add_argument("--no-ai", action="store_true", help="do not use the optional AI helper in this run")
     args = parser.parse_args(argv)
     if not args.report and not args.claims_json:
         parser.error("give --report <report.md> (or --claims-json <claims.json>)")
 
+    if args.no_ai:
+        os.environ["SO_AI"] = "off"  # the AI layer reads this; later calls in this process see it too
+    from second_opinion.ai.config import ai_status
     from second_opinion.audit import audit_claims
 
+    status = ai_status()
+    if status["enabled"]:
+        print(f"AI helper on ({status['model']})")
     claims = _load_claims(args)
     try:
         audit = audit_claims(claims, args.release)

@@ -50,12 +50,14 @@ class ClaimParams:
 @dataclass
 class Claim:
     id: str  # "C1", "C2", ... in report order
-    text: str  # the sentence exactly as written
+    text: str  # the sentence with Markdown stripped: what the checks read
     sentence_index: int
     type: ClaimType
     params: ClaimParams = field(default_factory=ClaimParams)
     needed_data: str | None = None  # NOT_ANSWERABLE only
     clinical_terms: list[str] = field(default_factory=list)
+    source: str = "rules"  # "rules", or "ai" for a claim the AI recovered from a sentence the rules skipped
+    original_text: str = ""  # the sentence copied exactly as written in the report, Markdown included; "" = same as `text`
 
 
 @dataclass
@@ -63,6 +65,7 @@ class SentenceInfo:
     index: int
     text: str
     claim_id: str | None
+    original_text: str = ""  # as written in the report, Markdown included; "" = same as `text`
 
 
 @dataclass
@@ -127,6 +130,7 @@ class ClaimResult:
     ladder: list[LadderSegment]
     limitation: str | None
     review: Review | None = None
+    ai_plan: dict | None = None  # the validated QueryPlan (as JSON) when the verdict came from an AI plan
 
 
 @dataclass

@@ -7,11 +7,11 @@ from pydantic import BaseModel
 
 from second_opinion.variants import all_variants
 
-from .routes import audit, export, extract, roles
+from .routes import ai, audit, export, extract, roles
 
 app = FastAPI(title="SecondOpinion API", version="0.1.0")
 
-for _module in (extract, audit, export, roles):
+for _module in (extract, audit, export, roles, ai):
     app.include_router(_module.router)
 
 

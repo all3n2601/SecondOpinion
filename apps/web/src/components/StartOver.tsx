@@ -57,7 +57,7 @@ export default function StartOver() {
         onClick={() => {
           reset();
           setAsking(false);
-          router.push("/");
+          router.push("/start");
         }}
         className={buttonQuiet}
       >

@@ -49,9 +49,9 @@ export default function ReportUpload({ value, onChange }: Props) {
 
   return (
     <section aria-labelledby="report-heading">
-      <h3 id="report-heading" className={sectionTitle}>
+      <h2 id="report-heading" className={sectionTitle}>
         1. Report
-      </h3>
+      </h2>
       <p className={fieldHint}>Upload a Markdown or text file, paste the text, or try the practice report.</p>
 
       <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-2">

@@ -88,21 +88,24 @@ Then start the app:
 npm run dev
 ```
 
-Open <http://localhost:3000>. The page says **API connected** when the backend is up.
+Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/start`) says
+**API connected** when the backend is up.
 
 ### Try it in one click
 
-1. On the home page, enter the **absolute path** of the release folder (for example
+1. On the Start page, enter the **absolute path** of the release folder (for example
    `/Users/you/.../oncosys-hackathon-challenge/data/tcga-brca/raw`). To pre-fill it, copy
    `apps/web/.env.example` to `apps/web/.env.local`, set `NEXT_PUBLIC_DEFAULT_RELEASE_DIR`, and
    restart.
-2. Click **Run the practice audit**. It loads the practice report, finds the three claims, audits
-   them and opens the audit board.
+2. Click **Run the practice audit**. It loads the practice report, finds the three claims and
+   audits them. Each step on the right fills in with what it found (claims, verdicts, how many hold
+   under every way of counting, how many sentences were rewritten). Then **Open the audit board**.
 
 ### Audit your own report
 
 1. **Start:** upload a `.md` or `.txt` report (or paste the text), enter the release folder, click
-   **Check the files** (it lists the files and checksums, or what is missing), then **Find claims**.
+   **Check the files** (it lists the files and checksums, or what is missing), then **Run the audit**
+   to go straight through, or **Find claims only** to adjust the list first.
 2. **Claims:** untick sentences that are not claims, or tick ones the tool skipped. **Run audit**.
 3. **Audit board:** one entry per claim with the verdict, how solid it is and the Claim Ladder.
    **Open evidence** shows the calculation, the "report vs data" gauge, the files and checksums, the

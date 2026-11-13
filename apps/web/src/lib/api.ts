@@ -2,6 +2,7 @@
 // On a non-2xx response each function throws Error(detail), using the API's "detail" text.
 
 import type {
+  AiStatus,
   AuditResult,
   Claim,
   DecisionChoice,
@@ -77,4 +78,19 @@ export function getRoles(): Promise<Role[]> {
 
 export function saveRole(role: Role): Promise<Role[]> {
   return request("/roles", { method: "POST", body: role });
+}
+
+/** Is the optional AI helper switched on? Never throws: an unreachable API reads as "off". */
+export async function getAiStatus(): Promise<AiStatus> {
+  try {
+    const status = await request<Partial<AiStatus>>("/ai/status");
+    return {
+      enabled: status.enabled === true,
+      model: status.model ?? null,
+      host: status.host ?? null,
+      reason: status.reason ?? null,
+    };
+  } catch {
+    return { enabled: false, model: null, host: null, reason: "The API did not answer" };
+  }
 }

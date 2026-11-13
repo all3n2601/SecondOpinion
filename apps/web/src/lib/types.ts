@@ -41,6 +41,82 @@ export interface Claim {
   params: ClaimParams;
   needed_data: string | null;
   clinical_terms: string[];
+  /** "ai" = a sentence the rules skipped that the optional AI helper flagged. Absent in older saved state: treat as "rules". */
+  source?: ClaimSource;
+  /** The sentence copied exactly as written in the report, Markdown included. Absent or "" = same as `text`. */
+  original_text?: string;
+}
+
+export type ClaimSource = "rules" | "ai";
+
+// ---- The optional AI helper's check plan (mirror of second_opinion/ai/plan.py) ----
+
+export type FilterField =
+  | "sample_type"
+  | "sex"
+  | "subtype_rna"
+  | "subtype_2012"
+  | "er_status"
+  | "her2_status"
+  | "has_layer"
+  | "age_years";
+
+export type FilterOp = "eq" | "in" | "gt" | "gte" | "lt" | "lte" | "is_known";
+
+export interface PlanFilter {
+  field: FilterField;
+  op: FilterOp;
+  value: string | number | string[] | null;
+}
+
+export type Plan =
+  | { op: "count"; of: "samples" | "patients"; where: PlanFilter[] }
+  | { op: "share"; where: PlanFilter[]; numerator: PlanFilter[] }
+  | {
+      op: "compare_means";
+      measure: string;
+      group_field: "er_status" | "her2_status" | "sex";
+      group_a: string;
+      group_b: string;
+      where: PlanFilter[];
+    }
+  | { op: "summary_stat"; field: "age_years"; stat: "median" | "mean" | "min" | "max"; where: PlanFilter[] }
+  | { op: "rank"; category_field: "subtype_rna" | "subtype_2012"; category: string; where: PlanFilter[] }
+  | {
+      op: "order";
+      category_field: "subtype_rna" | "subtype_2012";
+      category_a: string;
+      category_b: string;
+      where: PlanFilter[];
+    };
+
+export type PlanOp = Plan["op"];
+
+export interface Stated {
+  kind: "percent" | "count" | "number" | "rank" | "relation" | "direction";
+  /** The words of the sentence that state the claim, copied exactly. */
+  span: string;
+  value: number | null;
+  high: number | null;
+  total: number | null;
+  approximate: boolean;
+  relation: "more" | "less" | null;
+}
+
+/** What the AI helper proposed. Our code validates it, runs it on the release and sets the verdict. */
+export interface AiPlan {
+  answerable: boolean;
+  needed_data: string | null;
+  plan: Plan | null;
+  stated: Stated | null;
+  rationale: string;
+}
+
+export interface AiStatus {
+  enabled: boolean;
+  model: string | null;
+  host: string | null;
+  reason: string | null;
 }
 
 export interface SentenceInfo {
@@ -104,6 +180,8 @@ export interface ClaimResult {
   ladder: LadderSegment[];
   limitation: string | null;
   review: Review | null;
+  /** Present only when the optional AI helper proposed the check plan for this claim. */
+  ai_plan?: AiPlan | null;
 }
 
 export interface ReleaseInfo {

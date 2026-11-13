@@ -22,6 +22,7 @@ from .model import (
     Verdict,
 )
 
+AI_ASSISTED_NOTE = "AI-assisted: the plan was proposed by a model and run by code."
 RESEARCH_ONLY = "Research prototype. Not a clinical decision system. Verdicts need human review."
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "docs" / "challenge" / "format" / "findings.schema.json"
@@ -87,13 +88,17 @@ def _solidity_note(result: ClaimResult) -> str | None:
 
 def _evidence(result: ClaimResult, release_name: str) -> list[dict]:
     fact = result.fact
+    ai_note = AI_ASSISTED_NOTE if result.ai_plan is not None else None
     if fact is not None and fact.files:
         note = "; ".join(p for p in (fact.label, _solidity_note(result)) if p)
+        if ai_note:
+            note = f"{note}. {ai_note}" if note else ai_note
         return [
             {"kind": "file", "id": name, "release": release_name, "note": note}
             for name in fact.files
         ]
-    return [{"kind": "claim", "id": result.claim.id, "note": "no data field can test this claim"}]
+    note = "no data field can test this claim"
+    return [{"kind": "claim", "id": result.claim.id, "note": f"{note}. {ai_note}" if ai_note else note}]
 
 
 def _finding(result: ClaimResult, release_name: str) -> dict:
@@ -101,7 +106,7 @@ def _finding(result: ClaimResult, release_name: str) -> dict:
     finding: dict = {
         "id": result.claim.id,
         "kind": "claim_check",
-        "claim_text": result.claim.text,
+        "claim_text": result.claim.original_text or result.claim.text,
         "claim_verdict": verdict.value,
     }
     if verdict == Verdict.CONTRADICTED and result.correct_value:
@@ -133,7 +138,14 @@ def build_audit_json(
     }
     if decision is not None:
         doc["verdict"] = decision.choice.value
-    doc["findings"] = [_finding(r, name) for r in audit.claims]
+    findings: list[dict] = []
+    seen: set[str] = set()
+    for r in audit.claims:  # one finding per sentence: a repeated claim_text would break matching
+        finding = _finding(r, name)
+        if finding["claim_text"] not in seen:
+            seen.add(finding["claim_text"])
+            findings.append(finding)
+    doc["findings"] = findings
     return doc
 
 

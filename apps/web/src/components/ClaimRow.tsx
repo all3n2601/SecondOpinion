@@ -3,6 +3,7 @@
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import { useId } from "react";
 import { describeParams, TYPE_LABEL } from "@/lib/claim-format";
+import { AiFoundStamp } from "./AiStamp";
 import type { Claim, SentenceInfo } from "@/lib/types";
 
 interface Props {
@@ -18,7 +19,8 @@ export default function ClaimRow({ sentence, claim, disabled, busy, onToggle }: 
   const boxId = useId();
   const detailId = useId();
   const checked = Boolean(claim);
-  const noCheck = claim?.type === "UNMAPPED" || claim?.type === "NOT_ANSWERABLE";
+  const aiFound = claim?.source === "ai";
+  const noCheck = !aiFound && (claim?.type === "UNMAPPED" || claim?.type === "NOT_ANSWERABLE");
 
   return (
     <li
@@ -66,8 +68,9 @@ export default function ClaimRow({ sentence, claim, disabled, busy, onToggle }: 
               <span className="font-mono text-xs font-medium text-ink-soft">{claim.id}</span>
               <span className="rounded-stamp border border-pen/40 bg-pen-tint px-2 py-0.5 font-medium text-pen-deep">
                 <span className="sr-only">Claim type: </span>
-                {TYPE_LABEL[claim.type]}
+                {aiFound ? "No rule-based check yet" : TYPE_LABEL[claim.type]}
               </span>
+              {aiFound && <AiFoundStamp />}
             </p>
             {noCheck ? (
               <p className="mt-1.5 flex items-start gap-2 text-insufficient">

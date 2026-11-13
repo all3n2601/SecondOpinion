@@ -49,9 +49,9 @@ export default function ReleasePicker({ value, onChange }: Props) {
 
   return (
     <section aria-labelledby="release-heading">
-      <h3 id="release-heading" className={sectionTitle}>
+      <h2 id="release-heading" className={sectionTitle}>
         2. Data folder
-      </h3>
+      </h2>
 
       <div className="mt-3">
         <label htmlFor={inputId} className={fieldLabel}>

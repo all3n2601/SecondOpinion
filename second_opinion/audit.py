@@ -9,7 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from second_opinion.ai.client import AIError, ChatClient, make_client
+from second_opinion.ai.executor import PlanRejected, run_plan
+from second_opinion.ai.planner import plan_claim
 from second_opinion.checks import CHECKS, CannotCheck
+from second_opinion.extract import find_numbers
 from second_opinion.model import (
     AuditResult,
     Claim,
@@ -26,6 +30,12 @@ from second_opinion.verdict import judge
 
 NO_RNA_NOTE = "No RNA file in this release."
 UNMAPPED_MISSING = "No check exists yet for this kind of claim"
+AI_LIMITATION = "Checked by a query plan the AI helper proposed; our code ran it on the release."
+AI_COULD_NOT = "The AI helper could not turn this into a check we can run: {why}"
+AI_PARTLY_CHECKED = (
+    'Only part of this sentence was checked: "{span}" agrees with the data. Not checked: {numbers}. '
+    "A sentence counts as supported only when every part of it is checked."
+)
 STANDARD_RELEASE_FOLDER = "raw"  # where fetch.py puts the organizers' release; it is "release A"
 STANDARD_RELEASE_NAME = "A"
 _ROBUSTNESS_TYPES = (ClaimType.SHARE, ClaimType.COMPARISON)
@@ -164,24 +174,100 @@ def _checked(claim: Claim, check: Callable[..., Fact], release: Release, hooks: 
     return result
 
 
-def _audit_one(claim: Claim, release: Release, hooks: _Hooks) -> ClaimResult:
+def _ai_limitation(fact: Fact) -> str:
+    """The standing AI note, plus how many rows were left out for a missing value (as `_limitation` does)."""
+    kept = fact.denominator if fact.denominator is not None else fact.numerator
+    if fact.unknown_count and kept is not None:
+        total = int(kept) + fact.unknown_count
+        return f"{AI_LIMITATION} A value is recorded for {int(kept):,} of {total:,} rows; the rest were left out."
+    return AI_LIMITATION
+
+
+def _ai_failed(claim: Claim, why: str) -> ClaimResult:
+    why = " ".join(why.split()).rstrip(".")
+    return _insufficient(claim, AI_COULD_NOT.format(why=(why or "the answer was not usable") + "."))
+
+
+def _unchecked_numbers(text: str, span: str, total: float | None) -> list[str]:
+    """Numbers the sentence states outside the span the AI plan tested (a plan tests one figure)."""
+    start = text.lower().find(" ".join(span.split()).lower())
+    if start == -1:
+        return []
+    end = start + len(" ".join(span.split()))
+    return [
+        text[n.start:n.end].strip()
+        for n in find_numbers(text)
+        if not (start <= n.start and n.end <= end) and not n.is_total and n.value != total
+    ]
+
+
+def _ai_checked(claim: Claim, release: Release, client: ChatClient) -> ClaimResult:
+    """Ask the AI for a plan for one claim; our code validates, runs and judges it. Never raises."""
+    try:
+        qp = plan_claim(claim.text, release, client)
+        if not qp.answerable:
+            result = _insufficient(claim, (qp.needed_data or "").strip() or "Data this release does not contain")
+        else:
+            fact, verdict, correct_value = run_plan(claim.text, qp, release)
+            untested = (
+                _unchecked_numbers(claim.text, qp.stated.span, qp.stated.total)
+                if verdict == Verdict.SUPPORTED and qp.stated is not None
+                else []
+            )
+            if untested:  # a contradicted part would already show; "supported" needs every part checked
+                result = _insufficient(
+                    claim, AI_PARTLY_CHECKED.format(span=qp.stated.span, numbers=", ".join(untested))
+                )
+                result.ai_plan = qp.model_dump(mode="json")
+                return result
+            result = ClaimResult(
+                claim=claim, verdict=verdict, solidity=Solidity.NOT_APPLICABLE, fact=fact,
+                correct_value=correct_value, missing_evidence=None, variants=[], flips_on=[],
+                skeptic=None, ladder=[], limitation=_ai_limitation(fact),
+            )
+        result.ai_plan = qp.model_dump(mode="json")
+        return result
+    except (AIError, PlanRejected) as exc:  # PlanError is an AIError; messages are plain and key-free
+        return _ai_failed(claim, str(exc))
+    except Exception:  # noqa: BLE001 - the AI layer is optional; one bad claim must never fail the audit
+        return _ai_failed(claim, "something unexpected went wrong")
+
+
+def _audit_one(claim: Claim, release: Release, hooks: _Hooks, client: ChatClient | None = None) -> ClaimResult:
     check = CHECKS.get(claim.type)
+    ai_may_try = client is not None and claim.type != ClaimType.NOT_ANSWERABLE and (
+        claim.type == ClaimType.UNMAPPED or (claim.source == "ai" and check is None)
+    )
     if claim.type == ClaimType.NOT_ANSWERABLE:
         result = _insufficient(claim, claim.needed_data or "Data this release does not contain")
+    elif ai_may_try:  # only claims the rules cannot handle; a rules verdict is never overridden
+        result = _ai_checked(claim, release, client)
     elif claim.type == ClaimType.UNMAPPED or check is None:
         result = _insufficient(claim, UNMAPPED_MISSING)
     else:
         result = _checked(claim, check, release, hooks)
     if hooks.build_ladder:
-        result.ladder = hooks.build_ladder(claim, result)
+        try:
+            result.ladder = hooks.build_ladder(claim, result)
+        except Exception:  # noqa: BLE001 - a claim the AI judged has no parsed params; its ladder is a nicety
+            if result.ai_plan is None:
+                raise
+            result.ladder = []
     return result
 
 
-def audit_claims(claims: list[Claim], release_dir: str | Path) -> AuditResult:
-    """Check every claim against the release in `release_dir` (raises FileNotFoundError or ReleaseError if unusable)."""
+def audit_claims(
+    claims: list[Claim], release_dir: str | Path, ai_client: ChatClient | None = None
+) -> AuditResult:
+    """Check every claim against the release in `release_dir` (raises FileNotFoundError or ReleaseError if unusable).
+
+    Rules run first and own every claim they can handle. Claims the rules cannot map go to the AI helper
+    when one is configured (`ai_client`, or `make_client()` when None); with AI off nothing changes.
+    """
     folder = Path(release_dir)
     release = load_release(folder)
     hooks = _hooks()
+    client = ai_client if ai_client is not None else make_client()
 
     notes: list[str] = []
     if release.rna_ids is None:
@@ -193,6 +279,6 @@ def audit_claims(claims: list[Claim], release_dir: str | Path) -> AuditResult:
             name=release_name(folder),
             files=[{"file": n, "sha256": h} for n, h in sorted(release.checksums.items())],
         ),
-        claims=[_audit_one(c, release, hooks) for c in claims],
+        claims=[_audit_one(c, release, hooks, client) for c in claims],
         notes=notes,
     )

@@ -37,7 +37,7 @@ export default function NoAuditNotice() {
           <p className="mt-1 text-ink-soft">
             There is nothing to show until a report has been checked against the data.
           </p>
-          <Link href="/" className={`${buttonSecondary} mt-4`}>
+          <Link href="/start" className={`${buttonSecondary} mt-4`}>
             Go to Start
           </Link>
         </div>

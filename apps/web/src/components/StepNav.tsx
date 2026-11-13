@@ -5,16 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export const STEPS = [
-  { href: "/", label: "Start", hint: "Report and data" },
+  { href: "/start", label: "Start", hint: "Report and data" },
   { href: "/claims", label: "Claims", hint: "What the report states" },
   { href: "/board", label: "Audit board", hint: "Verdicts and evidence" },
   { href: "/review", label: "Review", hint: "Confirm each verdict" },
   { href: "/decision", label: "Decision", hint: "Sign off and export" },
 ] as const;
 
-/** "/board/C2" belongs to the "/board" step; "/" only matches itself. */
+/** "/board/C2" belongs to the "/board" step. The landing page ("/") is not a step. */
 function isCurrent(href: string, pathname: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 /**

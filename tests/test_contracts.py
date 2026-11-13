@@ -48,7 +48,7 @@ def test_stub_endpoints_respond(mini_release):
     assert audit.status_code == 200
     TypeAdapter(AuditResult).validate_python(audit.json())
     assert client.post("/extract", json={"report_text": "Hi."}).json() == {
-        "sentences": [{"index": 0, "text": "Hi.", "claim_id": None}],
+        "sentences": [{"index": 0, "text": "Hi.", "claim_id": None, "original_text": "Hi."}],
         "claims": [],
     }
     assert client.get("/roles").status_code == 200

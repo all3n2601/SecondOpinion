@@ -1,7 +1,9 @@
-import { Building2, Shuffle } from "lucide-react";
-import { describeParams, formatFact, solidityText, TYPE_LABEL } from "@/lib/claim-format";
-import type { ClaimResult, ReleaseInfo } from "@/lib/types";
-import { sectionTitle } from "@/lib/ui";
+import { Building2, ChevronRight, Shuffle, Sparkles } from "lucide-react";
+import { describePlan } from "@/lib/ai-plan";
+import { describeParams, formatResultFact, resultTypeLabel, solidityText } from "@/lib/claim-format";
+import type { AiPlan, ClaimResult, ReleaseInfo } from "@/lib/types";
+import { focusRing, sectionTitle } from "@/lib/ui";
+import { AiAssistedStamp } from "./AiStamp";
 import ClaimVsData from "./ClaimVsData";
 import CodeBlock from "./CodeBlock";
 import LadderText, { ladderChanges } from "./LadderText";
@@ -40,6 +42,72 @@ function runnableCode(code: string, releaseDir: string): string {
   return `from second_opinion.release import load_release\nr = load_release(${JSON.stringify(folder)})\n\n${code.trim()}\n`;
 }
 
+/** What the optional AI helper did for this claim, and, as plainly, what it did not do. */
+function AiHelperSection({ ai }: { ai: AiPlan }) {
+  const lines = ai.plan ? describePlan(ai.plan) : [];
+  return (
+    <Section id="ai-helper" title="How the AI helper was used">
+      <div className="max-w-prose space-y-5 leading-7">
+        <p className="flex items-start gap-2">
+          <Sparkles aria-hidden="true" className="mt-1.5 size-4 shrink-0 text-ink-soft" />
+          <span>
+            It chose a check from a fixed list. It did not supply any number, sample ID or verdict.
+            <span className="block text-ink-soft">
+              Our code checked the plan against the release, ran it on the real files and compared the result with the
+              sentence.
+            </span>
+          </span>
+        </p>
+
+        {!ai.answerable && (
+          <p className="font-medium text-insufficient">
+            The AI helper judged that this release cannot answer the claim.
+            {ai.needed_data && <span className="block font-normal text-ink">It would need: {ai.needed_data}.</span>}
+          </p>
+        )}
+
+        {ai.stated?.span && (
+          <p>
+            It read the claim as: <q className="reported">{ai.stated.span}</q>
+          </p>
+        )}
+
+        {lines.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-ink">The check it proposed, in plain words</h3>
+            <ol className="mt-1.5 list-decimal space-y-1 pl-5 marker:text-ink-faint">
+              {lines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {ai.rationale.trim() && (
+          <div>
+            <span className="inline-block rounded-stamp border border-rule-strong bg-wash px-1.5 py-px text-xs font-medium text-ink-soft">
+              From the AI helper
+            </span>
+            <p className="mt-1.5">{ai.rationale}</p>
+          </div>
+        )}
+
+        <details className="group">
+          <summary
+            className={`inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-control text-sm font-medium text-pen hover:text-pen-deep [&::-webkit-details-marker]:hidden ${focusRing}`}
+          >
+            <ChevronRight aria-hidden="true" className="size-4 transition-transform duration-150 group-open:rotate-90" />
+            Show the plan as JSON
+          </summary>
+          <div className="mt-2">
+            <CodeBlock code={JSON.stringify(ai, null, 2)} label="The AI helper's plan, exactly as it proposed it." />
+          </div>
+        </details>
+      </div>
+    </Section>
+  );
+}
+
 interface Props {
   result: ClaimResult;
   release: ReleaseInfo;
@@ -52,6 +120,9 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
   const checksum = (file: string) => release.files.find((f) => f.file === file)?.sha256 ?? "not in this release";
   const extra = fact?.extra ?? {};
   const skeptic = result.skeptic;
+  const aiPlan = result.ai_plan?.plan;
+  const groupA = claim.params.group_a ?? (aiPlan?.op === "compare_means" ? aiPlan.group_a : "group A");
+  const groupB = claim.params.group_b ?? (aiPlan?.op === "compare_means" ? aiPlan.group_b : "group B");
 
   return (
     <article>
@@ -60,8 +131,9 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
           <h1 className="num font-mono text-3xl font-semibold tracking-tight text-ink">{claim.id}</h1>
           <VerdictBadge verdict={verdict} />
           <span className="inline-flex items-center rounded-stamp border border-rule-strong bg-sheet px-2.5 py-1 text-sm font-medium text-ink-soft">
-            {TYPE_LABEL[claim.type]}
+            {resultTypeLabel(result)}
           </span>
+          {result.ai_plan && <AiAssistedStamp />}
           <SolidityTag result={result} />
         </div>
 
@@ -110,7 +182,7 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
             <p>
               We counted <strong className="font-semibold">{fact.label}</strong>.
             </p>
-            <p className="text-ink-soft">What we read from the sentence: {describeParams(claim)}.</p>
+            {!result.ai_plan && <p className="text-ink-soft">What we read from the sentence: {describeParams(claim)}.</p>}
             {fact.unknown_count > 0 && (
               <p>
                 {fact.unknown_count.toLocaleString("en-US")} samples had no value for this, so they are left out of the
@@ -122,20 +194,22 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
         </Section>
       )}
 
+      {result.ai_plan && <AiHelperSection ai={result.ai_plan} />}
+
       {fact && (
         <Section id="numbers" title="Numbers">
           <Facts>
             <Term>
               Result <StatementLabel kind="Computed" />
             </Term>
-            <dd className="num font-mono text-lg font-semibold text-ink">{formatFact(fact, claim.type)}</dd>
-            {claim.type === "COMPARISON" && typeof extra.mean_a === "number" && typeof extra.mean_b === "number" && (
+            <dd className="num font-mono text-lg font-semibold text-ink">{formatResultFact(result)}</dd>
+            {(claim.type === "COMPARISON" || result.ai_plan?.plan?.op === "compare_means") && typeof extra.mean_a === "number" && typeof extra.mean_b === "number" && (
               <>
                 <Term>Group means</Term>
                 <dd className="num font-mono text-sm leading-7">
-                  {claim.params.group_a ?? "group A"}: {extra.mean_a.toFixed(3)} ({extra.n_a} samples)
+                  {groupA}: {extra.mean_a.toFixed(3)} ({extra.n_a} samples)
                   <br />
-                  {claim.params.group_b ?? "group B"}: {extra.mean_b.toFixed(3)} ({extra.n_b} samples)
+                  {groupB}: {extra.mean_b.toFixed(3)} ({extra.n_b} samples)
                 </dd>
               </>
             )}

@@ -39,11 +39,23 @@ _BOUNDARY = re.compile(r"[.!?]+[\"'”’)\]]*(\s+)(?=[A-Z0-9\"'“‘(\[])")
 
 
 def split_sentences(report_text: str) -> list[SentenceInfo]:
-    """Cut a Markdown report into sentences, in order, with `index` counting from 0."""
-    sentences: list[str] = []
+    """Cut a Markdown report into sentences, in order, with `index` counting from 0.
+
+    `text` has the Markdown stripped; `original_text` is the same sentence as written in the report.
+    A sentence that repeats an earlier one (same words, any Markdown) is dropped, so the report
+    never yields two findings for one sentence.
+    """
+    sentences: list[SentenceInfo] = []
+    seen: set[str] = set()
     for block in _blocks(report_text):
-        sentences.extend(_split_block(_clean_inline(block)))
-    return [SentenceInfo(index=i, text=text, claim_id=None) for i, text in enumerate(sentences)]
+        text, where = _clean_inline_tracked(block)
+        for piece, original in _split_block(block, text, where):
+            key = piece.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            sentences.append(SentenceInfo(index=len(sentences), text=piece, claim_id=None, original_text=original))
+    return sentences
 
 
 def _blocks(report_text: str) -> list[str]:
@@ -96,27 +108,96 @@ def _blocks(report_text: str) -> list[str]:
 
 def _clean_inline(text: str) -> str:
     """Strip Markdown emphasis, code ticks and link syntax, keeping the words."""
-    text = _IMAGE.sub(r"\1", text)
-    text = _LINK.sub(r"\1", text)
-    text = text.replace("`", "").replace("*", "")
-    text = _EMPHASIS_UNDERSCORE.sub("", text)
-    return re.sub(r"\s+", " ", text).strip()
+    return _clean_inline_tracked(text)[0]
 
 
-def _split_block(text: str) -> list[str]:
+def _clean_inline_tracked(raw: str) -> tuple[str, list[int]]:
+    """`_clean_inline` plus, for every kept character, its position in `raw`."""
+    chars = list(raw)
+    where = list(range(len(raw)))
+
+    def sub(pattern: re.Pattern[str], keep_group: int | None) -> None:
+        nonlocal chars, where
+        out_chars: list[str] = []
+        out_where: list[int] = []
+        last = 0
+        for m in pattern.finditer("".join(chars)):
+            out_chars += chars[last:m.start()]
+            out_where += where[last:m.start()]
+            if keep_group is not None and m.group(keep_group):
+                out_chars += chars[m.start(keep_group):m.end(keep_group)]
+                out_where += where[m.start(keep_group):m.end(keep_group)]
+            last = m.end()
+        chars, where = out_chars + chars[last:], out_where + where[last:]
+
+    sub(_IMAGE, 1)
+    sub(_LINK, 1)
+    sub(re.compile(r"[`*]"), None)
+    sub(_EMPHASIS_UNDERSCORE, None)
+
+    # Collapse whitespace runs to one space (keeping the first one's position), then trim the ends.
+    out_chars: list[str] = []
+    out_where: list[int] = []
+    for c, w in zip(chars, where):
+        if c.isspace():
+            if out_chars and out_chars[-1] == " ":
+                continue
+            c = " "
+        out_chars.append(c)
+        out_where.append(w)
+    while out_chars and out_chars[-1] == " ":
+        out_chars.pop(), out_where.pop()
+    while out_chars and out_chars[0] == " ":
+        out_chars.pop(0), out_where.pop(0)
+    return "".join(out_chars), out_where
+
+
+def _split_block(raw: str, text: str, where: list[int]) -> list[tuple[str, str]]:
+    """Cut one cleaned block into (sentence, the same sentence as written in `raw`) pairs."""
     if not text:
         return []
-    pieces: list[str] = []
+    spans: list[tuple[int, int]] = []
     start = 0
     for match in _BOUNDARY.finditer(text):
         before = text[start:match.start()]
         last_word = before.rsplit(None, 1)[-1] if before.strip() else ""
         if last_word.lstrip("(\"'“‘[").lower() in ABBREVIATIONS:
             continue
-        pieces.append(text[start:match.start(1)].strip())
+        spans.append((start, match.start(1)))
         start = match.end()
-    pieces.append(text[start:].strip())
-    return [piece for piece in pieces if piece]
+    spans.append((start, len(text)))
+    pairs: list[tuple[str, str]] = []
+    for a, b in spans:
+        piece = text[a:b].strip()
+        if not piece:
+            continue
+        first = a + len(text[a:b]) - len(text[a:b].lstrip())
+        pairs.append((piece, _original_span(raw, where[first], where[first + len(piece) - 1])))
+    return pairs
+
+
+_LINK_TAIL = re.compile(r"\]\([^)]*\)")
+
+
+def _original_span(raw: str, first: int, last: int) -> str:
+    """`raw[first..last]` as written, whitespace runs collapsed.
+
+    Markup that touches the sentence's first or last kept character is part of it: the `**` in
+    "**Luminal A** is the largest.", the `**` closing "**Luminal A is the largest.**", the
+    `](url)` ending "see [the table](url)."
+    """
+    start, end = first, last + 1
+    while start > 0 and raw[start - 1] in "*_`[":
+        start -= 1
+    while True:
+        if end < len(raw) and raw[end] in "*_`" and raw[end] in raw[start:end]:
+            end += 1
+            continue
+        tail = _LINK_TAIL.match(raw, end)
+        if tail is None:
+            break
+        end = tail.end()
+    return re.sub(r"\s+", " ", raw[start:end]).strip()
 
 
 # ---------------------------------------------------------------------------------------------
@@ -188,6 +269,9 @@ DIRECTIONS = {
     "higher": ("higher", "greater", "more", "elevated", "increased", "larger", "stronger"),
     "lower": ("lower", "less", "reduced", "decreased", "smaller", "weaker"),
 }
+# A gene symbol: capitals with a digit (TP53, PIK3CA, BRCA1). These look alike but are not genes.
+GENE_SYMBOL = re.compile(r"\b[A-Z][A-Z0-9]*\d[A-Z0-9]*\b|\b(?:PIK3CA|TP53|CDH1|GATA3|MAP3K1|PTEN|ESR1|ERBB2)\b")
+NOT_GENES = {"HER2", "PAM50", "H2", "COVID19"}
 # Numbers after these words are references, not data: "Figure 2", "version 3".
 REFERENCE_WORDS = re.compile(r"(?:figure|fig\.|table|section|version|v|step|chapter|appendix|ref\.?|page)\s*$", re.IGNORECASE)
 WORD_NUMBERS = {
@@ -219,6 +303,8 @@ _BOUND_BEFORE = re.compile(
     re.IGNORECASE,
 )
 _YEAR = re.compile(r"^(?:19|20)\d\d$")
+# "58 years", "6-month": an age or a duration, not a count of tumors, samples or patients.
+_TIME_UNIT_AFTER = re.compile(r"[\s-]*(?:years?|yrs?|months?|weeks?|days?)\b(?:[\s-]*old)?", re.IGNORECASE)
 
 
 @dataclass
@@ -331,6 +417,8 @@ def _count_subject(text: str, after: int = 0) -> str | None:
         return None
     kind = COUNT_NOUNS[noun.group(1).lower()]
     filters = [name for name, pattern in COUNT_FILTERS.items() if re.search(pattern, text, re.IGNORECASE)]
+    if {"male", "female"} <= set(filters):
+        return None  # "1,085 female patients and 12 male patients" is two counts, not one group
     if len(filters) > 1:
         return "+".join(filters) + f"_{kind}"
     return f"{filters[0]}_{kind}" if filters else kind
@@ -421,6 +509,8 @@ def _rule_comparison(info: SentenceInfo, claim_id: str, numbers: list[StatedNumb
 def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     if ALL_LAYERS.search(info.text):
         return None  # "all five layers" is a count of tumors, handled by the count rule
+    if any(g.upper() not in NOT_GENES for g in GENE_SYMBOL.findall(info.text)):
+        return None  # "have a TP53 or PIK3CA mutation" is about those genes, not "has a mutation call"
     layers = _layers(info.text)
     if len(layers) != 1:
         return None
@@ -442,7 +532,10 @@ def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
 
 
 def _rule_count(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
-    usable = [n for n in numbers if not n.bound and not n.percent]
+    usable = [
+        n for n in numbers
+        if not n.bound and not n.percent and not _TIME_UNIT_AFTER.match(info.text, n.end)
+    ]
     value, total = _value_and_total(usable)
     if value is None:
         return None
@@ -485,6 +578,7 @@ def extract_claims(report_text: str) -> ExtractResult:
     for info in sentences:
         claim = classify_sentence(info, f"C{len(claims) + 1}")
         if claim is not None:
+            claim.original_text = info.original_text
             claims.append(claim)
             info.claim_id = claim.id
     return ExtractResult(sentences=sentences, claims=claims)

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Clock, FileSearch, UserCheck } from "lucide-react";
-import { formatFact, TYPE_LABEL, VERDICT_LABEL } from "@/lib/claim-format";
+import { Clock, FileSearch, Sparkles, UserCheck } from "lucide-react";
+import { formatResultFact, resultTypeLabel, VERDICT_LABEL } from "@/lib/claim-format";
 import type { ClaimResult } from "@/lib/types";
 import { buttonSecondary } from "@/lib/ui";
+import { AiAssistedStamp } from "./AiStamp";
 import LadderText, { ladderChanges } from "./LadderText";
 import SolidityTag from "./SolidityTag";
 import StatementLabel from "./StatementLabel";
@@ -56,8 +57,9 @@ export default function ClaimCard({ result }: { result: ClaimResult }) {
           <span className="font-mono">{claim.id}</span>
           <span className="sr-only">: {VERDICT_LABEL[verdict]}</span>
         </h2>
-        <span className="text-sm text-ink-soft sm:order-last">{TYPE_LABEL[claim.type]}</span>
+        <span className="text-sm text-ink-soft sm:order-last">{resultTypeLabel(result)}</span>
         <VerdictBadge verdict={verdict} />
+        {result.ai_plan && <AiAssistedStamp />}
         <SolidityTag result={result} />
       </header>
 
@@ -79,7 +81,7 @@ export default function ClaimCard({ result }: { result: ClaimResult }) {
           )}
           {verdict === "supported" && fact && (
             <Row label="The data shows" kind="Computed">
-              <p className="num font-mono text-base font-semibold">{formatFact(fact, claim.type)}</p>
+              <p className="num font-mono text-base font-semibold">{formatResultFact(result)}</p>
             </Row>
           )}
           {verdict === "insufficient_evidence" && (
@@ -105,6 +107,13 @@ export default function ClaimCard({ result }: { result: ClaimResult }) {
             </Row>
           )}
         </dl>
+
+        {result.ai_plan && (
+          <p className="mt-3 flex items-start gap-2 text-sm text-ink-soft">
+            <Sparkles aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <span>The AI helper proposed how to test this; our code ran it on the release and set the verdict.</span>
+          </p>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <p className="flex items-start gap-2 text-sm text-ink-soft">

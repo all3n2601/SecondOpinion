@@ -115,3 +115,24 @@ def test_practice_brief():
     )
     assert out[-1] == "We recommend future work combine all available layers."
     assert not any(s.startswith("#") for s in out)
+
+
+def test_original_text_keeps_the_markdown_as_written():
+    report = "**Luminal A** is the largest subtype. The cohort has `1,101` primary tumors. See [the table](t.md) for 535 samples."
+    originals = [s.original_text for s in split_sentences(report)]
+    assert originals == [
+        "**Luminal A** is the largest subtype.",
+        "The cohort has `1,101` primary tumors.",
+        "See [the table](t.md) for 535 samples.",
+    ]
+
+
+def test_original_text_keeps_markup_that_wraps_the_whole_sentence():
+    [info] = split_sentences("**All 1,101 primary tumors have RNA data.**")
+    assert info.text == "All 1,101 primary tumors have RNA data."
+    assert info.original_text == "**All 1,101 primary tumors have RNA data.**"
+
+
+def test_a_repeated_sentence_is_listed_once():
+    report = "Luminal A is the largest subtype.\n\n- **Luminal A** is the largest subtype.\n\nLuminal A is the largest subtype."
+    assert [s.text for s in split_sentences(report)] == ["Luminal A is the largest subtype."]

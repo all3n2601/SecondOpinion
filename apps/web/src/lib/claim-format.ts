@@ -1,5 +1,6 @@
 // Plain-word labels for claims, shared by the claims list and the audit board.
 
+import { PLAN_OP_LABEL } from "./ai-plan";
 import type { Claim, ClaimResult, ClaimType, Fact, Verdict } from "./types";
 
 export const TYPE_LABEL: Record<ClaimType, string> = {
@@ -40,6 +41,7 @@ export function describeParams(claim: Claim): string {
     if (claim.needed_data) parts.push(`would need: ${claim.needed_data}`);
     return parts.join(" · ") || "The data cannot answer this kind of claim";
   }
+  if (claim.source === "ai") return "The AI helper will propose a check plan when you run the audit";
   if (claim.type === "UNMAPPED") return "No check exists yet for this kind of claim";
 
   if (p.unit === "all") {
@@ -117,6 +119,57 @@ export function formatFact(fact: Fact, type: Claim["type"]): string {
   if (type === "SHARE" && value !== null && ofTotal) return `${value.toFixed(1)}% (${ofTotal})`;
   if (ofTotal) return ofTotal;
   return value !== null ? count.format(value) : "unknown";
+}
+
+const STAT_NAME: Record<string, string> = { median: "median", mean: "mean", min: "youngest", max: "oldest" };
+
+function ordinal(n: number): string {
+  const suffix = 10 <= n % 100 && n % 100 <= 20 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
+
+/**
+ * The computed number for a result, with its denominator. Rule-based claims use `formatFact` as always;
+ * a claim checked by an AI-proposed plan is formatted by what the plan measured.
+ */
+export function formatResultFact(result: ClaimResult): string {
+  const { fact, claim } = result;
+  if (!fact) return "";
+  const plan = result.ai_plan?.plan;
+  if (!plan) return formatFact(fact, claim.type);
+  const x = fact.extra;
+  switch (plan.op) {
+    case "share":
+      return formatFact(fact, "SHARE");
+    case "count":
+      return formatFact(fact, "COUNT");
+    case "compare_means":
+      return formatFact(fact, "COMPARISON");
+    case "summary_stat": {
+      if (fact.value === null) return "unknown";
+      const n = typeof x.n === "number" ? ` (${count.format(x.n)} samples with an age)` : "";
+      return `${STAT_NAME[plan.stat] ?? plan.stat} ${fact.value.toFixed(1)} years${n}`;
+    }
+    case "rank": {
+      if (fact.value === null) return "unknown";
+      const of = typeof x.ranked_of === "number" ? x.ranked_of : 5;
+      return `${ordinal(fact.value)} of ${of}${x.tied ? " (tied)" : ""}`;
+    }
+    case "order": {
+      const ca = x.count_a;
+      const cb = x.count_b;
+      if (typeof ca === "number" && typeof cb === "number") {
+        return `${plan.category_a} ${count.format(ca)} vs ${plan.category_b} ${count.format(cb)}`;
+      }
+      return fact.value !== null ? `${plan.category_a} minus ${plan.category_b}: ${signed.format(fact.value)}` : "unknown";
+    }
+  }
+}
+
+/** The type chip for a result: what the check measured when an AI-proposed plan ran, else the claim's own type. */
+export function resultTypeLabel(result: ClaimResult): string {
+  const plan = result.ai_plan?.plan;
+  return plan ? PLAN_OP_LABEL[plan.op] : TYPE_LABEL[result.claim.type];
 }
 
 export type SolidityText = { short: string; long: string };

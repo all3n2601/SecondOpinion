@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import AppFooter from "@/components/AppFooter";
+import AppHeader from "@/components/AppHeader";
 import ResearchBanner from "@/components/ResearchBanner";
 import StepNav from "@/components/StepNav";
 import { AuditProvider } from "@/lib/audit-context";
@@ -12,18 +14,22 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">
+      <body className="flex min-h-screen flex-col antialiased">
         <a
           href="#content"
-          className="sr-only rounded-md bg-emerald-900 px-4 py-2 font-medium text-white focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
+          className="sr-only rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800"
         >
           Skip to content
         </a>
-        <ResearchBanner />
-        <StepNav />
-        <div id="content" tabIndex={-1} className="focus:outline-none">
-          <AuditProvider>{children}</AuditProvider>
-        </div>
+        <AuditProvider>
+          <AppHeader />
+          <ResearchBanner />
+          <StepNav />
+          <div id="content" tabIndex={-1} className="flex-1 focus:outline-none">
+            {children}
+          </div>
+          <AppFooter />
+        </AuditProvider>
       </body>
     </html>
   );

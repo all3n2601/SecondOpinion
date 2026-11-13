@@ -4,7 +4,19 @@ import { useEffect, useState } from "react";
 
 type Connection = "checking" | "connected" | "unavailable";
 
-/** Small badge: is the FastAPI backend reachable through the /api proxy? */
+const DOT: Record<Connection, string> = {
+  checking: "bg-slate-400",
+  connected: "bg-emerald-400",
+  unavailable: "bg-red-400",
+};
+
+const TEXT: Record<Connection, string> = {
+  checking: "Checking API…",
+  connected: "API connected",
+  unavailable: "API unavailable",
+};
+
+/** System status for the header: is the FastAPI backend reachable through the /api proxy? */
 export default function ApiStatus() {
   const [connection, setConnection] = useState<Connection>("checking");
 
@@ -25,13 +37,12 @@ export default function ApiStatus() {
   return (
     <p
       role="status"
-      className={`rounded-full border px-3 py-1 text-sm ${
-        connection === "unavailable" ? "border-red-800/40 text-red-800" : "border-emerald-900/20 text-slate-700"
-      }`}
+      title={connection === "unavailable" ? "Start the backend with npm run dev" : undefined}
+      className="inline-flex items-center gap-2 text-xs font-medium text-slate-300"
     >
-      {connection === "checking" && "Checking API connection…"}
-      {connection === "connected" && "✓ API connected"}
-      {connection === "unavailable" && "✕ API unavailable. Start the backend with npm run dev."}
+      <span aria-hidden="true" className={`size-2 rounded-full ${DOT[connection]}`} />
+      {TEXT[connection]}
+      {connection === "unavailable" && <span className="sr-only">. Start the backend with npm run dev.</span>}
     </p>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { buttonSecondary, card, fieldHint, fieldInput, fieldLabel, focusRing } from "@/lib/ui";
+import { buttonSecondary, fieldHint, fieldInput, fieldLabel, focusRing } from "@/lib/ui";
+import Panel from "./Panel";
 
 const ACCEPTED = [".md", ".txt"];
 
@@ -47,39 +48,42 @@ export default function ReportUpload({ value, onChange }: Props) {
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   return (
-    <section aria-labelledby="report-heading" className={card}>
-      <h2 id="report-heading" className="text-xl font-semibold">
-        1. The report to check
-      </h2>
-      <p className={fieldHint}>Upload a Markdown or text file, use the practice report, or paste the text below.</p>
-
-      <div className="mt-5 flex flex-wrap items-end gap-4">
-        <div>
-          <label htmlFor={fileId} className={fieldLabel}>
-            Upload a report (.md or .txt)
-          </label>
-          <input
-            id={fileId}
-            type="file"
-            accept={ACCEPTED.join(",")}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) readFile(file);
-              e.target.value = ""; // allow choosing the same file again
-            }}
-            className={`mt-2 block text-sm file:mr-3 file:rounded-lg file:border file:border-emerald-900/40 file:bg-white file:px-4 file:py-2 file:font-medium file:text-emerald-950 hover:file:bg-emerald-50 ${focusRing}`}
-          />
-        </div>
-        <span className="pb-2 text-slate-600">or</span>
+    <Panel
+      id="report-heading"
+      title="1 · Report"
+      description="The research report to check. Markdown or plain text."
+      actions={
         <button type="button" onClick={loadPractice} className={buttonSecondary}>
           Use the practice report
         </button>
+      }
+    >
+      <div>
+        <label htmlFor={fileId} className={fieldLabel}>
+          Upload a file (.md or .txt)
+        </label>
+        <input
+          id={fileId}
+          type="file"
+          accept={ACCEPTED.join(",")}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) readFile(file);
+            e.target.value = ""; // allow choosing the same file again
+          }}
+          className={`mt-2 block w-full rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-700 file:mr-3 file:h-9 file:rounded-md file:border file:border-slate-300 file:bg-white file:px-3 file:text-sm file:font-semibold file:text-slate-800 hover:border-slate-400 ${focusRing}`}
+        />
       </div>
 
       <div className="mt-5">
-        <label htmlFor={pasteId} className={fieldLabel}>
-          Report text
-        </label>
+        <div className="flex items-baseline justify-between gap-3">
+          <label htmlFor={pasteId} className={fieldLabel}>
+            Report text
+          </label>
+          <span className="text-xs text-slate-500 tabular-nums">
+            {words === 0 ? "Empty" : `${words.toLocaleString("en-US")} words${source ? ` · ${source}` : ""}`}
+          </span>
+        </div>
         <textarea
           id={pasteId}
           value={value}
@@ -87,21 +91,19 @@ export default function ReportUpload({ value, onChange }: Props) {
             onChange(e.target.value);
             setSource(null);
           }}
-          rows={8}
+          rows={10}
           placeholder="Paste the report here…"
-          className={`${fieldInput} mt-2 font-mono text-sm`}
+          className={`${fieldInput} mt-2 h-auto py-2 font-mono text-[0.8rem] leading-5`}
         />
-        <p className={fieldHint}>
-          {words === 0 ? "No report yet." : `${words} words${source ? ` from ${source}` : ""}.`}
-        </p>
+        <p className={fieldHint}>Headings and formatting are ignored; each sentence is read on its own.</p>
       </div>
 
       <p
         aria-live="polite"
-        className={`mt-2 text-sm ${message?.kind === "error" ? "font-medium text-red-800" : "text-emerald-900"}`}
+        className={`mt-3 text-sm ${message?.kind === "error" ? "font-medium text-red-800" : "text-emerald-900"}`}
       >
         {message && (message.kind === "error" ? "✕ " : "✓ ") + message.text}
       </p>
-    </section>
+    </Panel>
   );
 }

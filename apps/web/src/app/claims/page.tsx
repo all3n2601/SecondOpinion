@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import ClaimRow from "@/components/ClaimRow";
+import PageHeader from "@/components/PageHeader";
+import Panel from "@/components/Panel";
 import { runAudit } from "@/lib/api";
 import { useAudit } from "@/lib/audit-context";
-import { buttonPrimary, card } from "@/lib/ui";
+import { buttonPrimary, container, linkText } from "@/lib/ui";
+
+const plural = (n: number) => `${n} claim${n === 1 ? "" : "s"}`;
 
 export default function ClaimsPage() {
   const router = useRouter();
@@ -40,86 +44,104 @@ export default function ClaimsPage() {
   }
 
   const claimFor = (claimId: string | null) => (claimId ? claims.find((c) => c.id === claimId) : undefined);
-  const plural = (n: number) => `${n} claim${n === 1 ? "" : "s"}`;
   const noRelease = !releaseDir.trim();
+  const header = (
+    <PageHeader
+      kicker="Step 2 of 5 · Claims"
+      title="Confirm the claims to check"
+      description="Every sentence of the report, in order. Ticked sentences are checked against the data. Untick a sentence that is not a real claim, or tick one we missed."
+    />
+  );
 
   if (sentences.length === 0) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="text-3xl font-semibold tracking-tight">Claims</h1>
-        <section className={`${card} mt-6`}>
-          <h2 className="text-lg font-semibold">No report yet</h2>
-          <p className="mt-2 text-slate-700">
+      <main className={`${container} py-8`}>
+        {header}
+        <Panel id="no-report" title="No report yet" className="mt-6">
+          <p className="text-slate-700">
             Add a report and press Find claims:{" "}
-            <Link href="/" className="text-emerald-900 underline underline-offset-4">
+            <Link href="/" className={linkText}>
               go to Start
             </Link>
             .
           </p>
-        </section>
+        </Panel>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-3xl font-semibold tracking-tight">Claims</h1>
-      <p className="mt-3 max-w-2xl leading-7 text-slate-700">
-        Every sentence of the report, in order. Ticked sentences will be checked against the data. Untick a sentence
-        that is not a real claim, or tick one we missed.
-      </p>
+    <main className={`${container} py-8`}>
+      {header}
 
-      <p className="mt-6 font-medium">
-        {claims.length === 0
-          ? "Nothing checkable found. Tick a sentence to check it."
-          : `${plural(claims.length)} to check, from ${sentences.length} sentences.`}
-      </p>
+      <Panel
+        id="sentences-heading"
+        title="Report sentences"
+        description={
+          claims.length === 0
+            ? "Nothing checkable found. Tick a sentence to check it."
+            : `${plural(claims.length)} to check, from ${sentences.length} sentences.`
+        }
+        flush
+        className="mt-6"
+      >
+        <ol aria-label="Report sentences" className="divide-y divide-slate-200">
+          {sentences.map((s) => (
+            <ClaimRow
+              key={s.index}
+              sentence={s}
+              claim={claimFor(s.claim_id)}
+              disabled={pendingIndex !== null || running}
+              busy={pendingIndex === s.index}
+              onToggle={() => toggle(s.index)}
+            />
+          ))}
+        </ol>
+      </Panel>
 
-      <ol aria-label="Report sentences" className="mt-4 grid gap-3">
-        {sentences.map((s) => (
-          <ClaimRow
-            key={s.index}
-            sentence={s}
-            claim={claimFor(s.claim_id)}
-            disabled={pendingIndex !== null || running}
-            busy={pendingIndex === s.index}
-            onToggle={() => toggle(s.index)}
-          />
-        ))}
-      </ol>
-
-      <div className="sticky bottom-0 mt-6 flex flex-wrap items-center gap-4 border-t border-emerald-900/15 bg-background py-4">
-        <button
-          type="button"
-          onClick={startAudit}
-          disabled={claims.length === 0 || noRelease || running || pendingIndex !== null}
-          className={buttonPrimary}
-        >
-          {running ? `Checking ${plural(claims.length)}…` : "Run audit →"}
-        </button>
-        {noRelease && (
-          <p className="text-sm text-slate-700">
-            Choose a release folder on{" "}
-            <Link href="/" className="text-emerald-900 underline underline-offset-4">
-              Start
-            </Link>{" "}
-            first.
-          </p>
-        )}
-        {audit && !running && (
-          <Link href="/board" className="text-emerald-900 underline underline-offset-4">
-            See the current audit board
-          </Link>
-        )}
-        <p aria-live="polite" className="text-sm font-medium">
-          {running && <span className="sr-only">Checking {plural(claims.length)}…</span>}
-          {message && (
-            <span className="text-red-800">
-              <span aria-hidden="true">✕ </span>
-              {message}
-            </span>
-          )}
-        </p>
+      <div className="sticky bottom-0 z-10 mt-6 -mx-6 border-t border-slate-200 bg-white/95 px-6 py-3 shadow-[0_-4px_12px_-8px_rgba(15,23,42,0.25)] backdrop-blur sm:mx-0 sm:rounded-md sm:border">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 text-sm">
+            <p className="font-semibold text-slate-900 tabular-nums">{plural(claims.length)} selected</p>
+            {noRelease ? (
+              <p className="text-slate-600">
+                Choose a release folder on{" "}
+                <Link href="/" className={linkText}>
+                  Start
+                </Link>{" "}
+                first.
+              </p>
+            ) : (
+              <p className="truncate font-mono text-xs text-slate-500" title={releaseDir}>
+                {releaseDir}
+              </p>
+            )}
+            <p aria-live="polite" className="font-medium">
+              {running && <span className="sr-only">Checking {plural(claims.length)}…</span>}
+              {message && (
+                <span className="text-red-800">
+                  <span aria-hidden="true">✕ </span>
+                  {message}
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            {audit && !running && (
+              <Link href="/board" className={`${linkText} text-sm`}>
+                See the current audit board
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={startAudit}
+              disabled={claims.length === 0 || noRelease || running || pendingIndex !== null}
+              className={buttonPrimary}
+            >
+              {running ? `Checking ${plural(claims.length)}…` : "Run audit →"}
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   );

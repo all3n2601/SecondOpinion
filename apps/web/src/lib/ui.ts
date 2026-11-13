@@ -1,16 +1,37 @@
-// Shared Tailwind class strings so every screen has the same buttons, fields and focus rings.
+// Shared Tailwind class strings: one visual system for every screen.
+// Neutral slate surfaces, one deep-green accent, square-ish corners, small-caps labels.
+
+export const container = "mx-auto w-full max-w-6xl px-6";
 
 export const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900";
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800";
 
-export const buttonPrimary = `inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-900 px-5 py-2.5 font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-400 ${focusRing}`;
+export const focusRingOnDark =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
-export const buttonSecondary = `inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-900/40 bg-white px-4 py-2 font-medium text-emerald-950 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400 ${focusRing}`;
+const buttonBase =
+  "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed";
 
-export const fieldInput = `w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 ${focusRing}`;
+export const buttonPrimary = `${buttonBase} bg-emerald-900 text-white shadow-sm hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none ${focusRing}`;
 
-export const fieldLabel = "block font-medium text-slate-900";
+export const buttonSecondary = `${buttonBase} border border-slate-300 bg-white text-slate-800 shadow-sm hover:border-slate-400 hover:bg-slate-50 disabled:text-slate-400 ${focusRing}`;
 
-export const fieldHint = "mt-1 text-sm text-slate-600";
+export const linkText = `rounded-sm font-medium text-emerald-900 underline decoration-emerald-900/30 underline-offset-4 hover:decoration-emerald-900 ${focusRing}`;
 
-export const card = "rounded-2xl border border-emerald-900/15 bg-white p-6";
+export const fieldInput = `h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-500 hover:border-slate-400 ${focusRing}`;
+
+export const fieldLabel = "block text-sm font-semibold text-slate-900";
+
+export const fieldHint = "mt-1.5 text-sm text-slate-600";
+
+/** Small-caps label used for eyebrows, table headers and field names. */
+export const eyebrow = "text-xs font-semibold tracking-wider text-slate-500 uppercase";
+
+export const panel = "rounded-md border border-slate-200 bg-white shadow-sm";
+
+/** Kept for older call sites: a padded panel. */
+export const card = `${panel} p-6`;
+
+export const tableHead = "bg-slate-50 text-xs font-semibold tracking-wider text-slate-600 uppercase";
+
+export const chip = "inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-xs font-semibold";

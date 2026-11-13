@@ -3,10 +3,11 @@
 import { useId, useState } from "react";
 import { runAudit } from "@/lib/api";
 import type { ReleaseInfo } from "@/lib/types";
-import { buttonSecondary, card, fieldHint, fieldInput, fieldLabel } from "@/lib/ui";
+import { buttonSecondary, fieldHint, fieldInput, fieldLabel, tableHead } from "@/lib/ui";
+import Panel from "./Panel";
 
 /** Mirrors RELEASE_FILES in second_opinion/release.py. The RNA file is optional. */
-const REQUIRED_FILES = [
+export const REQUIRED_FILES = [
   "clinical.tsv",
   "survival.tsv",
   "mutation_gene_level.tsv.gz",
@@ -14,89 +15,87 @@ const REQUIRED_FILES = [
   "protein_rppa.tsv.gz",
 ];
 
-type Check =
+export type ReleaseCheck =
   | { state: "idle" }
   | { state: "checking" }
-  | { state: "ok"; release: ReleaseInfo; notes: string[] }
+  | { state: "ok"; release: ReleaseInfo; notes: string[]; found: number }
   | { state: "error"; message: string };
 
 interface Props {
   value: string;
   onChange: (dir: string) => void;
+  onCheck?: (check: ReleaseCheck) => void;
 }
 
 /** Where the data lives. "Check the files" runs an audit with no claims, which verifies the folder. */
-export default function ReleasePicker({ value, onChange }: Props) {
+export default function ReleasePicker({ value, onChange, onCheck }: Props) {
   const inputId = useId();
   const hintId = useId();
-  const [check, setCheck] = useState<Check>({ state: "idle" });
+  const [check, setCheckState] = useState<ReleaseCheck>({ state: "idle" });
+
+  function setCheck(next: ReleaseCheck) {
+    setCheckState(next);
+    onCheck?.(next);
+  }
 
   async function checkFiles() {
     setCheck({ state: "checking" });
     try {
       const result = await runAudit(value.trim(), []);
-      setCheck({ state: "ok", release: result.release, notes: result.notes });
+      const found = REQUIRED_FILES.filter((f) => result.release.files.some((r) => r.file === f)).length;
+      setCheck({ state: "ok", release: result.release, notes: result.notes, found });
     } catch (error) {
       setCheck({ state: "error", message: (error as Error).message });
     }
   }
 
-  const found =
-    check.state === "ok" ? REQUIRED_FILES.filter((f) => check.release.files.some((r) => r.file === f)).length : 0;
-
   return (
-    <section aria-labelledby="release-heading" className={card}>
-      <h2 id="release-heading" className="text-xl font-semibold">
-        2. The data to check it against
-      </h2>
-
-      <div className="mt-5">
-        <label htmlFor={inputId} className={fieldLabel}>
-          Release folder
-        </label>
-        <div className="mt-2 flex flex-wrap gap-3">
-          <input
-            id={inputId}
-            type="text"
-            value={value}
-            onChange={(e) => {
-              onChange(e.target.value);
-              setCheck({ state: "idle" });
-            }}
-            aria-describedby={hintId}
-            placeholder="/path/to/oncosys-hackathon-challenge/data/tcga-brca/raw"
-            spellCheck={false}
-            className={`${fieldInput} min-w-0 flex-1 font-mono text-sm`}
-          />
-          <button
-            type="button"
-            onClick={checkFiles}
-            disabled={!value.trim() || check.state === "checking"}
-            className={buttonSecondary}
-          >
-            {check.state === "checking" ? "Checking…" : "Check the files"}
-          </button>
-        </div>
-        <p id={hintId} className={fieldHint}>
-          The folder with the TCGA-BRCA files, for example an unsealed envelope’s <code>release/</code> folder.
-        </p>
+    <Panel id="release-heading" title="2 · Data source" description="The TCGA-BRCA release the report describes.">
+      <label htmlFor={inputId} className={fieldLabel}>
+        Release folder
+      </label>
+      <div className="mt-2 flex flex-wrap gap-3">
+        <input
+          id={inputId}
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setCheck({ state: "idle" });
+          }}
+          aria-describedby={hintId}
+          placeholder="/path/to/oncosys-hackathon-challenge/data/tcga-brca/raw"
+          spellCheck={false}
+          className={`${fieldInput} min-w-0 flex-1 font-mono text-[0.8rem]`}
+        />
+        <button
+          type="button"
+          onClick={checkFiles}
+          disabled={!value.trim() || check.state === "checking"}
+          className={buttonSecondary}
+        >
+          {check.state === "checking" ? "Checking…" : "Check the files"}
+        </button>
       </div>
+      <p id={hintId} className={fieldHint}>
+        A full release, or an unsealed envelope’s <code className="font-mono text-[0.8rem]">release/</code> folder.
+      </p>
 
-      <div aria-live="polite" className="mt-4">
+      <div aria-live="polite" className="mt-4 text-sm">
         {check.state === "error" && (
-          <p className="font-medium text-red-800">
+          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 font-medium text-red-900">
             <span aria-hidden="true">✕ </span>
             {check.message}
           </p>
         )}
         {check.state === "ok" && (
-          <div>
-            <p className="font-medium text-emerald-900">
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-950">
+            <p className="font-medium">
               <span aria-hidden="true">✓ </span>
-              {found} of {REQUIRED_FILES.length} data files found (release {check.release.name}). Checksums below.
+              {check.found} of {REQUIRED_FILES.length} data files found (release {check.release.name}). Checksums below.
             </p>
             {check.notes.length > 0 && (
-              <ul className="mt-2 list-disc pl-6 text-sm text-amber-900">
+              <ul className="mt-1 list-disc pl-5 text-amber-900">
                 {check.notes.map((note) => (
                   <li key={note}>{note}</li>
                 ))}
@@ -107,28 +106,30 @@ export default function ReleasePicker({ value, onChange }: Props) {
       </div>
 
       {check.state === "ok" && (
-        <table className="mt-3 w-full table-fixed text-left text-sm">
-          <caption className="sr-only">Release files and their SHA-256 checksums</caption>
-          <thead>
-            <tr className="border-b border-slate-300 text-slate-700">
-              <th scope="col" className="w-2/5 py-2 pr-3 font-semibold">
-                File
-              </th>
-              <th scope="col" className="py-2 font-semibold">
-                SHA-256 checksum
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {check.release.files.map((f) => (
-              <tr key={f.file} className="border-b border-slate-200 align-top">
-                <td className="py-2 pr-3 font-mono break-all">{f.file}</td>
-                <td className="py-2 font-mono text-xs break-all text-slate-700">{f.sha256}</td>
+        <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
+          <table className="w-full table-fixed text-left text-sm">
+            <caption className="sr-only">Release files and their SHA-256 checksums</caption>
+            <thead className={tableHead}>
+              <tr>
+                <th scope="col" className="w-2/5 px-3 py-2">
+                  File
+                </th>
+                <th scope="col" className="px-3 py-2">
+                  SHA-256
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {check.release.files.map((f) => (
+                <tr key={f.file} className="align-top">
+                  <td className="px-3 py-2 font-mono text-[0.8rem] break-all">{f.file}</td>
+                  <td className="px-3 py-2 font-mono text-xs break-all text-slate-600">{f.sha256}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </section>
+    </Panel>
   );
 }

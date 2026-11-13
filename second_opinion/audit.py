@@ -64,9 +64,13 @@ def _hooks() -> _Hooks:
 
 
 def release_name(folder: Path) -> str:
-    """Folder name, except the standard `raw` folder (the organizers' release) is called "A"."""
-    name = folder.resolve().name
-    return STANDARD_RELEASE_NAME if name == STANDARD_RELEASE_FOLDER else name
+    """Folder name, except `raw` (the organizers' release) is "A" and an envelope's `release/` is named after the envelope."""
+    resolved = folder.resolve()
+    if resolved.name == STANDARD_RELEASE_FOLDER:
+        return STANDARD_RELEASE_NAME
+    if resolved.name == "release" and resolved.parent.name:
+        return resolved.parent.name  # envelopes/opened/<E07>/release
+    return resolved.name
 
 
 def _checksum_notes(folder: Path, checksums: dict[str, str]) -> list[str]:

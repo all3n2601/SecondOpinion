@@ -44,10 +44,12 @@ def _json_default(value: object) -> str:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="second_opinion")
     parser.add_argument("--release", required=True, help="folder with the five TCGA-BRCA release files")
-    parser.add_argument("--report", required=True, help="report to audit (Markdown)")
+    parser.add_argument("--report", help="report to audit (Markdown or text); not needed with --claims-json")
     parser.add_argument("--claims-json", help="JSON list of claims; skips claim extraction")
     parser.add_argument("--out", default="audit.json", help="where to write audit.json")
     args = parser.parse_args(argv)
+    if not args.report and not args.claims_json:
+        parser.error("give --report <report.md> (or --claims-json <claims.json>)")
 
     from second_opinion.audit import audit_claims
 
@@ -64,8 +66,10 @@ def main(argv: list[str] | None = None) -> None:
 
     out = Path(args.out)
     if build_audit_json is not None:
-        document = build_audit_json(audit)
-        validate_audit_json(document)
+        document = build_audit_json(audit, None)
+        problems = validate_audit_json(document)
+        if problems:
+            _fail("audit.json does not match the shared format:\n  " + "\n  ".join(problems))
         out.write_text(json.dumps(document, indent=2, default=_json_default), encoding="utf-8")
         print(f"Wrote {out}")
     else:

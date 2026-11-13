@@ -283,3 +283,79 @@ def test_missing_optional_column_used_only_by_a_variant_does_not_fail_the_audit(
     clinical.to_csv(mini_release / "clinical.tsv", sep="\t", index=False)
     (result,) = audit_claims([practice_claims()[1]], mini_release).claims  # primary check works without it
     assert result.verdict in (Verdict.SUPPORTED, Verdict.CONTRADICTED)
+
+
+def test_cli_needs_report_or_claims_json(mini_release, tmp_path, capsys):
+    from second_opinion import cli
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--release", str(mini_release), "--out", str(tmp_path / "o.json")])
+    assert exc.value.code == 2
+    assert "--report" in capsys.readouterr().err
+
+
+def test_cli_claims_json_alone_is_enough(mini_release, tmp_path):
+    import dataclasses
+
+    from second_opinion import cli
+
+    claims_path = tmp_path / "claims.json"
+    claims_path.write_text(json.dumps([dataclasses.asdict(c) for c in practice_claims()], default=str))
+    out = tmp_path / "out.json"
+    cli.main(["--release", str(mini_release), "--claims-json", str(claims_path), "--out", str(out)])
+    doc = json.loads(out.read_text())
+    assert validate_audit_json(doc) == []
+    assert len(doc["findings"]) == 3
+
+
+def _fake_export(monkeypatch, problems):
+    """Stand in for Meghana's second_opinion.export; records how the CLI called it."""
+    import types
+
+    calls = []
+    module = types.ModuleType("second_opinion.export")
+
+    def build_audit_json(audit, decision, team="SecondOpinion"):
+        calls.append((audit, decision))
+        return {"format_version": "0.2", "findings": []}
+
+    module.build_audit_json = build_audit_json
+    module.validate_audit_json = lambda doc: problems
+    monkeypatch.setitem(sys.modules, "second_opinion.export", module)
+    return calls
+
+
+def test_cli_calls_export_with_the_planned_signature(mini_release, tmp_path, monkeypatch):
+    import dataclasses
+
+    from second_opinion import cli
+
+    calls = _fake_export(monkeypatch, problems=[])
+    claims_path = tmp_path / "claims.json"
+    claims_path.write_text(json.dumps([dataclasses.asdict(c) for c in practice_claims()], default=str))
+    out = tmp_path / "audit.json"
+    cli.main(["--release", str(mini_release), "--claims-json", str(claims_path), "--out", str(out)])
+    assert calls and calls[0][1] is None
+    assert json.loads(out.read_text())["format_version"] == "0.2"
+
+
+def test_cli_refuses_to_write_an_invalid_audit_json(mini_release, tmp_path, monkeypatch, capsys):
+    from second_opinion import cli
+
+    _fake_export(monkeypatch, problems=["findings.0: 'severity' is a required property"])
+    claims_path = tmp_path / "claims.json"
+    claims_path.write_text("[]")
+    out = tmp_path / "audit.json"
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--release", str(mini_release), "--claims-json", str(claims_path), "--out", str(out)])
+    assert exc.value.code == 1
+    assert "severity" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_envelope_release_is_named_after_the_envelope(mini_release, tmp_path):
+    import shutil
+
+    release = tmp_path / "opened" / "E07" / "release"
+    shutil.copytree(mini_release, release)
+    assert audit_claims([], release).release.name == "E07"

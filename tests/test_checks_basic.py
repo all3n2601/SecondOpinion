@@ -193,3 +193,50 @@ def test_missing_subtype_column_cannot_be_checked(mini_release, variant, column)
     r = dataclasses.replace(r, clinical=r.clinical.drop(columns=[column]))
     with pytest.raises(CannotCheck, match=column):
         CHECKS[ClaimType.SHARE](share_claim("Luminal A"), r, variant)
+
+
+# --- counts of sample types and sexes (Review Focus 4) ----------------------------------------
+
+def _count(subject, release, variant=PRIMARY_VARIANT):
+    claim = Claim("C9", "...", 0, ClaimType.COUNT, ClaimParams(unit="count", subject=subject))
+    return CHECKS[ClaimType.COUNT](claim, release, variant)
+
+
+@pytest.mark.parametrize("subject, expected", [
+    ("normal_tissue_samples", lambda c: c.sampleID.str[13:15].eq("11").sum()),
+    ("metastatic_samples", lambda c: c.sampleID.str[13:15].eq("06").sum()),
+    ("male_samples", lambda c: c.gender.eq("MALE").sum()),
+    ("female_samples", lambda c: c.gender.eq("FEMALE").sum()),
+    ("male_primary_tumors", lambda c: (c.sampleID.str[13:15].eq("01") & c.gender.eq("MALE")).sum()),
+    ("male_patients", lambda c: c[c.gender.eq("MALE")].sampleID.str[:12].nunique()),
+])
+def test_filtered_counts_match_pandas_on_mini(mini_release, subject, expected):
+    release = load_release(mini_release)
+    fact = _count(subject, release)
+    assert fact.value == fact.numerator == int(expected(release.clinical))
+    assert len(fact.sample_ids) == fact.value
+    assert fact.value > 0
+
+
+def test_male_samples_include_non_primary_but_primary_filter_does_not(mini_release):
+    release = load_release(mini_release)
+    assert _count("male_primary_tumors", release).value == MINI["male_primary"]
+    assert _count("male_samples", release).value >= MINI["male_primary"]
+
+
+def test_combined_filters_and_unknown_filters(mini_release):
+    release = load_release(mini_release)
+    assert _count("male+normal_tissue_samples", release).value == int(
+        (release.clinical.sampleID.str[13:15].eq("11") & release.clinical.gender.eq("MALE")).sum())
+    assert _count("normal_tissue_primary_tumors", release).value == 0  # a primary tumor is never normal tissue
+    with pytest.raises(CannotCheck, match="venusian"):
+        _count("venusian_samples", release)
+
+
+@pytest.mark.realdata
+@pytest.mark.parametrize("subject, expected", [
+    ("normal_tissue_samples", 139), ("metastatic_samples", 7), ("male_samples", 13),
+    ("male_primary_tumors", 12), ("female_samples", 1229),
+])
+def test_real_filtered_counts(release_dir, subject, expected):
+    assert _count(subject, load_release(release_dir)).value == expected

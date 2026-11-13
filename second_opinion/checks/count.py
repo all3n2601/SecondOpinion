@@ -9,6 +9,30 @@ from second_opinion.release import RELEASE_FILES, RNA_FILE, Release
 from second_opinion.variants import Variant
 
 _CLINICAL = RELEASE_FILES["clinical"]
+
+# Sub-groups a count can name ("male_samples", "normal_tissue_primary_tumors", "male+normal_tissue_samples").
+# Each is a pandas expression on the clinical rows `pop`, shown in Fact.code, plus a plain-words label.
+_NOUNS = ("primary_tumors", "samples", "patients")
+_FILTERS: dict[str, tuple[str, str, object]] = {
+    "male": ("male", 'pop.gender == "MALE"', lambda pop: pop["gender"] == "MALE"),
+    "female": ("female", 'pop.gender == "FEMALE"', lambda pop: pop["gender"] == "FEMALE"),
+    "normal_tissue": ("normal-tissue", 'pop.sampleID.str[13:15] == "11"  # solid tissue normal',
+                      lambda pop: pop["sampleID"].astype(str).str[13:15] == "11"),
+    "metastatic": ("metastatic", 'pop.sampleID.str[13:15] == "06"  # metastasis',
+                   lambda pop: pop["sampleID"].astype(str).str[13:15] == "06"),
+}
+
+
+def _split_subject(subject: str) -> tuple[list[str], str]:
+    """"male+normal_tissue_samples" -> (["male", "normal_tissue"], "samples"); raises CannotCheck if unknown."""
+    for noun in _NOUNS:
+        if subject == noun or subject.endswith("_" + noun):
+            names = subject[: -len(noun) - 1].split("+") if subject != noun else []
+            unknown = [n for n in names if n not in _FILTERS]
+            if unknown:
+                raise CannotCheck(f"cannot count {subject!r}: no way to filter on {unknown[0]!r}")
+            return names, noun
+    raise CannotCheck(f"cannot count {subject!r}")
 _NO_RNA_NOTE = "no RNA file in this release; counted four layers"
 
 
@@ -17,28 +41,29 @@ def check_count(claim: Claim, release: Release, variant: Variant) -> Fact:
     subject = claim.params.subject
     if subject == "all_five_layers":
         return _all_layers(release, variant)
-    if subject in ("primary_tumors", "samples", "patients"):
-        scope = "primary_tumors" if subject == "primary_tumors" else "all_samples"
-        pop = population(release, replace(variant, sample_scope=scope))
-        ids = pop["sampleID"].astype(str).tolist()
-        code = population_code(replace(variant, sample_scope=scope))
-        if subject == "patients":
-            patients = sorted({i[:12] for i in ids})
-            label = "patients with at least one sample"
-            code += "\npatients = pop.sampleID.str[:12].unique()\nn = len(patients)"
-            ids, value = patients, len(patients)
-        else:
-            label = "primary tumors" if subject == "primary_tumors" else "samples (all sample types)"
-            code += "\nn = len(pop)"
-            value = len(ids)
-        if variant.sex_filter == "women_only":
-            label = "female " + label
-        return Fact(
-            label=label, value=value, numerator=value, denominator=None,
-            sample_ids=ids, files=[_CLINICAL], code=code,
-            extra=_sex_extra(pop),
-        )
-    raise CannotCheck(f"cannot count {subject!r}")
+    filters, noun = _split_subject(subject)
+    scope = "primary_tumors" if noun == "primary_tumors" else "all_samples"
+    pop = population(release, replace(variant, sample_scope=scope))
+    code = population_code(replace(variant, sample_scope=scope))
+    for name in filters:
+        _, expression, keep = _FILTERS[name]
+        pop = pop[keep(pop)]
+        code += f"\npop = pop[{expression}]"
+    ids = pop["sampleID"].astype(str).tolist()
+    if noun == "patients":
+        ids = sorted({i[:12] for i in ids})
+        label = "patients with at least one sample"
+        code += "\npatients = pop.sampleID.str[:12].unique()\nn = len(patients)"
+    else:
+        label = "primary tumors" if noun == "primary_tumors" else "samples (all sample types)"
+        code += "\nn = len(pop)"
+    label = " ".join([_FILTERS[n][0] for n in filters] + [label])
+    if variant.sex_filter == "women_only":
+        label = "female " + label
+    return Fact(
+        label=label, value=len(ids), numerator=len(ids), denominator=None,
+        sample_ids=ids, files=[_CLINICAL], code=code, extra=_sex_extra(pop),
+    )
 
 
 def _sex_extra(pop) -> dict[str, float | int | str]:

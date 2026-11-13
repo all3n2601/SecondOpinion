@@ -222,7 +222,7 @@ _YEAR = re.compile(r"^(?:19|20)\d\d$")
 
 
 @dataclass
-class _Number:
+class StatedNumber:
     start: int
     end: int
     value: float
@@ -238,9 +238,9 @@ def _to_float(whole: str, frac: str | None) -> float:
     return float(whole.replace(",", "") + (f".{frac}" if frac else ""))
 
 
-def _numbers(text: str) -> list[_Number]:
+def find_numbers(text: str) -> list[StatedNumber]:
     """Every number in the sentence that states data (not years or figure references)."""
-    found: list[_Number] = []
+    found: list[StatedNumber] = []
     taken: list[tuple[int, int]] = []
 
     def context(start: int) -> tuple[bool, bool, bool]:
@@ -265,7 +265,7 @@ def _numbers(text: str) -> list[_Number]:
         if tail:
             end = tail.end()
         percent = bool(tail) or "%" in m.group(0) or "percent" in m.group(0).lower()
-        found.append(_Number(m.start(), end, low, len(m.group("lodec") or ""), percent, approx, bound, high, total))
+        found.append(StatedNumber(m.start(), end, low, len(m.group("lodec") or ""), percent, approx, bound, high, total))
         taken.append((m.start(), end))
 
     for m in _NUMBER.finditer(text):
@@ -279,14 +279,14 @@ def _numbers(text: str) -> list[_Number]:
         if _YEAR.match(whole) and not frac and not tail and not _counted_noun_follows(text, m.end()):
             continue
         approx, bound, total = context(m.start())
-        found.append(_Number(
+        found.append(StatedNumber(
             m.start(), tail.end() if tail else m.end(), _to_float(whole, frac), len(frac or ""),
             bool(tail), approx, bound, None, total,
         ))
 
     for m in _WORD_NUMBER.finditer(text):
         approx, bound, total = context(m.start())
-        found.append(_Number(m.start(), m.end(), float(WORD_NUMBERS[m.group(1).lower()]), 0, False, approx, bound, None, total))
+        found.append(StatedNumber(m.start(), m.end(), float(WORD_NUMBERS[m.group(1).lower()]), 0, False, approx, bound, None, total))
 
     return sorted(found, key=lambda n: n.start)
 
@@ -296,7 +296,7 @@ def _counted_noun_follows(text: str, end: int) -> bool:
     return bool(re.match(rf"(?:\s+[\w-]+){{0,2}}?\s+(?:{nouns})\b", text[end:], re.IGNORECASE))
 
 
-def _stated(params: ClaimParams, number: _Number, total: _Number | None = None) -> None:
+def _stated(params: ClaimParams, number: StatedNumber, total: StatedNumber | None = None) -> None:
     params.stated_value = number.value
     params.stated_high = number.high
     params.decimals = number.decimals
@@ -305,7 +305,7 @@ def _stated(params: ClaimParams, number: _Number, total: _Number | None = None) 
         params.stated_total = total.value
 
 
-def _value_and_total(numbers: list[_Number]) -> tuple[_Number | None, _Number | None]:
+def _value_and_total(numbers: list[StatedNumber]) -> tuple[StatedNumber | None, StatedNumber | None]:
     """The stated count and, for "535 of 1,101" / "Of the 1,101 ..., 535", the total."""
     totals = [n for n in numbers if n.is_total and not n.percent]
     values = [n for n in numbers if not n.is_total and not n.percent]
@@ -376,7 +376,7 @@ def _measure(text: str) -> str | None:
 # --- the rules, in order; each returns a Claim or None -------------------------------------
 
 
-def _rule_not_answerable(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Claim | None:
+def _rule_not_answerable(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     found = detect_unanswerable(info.text)
     if found is None:
         return None
@@ -386,7 +386,7 @@ def _rule_not_answerable(info: SentenceInfo, claim_id: str, numbers: list[_Numbe
     )
 
 
-def _rule_share(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Claim | None:
+def _rule_share(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     subtypes = _subtypes(info.text)
     if len(subtypes) != 1:
         return None  # none, or several subtypes in one sentence: not one share we can check
@@ -405,7 +405,7 @@ def _rule_share(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Cl
     return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.SHARE, params=params)
 
 
-def _rule_comparison(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Claim | None:
+def _rule_comparison(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     direction = _direction(info.text)
     measure = _measure(info.text)
     groups = [m.group(0) for m in GROUP_PATTERN.finditer(info.text)]
@@ -418,7 +418,7 @@ def _rule_comparison(info: SentenceInfo, claim_id: str, numbers: list[_Number]) 
     return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COMPARISON, params=params)
 
 
-def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Claim | None:
+def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     if ALL_LAYERS.search(info.text):
         return None  # "all five layers" is a count of tumors, handled by the count rule
     layers = _layers(info.text)
@@ -441,7 +441,7 @@ def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[_Number]) ->
     return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COVERAGE, params=params)
 
 
-def _rule_count(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Claim | None:
+def _rule_count(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     usable = [n for n in numbers if not n.bound and not n.percent]
     value, total = _value_and_total(usable)
     if value is None:
@@ -459,7 +459,7 @@ def _rule_count(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Cl
     return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COUNT, params=params)
 
 
-def _rule_unmapped(info: SentenceInfo, claim_id: str, numbers: list[_Number]) -> Claim | None:
+def _rule_unmapped(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     if not numbers:
         return None
     return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.UNMAPPED)
@@ -470,7 +470,7 @@ RULES = (_rule_not_answerable, _rule_share, _rule_comparison, _rule_coverage, _r
 
 def classify_sentence(info: SentenceInfo, claim_id: str) -> Claim | None:
     """Type one sentence as a claim (first rule that matches wins), or None if it states nothing checkable."""
-    numbers = _numbers(info.text)
+    numbers = find_numbers(info.text)
     for rule in RULES:
         claim = rule(info, claim_id, numbers)
         if claim is not None:

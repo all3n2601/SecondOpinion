@@ -12,9 +12,9 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 };
 
 export const VERDICT_STYLE: Record<Verdict, string> = {
-  supported: "border-emerald-700 bg-emerald-50 text-emerald-900",
-  contradicted: "border-rose-700 bg-rose-50 text-rose-900",
-  insufficient_evidence: "border-amber-700 bg-amber-50 text-amber-950",
+  supported: "border-supported bg-supported-tint text-supported",
+  contradicted: "border-contradicted bg-contradicted-tint text-contradicted",
+  insufficient_evidence: "border-insufficient bg-insufficient-tint text-insufficient",
 };
 
 export const SOLIDITY_LABEL: Record<Solidity, string> = {

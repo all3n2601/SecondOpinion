@@ -1,11 +1,11 @@
 "use client";
 
+import { Check, CircleAlert } from "lucide-react";
 import { useId, useState } from "react";
 import { saveRole } from "@/lib/api";
 import { DETAIL_LABEL, ROLE_SECTIONS } from "@/lib/roles";
 import type { Role } from "@/lib/types";
-
-const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900";
+import { buttonSecondary, fieldInput, fieldLabel } from "@/lib/ui";
 
 /** Add a reviewer role without touching code. Saved to roles.yaml by the API. */
 export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], added: Role) => void }) {
@@ -43,10 +43,16 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
     }
   }
 
+  const levels = Object.keys(DETAIL_LABEL) as Role["detail"][];
+
   return (
-    <form onSubmit={submit} className="mt-3 space-y-4 rounded-lg border border-slate-300 bg-white p-4" noValidate>
+    <form
+      onSubmit={submit}
+      className="mt-2 max-w-2xl space-y-5 rounded-panel border border-rule bg-sheet p-5"
+      noValidate
+    >
       <div>
-        <label htmlFor={`${id}-name`} className="block text-sm font-medium">
+        <label htmlFor={`${id}-name`} className={fieldLabel}>
           Role name
         </label>
         <input
@@ -54,20 +60,20 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className={`mt-1 w-full max-w-sm rounded-md border border-slate-400 px-3 py-2 ${FOCUS}`}
+          className={`${fieldInput} mt-1 max-w-sm`}
         />
       </div>
 
       <fieldset>
-        <legend className="text-sm font-medium">What this role sees</legend>
-        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        <legend className={fieldLabel}>What this role sees</legend>
+        <div className="mt-1 grid gap-x-4 sm:grid-cols-2">
           {ROLE_SECTIONS.map((section) => (
-            <label key={section.id} className="flex items-center gap-2 text-sm">
+            <label key={section.id} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-ink">
               <input
                 type="checkbox"
                 checked={sections.includes(section.id)}
                 onChange={() => toggleSection(section.id)}
-                className={FOCUS}
+                className="size-5 shrink-0 cursor-pointer accent-pen"
               />
               {section.label}
             </label>
@@ -76,45 +82,56 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
       </fieldset>
 
       <fieldset>
-        <legend className="text-sm font-medium">Level of detail</legend>
-        <div className="mt-2 flex flex-wrap gap-4">
-          {(Object.keys(DETAIL_LABEL) as Role["detail"][]).map((level) => (
-            <label key={level} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={`${id}-detail`}
-                value={level}
-                checked={detail === level}
-                onChange={() => setDetail(level)}
-                className={FOCUS}
-              />
-              {DETAIL_LABEL[level]}
-            </label>
-          ))}
+        <legend className={fieldLabel}>Level of detail</legend>
+        <div className="mt-2 grid grid-cols-3 sm:inline-grid">
+          {levels.map((level, i) => {
+            const selected = detail === level;
+            return (
+              <label key={level} className="relative flex cursor-pointer">
+                <input
+                  type="radio"
+                  name={`${id}-detail`}
+                  value={level}
+                  checked={selected}
+                  onChange={() => setDetail(level)}
+                  className="peer sr-only"
+                />
+                <span
+                  className={`flex min-h-11 w-full items-center justify-center gap-1.5 border px-4 py-2 text-sm transition-colors duration-150 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-pen ${
+                    i === 0 ? "rounded-l-control" : "-ml-px"
+                  } ${i === levels.length - 1 ? "rounded-r-control" : ""} ${
+                    selected
+                      ? "border-pen bg-pen font-semibold text-white"
+                      : "border-rule-strong bg-sheet font-medium text-ink hover:bg-wash"
+                  }`}
+                >
+                  {selected && <Check aria-hidden="true" className="size-4 shrink-0" strokeWidth={2.5} />}
+                  {DETAIL_LABEL[level]}
+                </span>
+              </label>
+            );
+          })}
         </div>
       </fieldset>
 
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-ink">
         <input
           type="checkbox"
           checked={explainTerms}
           onChange={(e) => setExplainTerms(e.target.checked)}
-          className={FOCUS}
+          className="size-5 shrink-0 cursor-pointer accent-pen"
         />
         Explain terms in plain words
       </label>
 
       {error && (
-        <p role="alert" className="text-sm font-medium text-rose-800">
+        <p role="alert" className="flex items-start gap-1.5 text-sm font-medium text-contradicted">
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={saving}
-        className={`rounded-md bg-emerald-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 ${FOCUS}`}
-      >
+      <button type="submit" disabled={saving} className={buttonSecondary}>
         {saving ? "Saving…" : "Add role"}
       </button>
     </form>

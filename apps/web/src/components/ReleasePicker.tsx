@@ -1,9 +1,10 @@
 "use client";
 
+import { CircleAlert, CircleCheck, CircleX, TriangleAlert } from "lucide-react";
 import { useId, useState } from "react";
 import { runAudit } from "@/lib/api";
 import type { ReleaseInfo } from "@/lib/types";
-import { buttonSecondary, card, fieldHint, fieldInput, fieldLabel } from "@/lib/ui";
+import { buttonSecondary, fieldHint, fieldInput, fieldLabel, sectionTitle } from "@/lib/ui";
 
 /** Mirrors RELEASE_FILES in second_opinion/release.py. The RNA file is optional. */
 const REQUIRED_FILES = [
@@ -44,13 +45,15 @@ export default function ReleasePicker({ value, onChange }: Props) {
   const found =
     check.state === "ok" ? REQUIRED_FILES.filter((f) => check.release.files.some((r) => r.file === f)).length : 0;
 
-  return (
-    <section aria-labelledby="release-heading" className={card}>
-      <h2 id="release-heading" className="text-xl font-semibold">
-        2. The data to check it against
-      </h2>
+  const extraFiles = check.state === "ok" ? check.release.files.filter((f) => !REQUIRED_FILES.includes(f.file)) : [];
 
-      <div className="mt-5">
+  return (
+    <section aria-labelledby="release-heading">
+      <h3 id="release-heading" className={sectionTitle}>
+        2. Data folder
+      </h3>
+
+      <div className="mt-3">
         <label htmlFor={inputId} className={fieldLabel}>
           Release folder
         </label>
@@ -66,7 +69,7 @@ export default function ReleasePicker({ value, onChange }: Props) {
             aria-describedby={hintId}
             placeholder="/path/to/oncosys-hackathon-challenge/data/tcga-brca/raw"
             spellCheck={false}
-            className={`${fieldInput} min-w-0 flex-1 font-mono text-sm`}
+            className={`${fieldInput} min-w-0 flex-1 basis-64 font-mono text-sm`}
           />
           <button
             type="button"
@@ -78,27 +81,39 @@ export default function ReleasePicker({ value, onChange }: Props) {
           </button>
         </div>
         <p id={hintId} className={fieldHint}>
-          The folder with the TCGA-BRCA files, for example an unsealed envelope’s <code>release/</code> folder.
+          The folder with the TCGA-BRCA files, for example an unsealed envelope’s <code className="font-mono">release/</code>{" "}
+          folder.
         </p>
       </div>
 
       <div aria-live="polite" className="mt-4">
         {check.state === "error" && (
-          <p className="font-medium text-red-800">
-            <span aria-hidden="true">✕ </span>
-            {check.message}
+          <p className="flex items-start gap-2 font-medium text-contradicted">
+            <CircleAlert aria-hidden="true" size={16} strokeWidth={1.75} className="mt-1 shrink-0" />
+            <span>
+              {check.message} Check the folder path, then choose “Check the files” again.
+            </span>
           </p>
         )}
         {check.state === "ok" && (
           <div>
-            <p className="font-medium text-emerald-900">
-              <span aria-hidden="true">✓ </span>
-              {found} of {REQUIRED_FILES.length} data files found (release {check.release.name}). Checksums below.
+            <p className={`flex items-start gap-2 font-medium ${found === REQUIRED_FILES.length ? "text-supported" : "text-insufficient"}`}>
+              {found === REQUIRED_FILES.length ? (
+                <CircleCheck aria-hidden="true" size={16} strokeWidth={1.75} className="mt-1 shrink-0" />
+              ) : (
+                <CircleAlert aria-hidden="true" size={16} strokeWidth={1.75} className="mt-1 shrink-0" />
+              )}
+              <span>
+                {found} of {REQUIRED_FILES.length} data files found (release {check.release.name}). Checksums below.
+              </span>
             </p>
             {check.notes.length > 0 && (
-              <ul className="mt-2 list-disc pl-6 text-sm text-amber-900">
+              <ul className="mt-2 space-y-1 text-sm text-insufficient">
                 {check.notes.map((note) => (
-                  <li key={note}>{note}</li>
+                  <li key={note} className="flex items-start gap-2">
+                    <TriangleAlert aria-hidden="true" size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+                    <span>{note}</span>
+                  </li>
                 ))}
               </ul>
             )}
@@ -107,28 +122,40 @@ export default function ReleasePicker({ value, onChange }: Props) {
       </div>
 
       {check.state === "ok" && (
-        <table className="mt-3 w-full table-fixed text-left text-sm">
-          <caption className="sr-only">Release files and their SHA-256 checksums</caption>
-          <thead>
-            <tr className="border-b border-slate-300 text-slate-700">
-              <th scope="col" className="w-2/5 py-2 pr-3 font-semibold">
-                File
-              </th>
-              <th scope="col" className="py-2 font-semibold">
-                SHA-256 checksum
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {check.release.files.map((f) => (
-              <tr key={f.file} className="border-b border-slate-200 align-top">
-                <td className="py-2 pr-3 font-mono break-all">{f.file}</td>
-                <td className="py-2 font-mono text-xs break-all text-slate-700">{f.sha256}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul aria-label="Release files and their SHA-256 checksums" className="mt-3 divide-y divide-rule rounded-control border border-rule bg-paper">
+          {REQUIRED_FILES.map((name) => {
+            const file = check.release.files.find((r) => r.file === name);
+            return <FileRow key={name} name={name} sha256={file?.sha256 ?? null} />;
+          })}
+          {extraFiles.map((f) => (
+            <FileRow key={f.file} name={f.file} sha256={f.sha256} />
+          ))}
+        </ul>
       )}
     </section>
+  );
+}
+
+function FileRow({ name, sha256 }: { name: string; sha256: string | null }) {
+  return (
+    <li className="flex items-start gap-2 px-3 py-2 text-sm">
+      {sha256 ? (
+        <CircleCheck aria-hidden="true" size={16} strokeWidth={1.75} className="mt-1 shrink-0 text-supported" />
+      ) : (
+        <CircleX aria-hidden="true" size={16} strokeWidth={1.75} className="mt-1 shrink-0 text-contradicted" />
+      )}
+      <div className="min-w-0">
+        <p className="font-mono break-all">
+          {name}
+          {!sha256 && <span className="font-sans font-medium text-contradicted"> is missing from this folder</span>}
+        </p>
+        {sha256 && (
+          <p className="num font-mono text-xs break-all text-ink-soft">
+            <span className="sr-only">SHA-256 </span>
+            {sha256}
+          </p>
+        )}
+      </div>
+    </li>
   );
 }

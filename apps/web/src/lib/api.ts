@@ -42,6 +42,10 @@ async function request<T>(path: string, init?: { method?: "GET" | "POST"; body?:
     } catch {
       // Body was not JSON; fall through to the generic message.
     }
+    // A 5xx with no detail usually means the dev proxy could not connect to the backend at all.
+    if (message === null && response.status >= 500) {
+      throw new Error(`Could not reach the SecondOpinion API (HTTP ${response.status}). Is the backend running?`);
+    }
     throw new Error(message ?? `The API returned an error (HTTP ${response.status}).`);
   }
   return (await response.json()) as T;

@@ -1,18 +1,113 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f6f7f4;
-  --foreground: #182c27;
+/*
+ * SecondOpinion design tokens: "the proofreader's desk".
+ * Tokens are semantic (what a colour is for), never raw hex in components.
+ * Tailwind generates utilities from @theme: bg-paper, text-ink, border-rule, bg-pen, text-contradicted ...
+ */
+@theme {
+  /* surfaces */
+  --color-paper: #f3f4f6; /* page */
+  --color-sheet: #ffffff; /* panels and fields */
+  --color-wash: #eceef2; /* quiet inset areas, table stripes */
+
+  /* ink */
+  --color-ink: #10151f; /* body and headings (16:1 on sheet) */
+  --color-ink-soft: #3f4959; /* secondary text (9:1 on sheet) */
+  --color-ink-faint: #5a6474; /* captions, placeholders (5.9:1 on sheet, 5.3:1 on paper) */
+
+  /* lines */
+  --color-rule: #d7dbe2; /* hairlines */
+  --color-rule-strong: #aeb5c1; /* field borders, emphasised dividers */
+
+  /* primary action: fountain-pen blue */
+  --color-pen: #23398f;
+  --color-pen-deep: #19296b;
+  --color-pen-tint: #e8ecf8;
+
+  /* verdicts: each has ink (text/edge) and tint (background); always paired with an icon and a word */
+  --color-supported: #0b6b5e;
+  --color-supported-tint: #e2f2ee;
+  --color-contradicted: #b3261e;
+  --color-contradicted-tint: #fce9e7;
+  --color-insufficient: #7d4a00;
+  --color-insufficient-tint: #fdf0d5;
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --radius-control: 6px; /* buttons, fields */
+  --radius-panel: 10px; /* panels, drawers */
+  --radius-stamp: 4px; /* verdict stamps, chips */
+
+  --shadow-raised: 0 1px 2px rgb(16 21 31 / 0.06), 0 6px 20px rgb(16 21 31 / 0.08); /* popovers only */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: Arial, Helvetica, sans-serif;
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-padding-top: 1.5rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Data reads in tabular figures so columns and fractions line up (421 of 844). */
+.num,
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The report's own words: serif, a touch more leading. */
+.reported {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+
+/* Struck-out (over-strong) wording in the Claim Ladder: a real redline, not a grey-out. */
+del {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--color-contradicted);
+  color: var(--color-ink-soft);
+}
+
+ins {
+  text-decoration: none;
+  font-weight: 600;
+  background: var(--color-supported-tint);
+  box-shadow: inset 0 -2px 0 var(--color-supported);
+  border-radius: 2px;
+  padding: 0 0.15em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-pen);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-pen-tint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

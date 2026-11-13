@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
+import VerdictBadge from "@/components/VerdictBadge";
 import { useAudit } from "@/lib/audit-context";
 import {
   countText,
@@ -12,6 +14,7 @@ import {
   VERDICT_LABEL,
   VERDICTS,
 } from "@/lib/review";
+import { focusRing, sectionTitle } from "@/lib/ui";
 import { ROLE_SECTIONS, useRoles } from "@/lib/roles";
 import type { AuditResult, ClaimResult, DecisionSuggestion, Role } from "@/lib/types";
 
@@ -40,22 +43,27 @@ function mainRisk(audit: AuditResult): string {
 
 function Counts({ audit }: { audit: AuditResult }) {
   return (
-    <ul className="flex flex-wrap gap-3">
+    <ul className="flex flex-wrap gap-x-5 gap-y-2">
       {VERDICTS.map((v) => (
-        <li key={v} className="rounded-md border border-slate-300 bg-white px-3 py-1">
-          {VERDICT_LABEL[v]}: <strong>{audit.claims.filter((c) => finalVerdict(c) === v).length}</strong> of{" "}
-          {audit.claims.length}
+        <li key={v} className="flex items-center gap-2">
+          <VerdictBadge verdict={v} size="sm" />
+          <span className="num font-mono text-sm">
+            {audit.claims.filter((c) => finalVerdict(c) === v).length} of {audit.claims.length}
+          </span>
         </li>
       ))}
     </ul>
   );
 }
 
+const LIST = "list-disc space-y-2 pl-5 marker:text-ink-faint";
+const ID = "num font-mono text-sm font-semibold";
+
 function corrected(result: ClaimResult) {
   if (!result.ladder.length) return result.claim.text;
   return result.ladder
     .filter((s) => !s.struck)
-    .map((s, i) => (s.inserted ? <strong key={i}>{s.text}</strong> : <span key={i}>{s.text}</span>));
+    .map((s, i) => (s.inserted ? <ins key={i}>{s.text}</ins> : <span key={i}>{s.text}</span>));
 }
 
 function Section({ id, audit, suggestion, role }: {
@@ -80,11 +88,12 @@ function Section({ id, audit, suggestion, role }: {
       return suggestion ? <p>{suggestion.sign_off.join(" and ")} must sign off.</p> : null;
     case "claims":
       return (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={LIST}>
           {claims.map((c) => (
             <li key={c.claim.id}>
-              <strong>{c.claim.id}</strong> {VERDICT_LABEL[finalVerdict(c)]}
-              {c.review?.decision === "override" && ` (tool said ${VERDICT_LABEL[c.verdict]})`}: {c.claim.text}
+              <strong className={ID}>{c.claim.id}</strong> {VERDICT_LABEL[finalVerdict(c)]}
+              {c.review?.decision === "override" && ` (tool said ${VERDICT_LABEL[c.verdict]})`}:{" "}
+              <span className="font-serif">{c.claim.text}</span>
             </li>
           ))}
         </ul>
@@ -102,20 +111,20 @@ function Section({ id, audit, suggestion, role }: {
       return <p>The Decision Record downloads with audit.json after export, below.</p>;
     case "corrected_wording":
       return (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={LIST}>
           {claims.map((c) => (
             <li key={c.claim.id}>
-              <strong>{c.claim.id}</strong> {corrected(c)}
+              <strong className={ID}>{c.claim.id}</strong> {corrected(c)}
             </li>
           ))}
         </ul>
       );
     case "robustness":
       return (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={LIST}>
           {claims.map((c) => (
             <li key={c.claim.id}>
-              <strong>{c.claim.id}</strong> {SOLIDITY_LABEL[c.solidity]}
+              <strong className={ID}>{c.claim.id}</strong> {SOLIDITY_LABEL[c.solidity]}
               {c.flips_on.length > 0 && ` (changes on ${c.flips_on.join(", ")})`}
               {role.detail === "full" && c.variants.length > 0 &&
                 `; ${c.variants.filter((v) => v.verdict === c.verdict).length} of ${c.variants.length} ways of counting agree`}
@@ -125,10 +134,10 @@ function Section({ id, audit, suggestion, role }: {
       );
     case "skeptic":
       return (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={LIST}>
           {claims.map((c) => (
             <li key={c.claim.id}>
-              <strong>{c.claim.id}</strong>{" "}
+              <strong className={ID}>{c.claim.id}</strong>{" "}
               {c.skeptic
                 ? `shuffled-label p = ${c.skeptic.shuffle_p ?? "unknown"}; leaving out one of ${c.skeptic.n_sites} sites ` +
                   (c.skeptic.site_flips.length ? `flips it (${c.skeptic.site_flips.join(", ")})` : "never flips it")
@@ -139,16 +148,16 @@ function Section({ id, audit, suggestion, role }: {
       );
     case "sample_ids":
       return (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={LIST}>
           {claims.map((c) => {
             const ids = c.fact?.sample_ids ?? [];
             const shown = ids.slice(0, SAMPLE_PREVIEW[role.detail]);
             return (
               <li key={c.claim.id}>
-                <strong>{c.claim.id}</strong> {countText(c.fact) ?? "no samples"}
+                <strong className={ID}>{c.claim.id}</strong> {countText(c.fact) ?? "no samples"}
                 {shown.length > 0 && (
                   <>
-                    : <code className="break-all">{shown.join(", ")}</code>
+                    : <code className="num break-all font-mono text-sm">{shown.join(", ")}</code>
                     {ids.length > shown.length && ` and ${formatCount(ids.length - shown.length)} more`}
                   </>
                 )}
@@ -159,23 +168,29 @@ function Section({ id, audit, suggestion, role }: {
       );
     case "files":
       return (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={LIST}>
           {audit.release.files.map((f) => (
             <li key={f.file}>
-              {f.file}: <code className="break-all">{f.sha256 || "checksum missing"}</code>
+              {f.file}: <code className="num break-all font-mono text-sm">{f.sha256 || "checksum missing"}</code>
             </li>
           ))}
         </ul>
       );
     case "code":
       return (
-        <div className="space-y-2">
+        <div className="space-y-1">
           {claims
             .filter((c) => c.fact?.code)
             .map((c) => (
               <details key={c.claim.id}>
-                <summary className="cursor-pointer">Code for {c.claim.id}</summary>
-                <pre className="mt-1 overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">
+                <summary className={`min-h-11 cursor-pointer rounded-control py-2 text-sm font-medium text-pen underline-offset-4 hover:underline ${focusRing}`}>
+                  Code for {c.claim.id}
+                </summary>
+                <pre
+                  tabIndex={0}
+                  aria-label={`Code for ${c.claim.id}`}
+                  className={`mt-1 overflow-x-auto rounded-control bg-ink p-3 font-mono text-xs leading-5 text-paper ${focusRing}`}
+                >
                   <code>{c.fact?.code}</code>
                 </pre>
               </details>
@@ -202,34 +217,47 @@ export default function RoleSummary({ audit, suggestion }: {
   };
 
   return (
-    <section aria-labelledby="role-summary-title" className="rounded-xl border border-emerald-900/15 bg-white p-6">
-      <h2 id="role-summary-title" className="text-sm font-semibold uppercase tracking-widest text-emerald-800">
+    <section aria-labelledby="role-summary-title">
+      <h2 id="role-summary-title" className={sectionTitle}>
         For the {role.name}
       </h2>
       {role.detail === "summary" && suggestion && (
-        <p className="mt-3 text-lg">
+        <p className="mt-3 max-w-prose text-lg">
           The tool suggests <strong>{suggestion.decision}</strong>; the main risk is {mainRisk(audit)}; next step:{" "}
           {DECISION_NEXT_STEP[suggestion.decision]}.
         </p>
       )}
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 border-t border-rule">
         {role.sections.map((id) => (
-          <div key={id}>
-            <h3 className="mb-1 font-semibold">{ROLE_SECTIONS.find((s) => s.id === id)?.label ?? id}</h3>
-            <Section id={id} audit={audit} suggestion={suggestion} role={role} />
+          <div
+            key={id}
+            className="grid gap-1 border-b border-rule py-4 sm:grid-cols-[11rem_1fr] sm:gap-x-6"
+          >
+            <h3 className="text-sm font-semibold text-ink">
+              {ROLE_SECTIONS.find((s) => s.id === id)?.label ?? id}
+            </h3>
+            <div className="min-w-0 text-ink">
+              <Section id={id} audit={audit} suggestion={suggestion} role={role} />
+            </div>
           </div>
         ))}
       </div>
       {role.explain_terms && (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-emerald-900 underline underline-offset-4">
+        <details className="group mt-3">
+          <summary
+            className={`inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-control pr-2 text-sm font-medium text-pen underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden ${focusRing}`}
+          >
+            <ChevronRight
+              aria-hidden="true"
+              className="size-4 transition-transform duration-150 group-open:rotate-90"
+            />
             What the words mean
           </summary>
-          <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[max-content_1fr]">
+          <dl className="mt-2 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
             {GLOSSARY.map((g) => (
               <div key={g.term} className="contents">
-                <dt className="font-medium">{g.term}</dt>
-                <dd className="text-slate-700">{g.meaning}</dd>
+                <dt className="font-semibold text-ink">{g.term}</dt>
+                <dd className="mb-2 text-ink-soft sm:mb-0">{g.meaning}</dd>
               </div>
             ))}
           </dl>

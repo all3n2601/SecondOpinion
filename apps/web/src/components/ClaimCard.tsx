@@ -1,31 +1,41 @@
 import Link from "next/link";
+import { Clock, FileSearch, UserCheck } from "lucide-react";
 import { formatFact, TYPE_LABEL, VERDICT_LABEL } from "@/lib/claim-format";
 import type { ClaimResult } from "@/lib/types";
-import { focusRing } from "@/lib/ui";
+import { buttonSecondary } from "@/lib/ui";
 import LadderText, { ladderChanges } from "./LadderText";
 import SolidityTag from "./SolidityTag";
 import StatementLabel from "./StatementLabel";
 import VerdictBadge from "./VerdictBadge";
 
+// The 3px left edge in the verdict colour (the stamp and the word say the same thing, so colour is never alone).
 const EDGE: Record<ClaimResult["verdict"], string> = {
-  supported: "border-l-emerald-800",
-  contradicted: "border-l-red-800",
-  insufficient_evidence: "border-l-amber-700",
+  supported: "border-l-supported",
+  contradicted: "border-l-contradicted",
+  insufficient_evidence: "border-l-insufficient",
 };
 
-function Row({ label, kind, children }: { label: string; kind?: React.ComponentProps<typeof StatementLabel>["kind"]; children: React.ReactNode }) {
+function Row({
+  label,
+  kind,
+  children,
+}: {
+  label: string;
+  kind?: React.ComponentProps<typeof StatementLabel>["kind"];
+  children: React.ReactNode;
+}) {
   return (
-    <div className="grid gap-1 sm:grid-cols-[11rem_1fr] sm:gap-4">
-      <dt className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-600">
+    <div className="grid gap-1 sm:grid-cols-[9.5rem_1fr] sm:gap-4">
+      <dt className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-soft">
         {label}
         {kind && <StatementLabel kind={kind} />}
       </dt>
-      <dd className="min-w-0 text-slate-900">{children}</dd>
+      <dd className="min-w-0 text-ink">{children}</dd>
     </div>
   );
 }
 
-/** One claim on the audit board: verdict, how solid it is, the Claim Ladder and the number behind it. */
+/** One entry in the audit ledger: verdict, how solid it is, the Claim Ladder and the number behind it. */
 export default function ClaimCard({ result }: { result: ClaimResult }) {
   const { claim, verdict, fact, review } = result;
   const headingId = `card-${claim.id}`;
@@ -33,84 +43,90 @@ export default function ClaimCard({ result }: { result: ClaimResult }) {
   const same = (a: string, b: string) => a.trim().replace(/\.$/, "").toLowerCase() === b.trim().replace(/\.$/, "").toLowerCase();
   // The engine sometimes repeats the fact's note as the limitation; show it once.
   const note = typeof rawNote === "string" && !(result.limitation && same(rawNote, result.limitation)) ? rawNote : undefined;
+  const edited = ladderChanges(result.ladder);
 
   return (
     <article
       aria-labelledby={headingId}
-      className={`rounded-2xl border border-l-8 border-emerald-900/15 bg-white p-6 ${EDGE[verdict]}`}
+      className={`grid gap-4 border-l-[3px] p-5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-6 sm:p-6 ${EDGE[verdict]}`}
     >
-      <header className="flex flex-wrap items-center gap-3">
-        <h2 id={headingId} className="text-lg font-semibold">
+      {/* Margin column: who this is and how it came out. */}
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-col sm:items-start sm:gap-2.5">
+        <h2 id={headingId} className="text-base font-semibold text-ink">
           <span className="font-mono">{claim.id}</span>
           <span className="sr-only">: {VERDICT_LABEL[verdict]}</span>
         </h2>
-        <span className="rounded-full border border-emerald-900/30 bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-950">
-          {TYPE_LABEL[claim.type]}
-        </span>
+        <span className="text-sm text-ink-soft sm:order-last">{TYPE_LABEL[claim.type]}</span>
         <VerdictBadge verdict={verdict} />
         <SolidityTag result={result} />
       </header>
 
-      <dl className="mt-5 grid gap-4">
-        <Row label="The report says" kind="Reported">
-          <p className="leading-7">{claim.text}</p>
-        </Row>
+      {/* Main column: the sentence, then the facts behind it. */}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-soft">
+          {edited ? "The report says, with our edits" : "The report says"}
+          <StatementLabel kind={edited ? "Interpretation" : "Reported"} />
+        </div>
+        <div className="mt-1.5">
+          {edited ? <LadderText segments={result.ladder} /> : <p className="reported text-ink">{claim.text}</p>}
+        </div>
 
-        {verdict === "contradicted" && result.correct_value && (
-          <Row label="The data shows" kind="Computed">
-            <p className="text-lg font-semibold">{result.correct_value}</p>
-          </Row>
-        )}
-        {verdict === "supported" && fact && (
-          <Row label="The data shows" kind="Computed">
-            <p className="text-lg font-semibold">{formatFact(fact, claim.type)}</p>
-          </Row>
-        )}
-        {verdict === "insufficient_evidence" && (
-          <Row label="Why we can’t check it">
-            <p>
-              This data cannot answer it.
-              {result.missing_evidence && (
-                <>
-                  {" "}
-                  <strong>Would need: {result.missing_evidence}.</strong>
-                </>
-              )}
-            </p>
-          </Row>
-        )}
+        <dl className="mt-4 grid gap-3 border-t border-rule pt-4">
+          {verdict === "contradicted" && result.correct_value && (
+            <Row label="The data shows" kind="Computed">
+              <p className="num font-mono text-base font-semibold">{result.correct_value}</p>
+            </Row>
+          )}
+          {verdict === "supported" && fact && (
+            <Row label="The data shows" kind="Computed">
+              <p className="num font-mono text-base font-semibold">{formatFact(fact, claim.type)}</p>
+            </Row>
+          )}
+          {verdict === "insufficient_evidence" && (
+            <Row label="Why we can’t check it">
+              <p>
+                This data cannot answer it.
+                {result.missing_evidence && (
+                  <>
+                    {" "}
+                    <strong className="font-semibold">Would need: {result.missing_evidence}.</strong>
+                  </>
+                )}
+              </p>
+            </Row>
+          )}
 
-        {ladderChanges(result.ladder) && (
-          <Row label="Honest wording" kind="Interpretation">
-            <LadderText segments={result.ladder} />
-          </Row>
-        )}
+          {(result.limitation || typeof note === "string") && (
+            <Row label="Keep in mind">
+              <ul className="space-y-1 text-ink-soft">
+                {result.limitation && <li>{result.limitation}</li>}
+                {typeof note === "string" && <li>{note}</li>}
+              </ul>
+            </Row>
+          )}
+        </dl>
 
-        {(result.limitation || typeof note === "string") && (
-          <Row label="Keep in mind">
-            <ul className="list-disc space-y-1 pl-5 text-slate-700">
-              {result.limitation && <li>{result.limitation}</li>}
-              {typeof note === "string" && <li>{note}</li>}
-            </ul>
-          </Row>
-        )}
-      </dl>
-
-      <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
-        <p className="text-sm text-slate-600">
-          {review
-            ? review.decision === "override"
-              ? `Reviewed: overridden to “${VERDICT_LABEL[review.final_verdict]}” by ${review.reviewer_role}.`
-              : `Reviewed: accepted by ${review.reviewer_role}.`
-            : "Not reviewed yet."}
-        </p>
-        <Link
-          href={`/board/${encodeURIComponent(claim.id)}`}
-          className={`rounded-lg font-medium text-emerald-900 underline underline-offset-4 hover:text-emerald-700 ${focusRing}`}
-        >
-          Open evidence for {claim.id} →
-        </Link>
-      </footer>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <p className="flex items-start gap-2 text-sm text-ink-soft">
+            {review ? (
+              <UserCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            ) : (
+              <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            )}
+            <span>
+              {review
+                ? review.decision === "override"
+                  ? `Reviewed: overridden to “${VERDICT_LABEL[review.final_verdict]}” by ${review.reviewer_role}.`
+                  : `Reviewed: accepted by ${review.reviewer_role}.`
+                : "Not reviewed yet."}
+            </span>
+          </p>
+          <Link href={`/board/${encodeURIComponent(claim.id)}`} className={buttonSecondary}>
+            <FileSearch aria-hidden="true" className="size-4" />
+            Open evidence for {claim.id}
+          </Link>
+        </div>
+      </div>
     </article>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
+import { ChevronRight, CircleAlert } from "lucide-react";
 import { useId } from "react";
 import { useAudit } from "@/lib/audit-context";
 import { useRoles } from "@/lib/roles";
+import { fieldInput, fieldLabel, focusRing } from "@/lib/ui";
 import AddRoleForm from "./AddRoleForm";
 
 /** "Viewing as" role select. The choice is kept in the shared audit state (setRole). */
@@ -14,8 +16,8 @@ export default function RolePicker({ allowAdd = true }: { allowAdd?: boolean }) 
 
   return (
     <div className="text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor={id} className="font-medium">
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id} className={fieldLabel}>
           Viewing as
         </label>
         <select
@@ -23,7 +25,7 @@ export default function RolePicker({ allowAdd = true }: { allowAdd?: boolean }) 
           value={role}
           onChange={(e) => setRole(e.target.value)}
           disabled={roles === null}
-          className="rounded-md border border-slate-400 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
+          className={`${fieldInput} sm:max-w-xs`}
         >
           {roles === null && <option value={role}>Loading roles…</option>}
           {roles !== null && !known && <option value={role}>{role}</option>}
@@ -35,13 +37,22 @@ export default function RolePicker({ allowAdd = true }: { allowAdd?: boolean }) 
         </select>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-rose-800">
+        <p role="alert" className="mt-2 flex items-start gap-1.5 font-medium text-contradicted">
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           Could not load roles: {error}
         </p>
       )}
       {allowAdd && (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-emerald-900 underline underline-offset-4">Add a role</summary>
+        <details className="group mt-1">
+          <summary
+            className={`inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-control pr-2 font-medium text-pen underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden ${focusRing}`}
+          >
+            <ChevronRight
+              aria-hidden="true"
+              className="size-4 transition-transform duration-150 group-open:rotate-90"
+            />
+            Add a role
+          </summary>
           <AddRoleForm
             onAdded={(list, added) => {
               setRoles(list);

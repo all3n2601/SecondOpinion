@@ -1,15 +1,33 @@
 "use client";
 
+import {
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  Download,
+  GitCompareArrows,
+  LoaderCircle,
+  RefreshCcw,
+  TriangleAlert,
+  UserCheck,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
+import VerdictBadge from "@/components/VerdictBadge";
 import { exportAudit, suggestDecision } from "@/lib/api";
 import { useAudit } from "@/lib/audit-context";
-import { DECISIONS, plural, unreviewedIds, VERDICT_LABEL, VERDICT_STYLE } from "@/lib/review";
+import { DECISIONS, plural, unreviewedIds } from "@/lib/review";
 import { useRoles } from "@/lib/roles";
 import type { AuditResult, Decision, DecisionChoice, DecisionSuggestion, ExportResponse } from "@/lib/types";
+import { buttonPrimary, buttonSecondary, fieldHint, fieldInput, fieldLabel, focusRing, sectionTitle } from "@/lib/ui";
 import RoleSummary from "./RoleSummary";
 
-const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900";
+const DECISION_MEANING: Record<Decision, string> = {
+  Proceed: "Every claim holds up. Collect the sign-offs and publish.",
+  "Fix a problem": "Some claims do not match the data. Reword them to what the data shows, then audit again.",
+  "Narrow the question": "The data cannot answer everything. Limit the report to what it can answer.",
+  Stop: "Something basic is wrong, such as the data files. Do not publish until it is resolved.",
+};
 
 function download(filename: string, text: string, type: string) {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -83,64 +101,105 @@ export default function DecisionPanel({ audit }: { audit: AuditResult }) {
     }
   }
 
-  return (
-    <div className="space-y-8">
-      <RoleSummary audit={audit} suggestion={suggestion} />
+  const gateId = `${id}-gate`;
+  const errorId = `${id}-export-error`;
 
-      <section aria-labelledby={`${id}-suggested`} aria-busy={!current} className="rounded-xl border border-emerald-900/15 bg-white p-6">
-        <h2 id={`${id}-suggested`} className="text-xl font-semibold">
-          Suggested decision
-        </h2>
-        {!current && <p className="mt-2 text-slate-700">Working out the suggested decision…</p>}
+  return (
+    <div className="space-y-10">
+      <section
+        aria-labelledby={`${id}-suggested`}
+        aria-busy={!current}
+        className="rounded-panel border border-rule bg-sheet p-6 sm:p-8"
+      >
+        {suggestion ? (
+          <h2 id={`${id}-suggested`} className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+            The tool suggests: {suggestion.decision}
+          </h2>
+        ) : (
+          <h2 id={`${id}-suggested`} className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+            Suggested decision
+          </h2>
+        )}
+        {!current && (
+          <p className="mt-3 flex items-center gap-2 text-ink-soft">
+            <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
+            Working out the suggested decision…
+          </p>
+        )}
         {current?.error && (
-          <p role="alert" className="mt-2 text-rose-800">
-            Could not get a suggestion: {current.error}
+          <p role="alert" className="mt-3 flex max-w-prose items-start gap-2 text-contradicted">
+            <CircleAlert aria-hidden="true" className="mt-1 size-5 shrink-0" />
+            <span>
+              Could not get a suggestion: {current.error}
+              <span className="mt-1 block text-ink-soft">
+                Check that the audit service is running, then reload this page.
+              </span>
+            </span>
           </p>
         )}
         {suggestion && (
           <>
-            <p className="mt-2 text-2xl font-semibold text-emerald-900">{suggestion.decision}</p>
-            <p className="mt-1 text-slate-700">{suggestion.rule}.</p>
-            <h3 className="mt-4 font-semibold">Why</h3>
-            <ul className="mt-1 list-disc space-y-1 pl-5">
+            <p className="mt-2 max-w-prose text-lg text-ink-soft">{suggestion.rule}.</p>
+
+            <h3 className="mt-6 text-sm font-semibold text-ink">Why</h3>
+            <ul className="mt-2 max-w-prose list-disc space-y-1.5 pl-5 marker:text-ink-faint">
               {suggestion.reasons.map((r) => (
                 <li key={r}>{r}</li>
               ))}
             </ul>
-            <h3 className="mt-4 font-semibold">Who must sign off</h3>
-            <ul className="mt-1 list-disc pl-5">
-              {suggestion.sign_off.map((who) => (
-                <li key={who}>{who}</li>
-              ))}
-            </ul>
-            <h3 className="mt-4 font-semibold">What would change this decision</h3>
-            <ul className="mt-1 list-disc space-y-1 pl-5">
-              {suggestion.would_change.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
+
+            <div className="mt-6 grid gap-6 border-t border-rule pt-6 md:grid-cols-2 md:gap-10">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <UserCheck aria-hidden="true" className="size-4 text-ink-soft" />
+                  Who must sign off
+                </h3>
+                <ul className="mt-2 list-disc space-y-1.5 pl-5 marker:text-ink-faint">
+                  {suggestion.sign_off.map((who) => (
+                    <li key={who}>{who}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <RefreshCcw aria-hidden="true" className="size-4 text-ink-soft" />
+                  What would change this decision
+                </h3>
+                <ul className="mt-2 list-disc space-y-1.5 pl-5 marker:text-ink-faint">
+                  {suggestion.would_change.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </>
         )}
       </section>
 
+      <RoleSummary audit={audit} suggestion={suggestion} />
+
       {overrides.length > 0 && (
-        <section aria-labelledby={`${id}-conflicts`} className="rounded-xl border border-amber-300 bg-amber-50 p-6">
-          <h2 id={`${id}-conflicts`} className="text-xl font-semibold">
+        <section aria-labelledby={`${id}-conflicts`}>
+          <h2 id={`${id}-conflicts`} className={`${sectionTitle} flex items-center gap-2`}>
+            <GitCompareArrows aria-hidden="true" className="size-5 text-insufficient" />
             Where a person disagreed with the tool
           </h2>
-          <ul className="mt-3 space-y-4">
+          <ul className="mt-3 divide-y divide-rule rounded-panel border border-rule bg-sheet">
             {overrides.map((c) => (
-              <li key={c.claim.id}>
-                <p className="font-medium">{c.claim.id}: {c.claim.text}</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <p className={`rounded border px-3 py-2 ${VERDICT_STYLE[c.verdict]}`}>
-                    Tool: <strong>{VERDICT_LABEL[c.verdict]}</strong>
-                  </p>
-                  <p className={`rounded border px-3 py-2 ${VERDICT_STYLE[c.review!.final_verdict]}`}>
-                    Reviewer: <strong>{VERDICT_LABEL[c.review!.final_verdict]}</strong>
-                  </p>
+              <li key={c.claim.id} className="p-5 sm:p-6">
+                <p className="num font-mono text-sm font-semibold">{c.claim.id}</p>
+                <p className="reported mt-1 max-w-prose">{c.claim.text}</p>
+                <div className="mt-3 flex flex-wrap gap-x-10 gap-y-3">
+                  <div>
+                    <p className="mb-1.5 text-sm text-ink-soft">The tool said</p>
+                    <VerdictBadge verdict={c.verdict} />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-sm text-ink-soft">The reviewer said</p>
+                    <VerdictBadge verdict={c.review!.final_verdict} />
+                  </div>
                 </div>
-                <p className="mt-1 text-sm">
+                <p className="mt-3 text-sm text-ink-soft">
                   Resolved by {c.review!.reviewer_role}: {c.review!.reason}
                 </p>
               </li>
@@ -149,102 +208,172 @@ export default function DecisionPanel({ audit }: { audit: AuditResult }) {
         </section>
       )}
 
-      <form onSubmit={runExport} noValidate aria-labelledby={`${id}-choose`} className="rounded-xl border border-emerald-900/15 bg-white p-6">
-        <h2 id={`${id}-choose`} className="text-xl font-semibold">
+      <form
+        onSubmit={runExport}
+        noValidate
+        aria-labelledby={`${id}-choose`}
+        className="rounded-panel border border-rule bg-sheet p-6 sm:p-8"
+      >
+        <h2 id={`${id}-choose`} className={sectionTitle}>
           Your decision
         </h2>
-        <fieldset className="mt-3" disabled={!suggestion}>
-          <legend className="text-sm font-medium">Decision</legend>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {DECISIONS.map((d) => (
-              <label key={d} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name={`${id}-decision`}
-                  value={d}
-                  checked={choice === d}
-                  onChange={() => setPicked(d)}
-                  className={FOCUS}
-                />
-                {d}
-                {d === suggestion?.decision && <span className="text-sm text-slate-600">(suggested)</span>}
-              </label>
-            ))}
+        <p className={fieldHint}>You make the final call. Pick one, say why, and export.</p>
+        <fieldset className="mt-4" disabled={!suggestion}>
+          <legend className={fieldLabel}>Decision</legend>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            {DECISIONS.map((d) => {
+              const selected = choice === d;
+              return (
+                <label key={d} className="relative flex cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`${id}-decision`}
+                    value={d}
+                    checked={selected}
+                    onChange={() => setPicked(d)}
+                    className="peer sr-only"
+                  />
+                  <span
+                    className={`flex min-h-11 w-full items-start gap-3 rounded-control border-2 p-4 transition-colors duration-150 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-pen peer-disabled:cursor-not-allowed peer-disabled:opacity-60 ${
+                      selected ? "border-pen bg-pen-tint" : "border-rule bg-sheet hover:border-rule-strong hover:bg-wash"
+                    }`}
+                  >
+                    {selected ? (
+                      <CircleCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-pen" strokeWidth={2.25} />
+                    ) : (
+                      <Circle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ink-faint" />
+                    )}
+                    <span className="min-w-0">
+                      <span className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-ink ${selected ? "font-semibold" : "font-medium"}`}>
+                        {d}
+                        {d === suggestion?.decision && (
+                          <span className="rounded-stamp border border-rule-strong bg-sheet px-1.5 py-px text-xs font-medium text-ink-soft">
+                            Suggested by the tool
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-1 block text-sm text-ink-soft">{DECISION_MEANING[d]}</span>
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </fieldset>
 
-        <label htmlFor={`${id}-reason`} className="mt-4 block text-sm font-medium">
-          Reason (required)
-        </label>
-        <textarea
-          id={`${id}-reason`}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={3}
-          required
-          className={`mt-1 w-full rounded-md border border-slate-400 px-3 py-2 text-sm ${FOCUS}`}
-        />
+        <div className="mt-6 grid gap-5">
+          <div>
+            <label htmlFor={`${id}-reason`} className={fieldLabel}>
+              Reason (required)
+            </label>
+            <textarea
+              id={`${id}-reason`}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              required
+              aria-invalid={exportError ? true : undefined}
+              aria-describedby={exportError ? errorId : undefined}
+              className={`${fieldInput} mt-1 max-w-prose`}
+            />
+          </div>
 
-        <label htmlFor={`${id}-role`} className="mt-4 block text-sm font-medium">
-          Your role
-        </label>
-        <select
-          id={`${id}-role`}
-          value={reviewerRole}
-          onChange={(e) => setPickedRole(e.target.value)}
-          className={`mt-1 rounded-md border border-slate-400 bg-white px-3 py-2 text-sm ${FOCUS}`}
-        >
-          {roleNames.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+          <div>
+            <label htmlFor={`${id}-role`} className={fieldLabel}>
+              Your role
+            </label>
+            <select
+              id={`${id}-role`}
+              value={reviewerRole}
+              onChange={(e) => setPickedRole(e.target.value)}
+              className={`${fieldInput} mt-1 w-full sm:w-72`}
+            >
+              {roleNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {left.length > 0 && (
-          <p className="mt-4 text-sm text-amber-900">
-            {plural(left.length, "claim", "claims")} not reviewed yet ({left.join(", ")}).{" "}
-            <Link href="/review" className="underline underline-offset-4">
-              Go to Review
-            </Link>
+          <p className="mt-6 flex max-w-prose items-start gap-2 rounded-control border border-insufficient bg-insufficient-tint p-3 text-sm text-insufficient">
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <span>
+              {plural(left.length, "claim", "claims")} not reviewed yet ({left.join(", ")}).{" "}
+              <Link
+                href="/review"
+                className={`inline-flex min-h-11 items-center rounded-control font-semibold underline underline-offset-4 ${focusRing}`}
+              >
+                Go to Review
+              </Link>
+            </span>
           </p>
         )}
         {exportError && (
-          <p role="alert" className="mt-4 text-sm font-medium text-rose-800">
-            {exportError}
+          <p
+            id={errorId}
+            role="alert"
+            className="mt-6 flex max-w-prose items-start gap-2 text-sm font-medium text-contradicted"
+          >
+            <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <span>
+              {exportError}
+              {exportError !== "Write a reason for the decision." && (
+                <span className="mt-1 block font-normal text-ink-soft">
+                  Nothing was exported. Check that the audit service is running, then try again.
+                </span>
+              )}
+            </span>
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={!choice || exporting}
-          className={`mt-4 block rounded-lg bg-emerald-900 px-5 py-3 font-medium text-white disabled:opacity-50 ${FOCUS}`}
-        >
-          {exporting ? "Exporting…" : "Export"}
-        </button>
+        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <button
+            type="submit"
+            disabled={!choice || exporting}
+            aria-describedby={!choice ? gateId : undefined}
+            className={buttonPrimary}
+          >
+            {exporting && <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />}
+            {exporting ? "Exporting…" : "Export"}
+          </button>
+          {!choice && (
+            <p id={gateId} className="text-sm text-ink-soft">
+              Export is available once the suggested decision has loaded.
+            </p>
+          )}
+        </div>
       </form>
 
       {files && (
-        <section aria-labelledby={`${id}-downloads`} className="rounded-xl border border-emerald-700 bg-emerald-50 p-6">
-          <h2 id={`${id}-downloads`} className="text-xl font-semibold">
+        <section
+          aria-labelledby={`${id}-downloads`}
+          className="rounded-panel border border-supported bg-supported-tint p-6 sm:p-8"
+        >
+          <h2 id={`${id}-downloads`} className={`${sectionTitle} flex items-center gap-2`}>
+            <CircleCheck aria-hidden="true" className="size-5 text-supported" />
             Downloads
           </h2>
-          <p className="mt-1 text-sm text-slate-700">
+          <p className="mt-1 max-w-prose text-sm text-ink-soft">
             audit.json follows the shared findings format v0.2. The Decision Record lists who must sign off.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
               onClick={() => download("audit.json", JSON.stringify(files.audit_json, null, 2), "application/json")}
-              className={`rounded-md bg-emerald-900 px-4 py-2 font-medium text-white ${FOCUS}`}
+              className={buttonSecondary}
             >
+              <Download aria-hidden="true" className="size-4" />
               Download audit.json
             </button>
             <button
               type="button"
               onClick={() => download("decision_record.md", files.decision_record_md, "text/markdown")}
-              className={`rounded-md border border-emerald-900 px-4 py-2 font-medium text-emerald-900 ${FOCUS}`}
+              className={buttonSecondary}
             >
+              <Download aria-hidden="true" className="size-4" />
               Download decision_record.md
             </button>
           </div>

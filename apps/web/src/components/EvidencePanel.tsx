@@ -1,6 +1,8 @@
-import { formatFact, solidityText, TYPE_LABEL } from "@/lib/claim-format";
+import { Building2, Shuffle } from "lucide-react";
+import { describeParams, formatFact, solidityText, TYPE_LABEL } from "@/lib/claim-format";
 import type { ClaimResult, ReleaseInfo } from "@/lib/types";
-import { card } from "@/lib/ui";
+import { sectionTitle } from "@/lib/ui";
+import ClaimVsData from "./ClaimVsData";
 import CodeBlock from "./CodeBlock";
 import LadderText, { ladderChanges } from "./LadderText";
 import RobustnessTable from "./RobustnessTable";
@@ -14,13 +16,22 @@ const RELEASE_CONTAINS = "clinical labels, survival times, mutations, copy numbe
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={id} className={card}>
-      <h2 id={id} className="mb-4 text-xl font-semibold">
+    <section aria-labelledby={id} className="mt-8 border-t border-rule pt-8">
+      <h2 id={id} className={`${sectionTitle} mb-4`}>
         {title}
       </h2>
       {children}
     </section>
   );
+}
+
+/** A label and its value, in a two-column list that stacks on small screens. */
+function Facts({ children }: { children: React.ReactNode }) {
+  return <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[11rem_1fr]">{children}</dl>;
+}
+
+function Term({ children }: { children: React.ReactNode }) {
+  return <dt className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink-soft sm:pt-0.5">{children}</dt>;
 }
 
 /** Python that reproduces the number: load the release, then the engine's own snippet. */
@@ -43,135 +54,123 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
   const skeptic = result.skeptic;
 
   return (
-    <div className="grid gap-6">
-      <header className={card}>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold">{claim.id}</h1>
-          <span className="rounded-full border border-emerald-900/30 bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-950">
+    <article>
+      <header>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="num font-mono text-3xl font-semibold tracking-tight text-ink">{claim.id}</h1>
+          <VerdictBadge verdict={verdict} />
+          <span className="inline-flex items-center rounded-stamp border border-rule-strong bg-sheet px-2.5 py-1 text-sm font-medium text-ink-soft">
             {TYPE_LABEL[claim.type]}
           </span>
-          <VerdictBadge verdict={verdict} />
           <SolidityTag result={result} />
         </div>
-        <p className="mt-4 flex flex-wrap items-baseline gap-2 text-lg leading-8">
+
+        <div className="mt-6 max-w-prose border-l-2 border-rule-strong pl-4">
           <StatementLabel kind="Reported" />
-          {claim.text}
-        </p>
+          <p className="reported mt-1.5 text-ink">{claim.text}</p>
+        </div>
         {ladderChanges(result.ladder) && (
-          <div className="mt-3 flex flex-wrap items-baseline gap-2">
+          <div className="mt-4 max-w-prose border-l-2 border-pen pl-4">
             <StatementLabel kind="Interpretation" />
-            <LadderText segments={result.ladder} />
+            <div className="mt-1.5">
+              <LadderText segments={result.ladder} />
+            </div>
           </div>
         )}
       </header>
 
+      <ClaimVsData result={result} />
+
       {verdict === "insufficient_evidence" && (
-        <Section id="missing" title="What’s missing">
-          <p className="leading-7">
-            {result.missing_evidence ? (
-              <>
-                This data cannot answer the claim. <strong>Would need: {result.missing_evidence}.</strong>
-              </>
-            ) : (
-              "This data cannot answer the claim."
+        <Section id="missing" title="Why we cannot check it">
+          <div className="max-w-prose space-y-3 leading-7">
+            {claim.clinical_terms.length > 0 && (
+              <p>
+                Clinical or causal wording in the report:{" "}
+                {claim.clinical_terms.map((t, i) => (
+                  <span key={t}>
+                    {i > 0 && ", "}
+                    <mark className="rounded-stamp bg-insufficient-tint px-1 text-insufficient">{t}</mark>
+                  </span>
+                ))}
+                . We flag it and do not repeat it as fact.
+              </p>
             )}
-          </p>
-          {claim.clinical_terms.length > 0 && (
-            <p className="mt-3 leading-7">
-              Clinical or causal wording in the report:{" "}
-              {claim.clinical_terms.map((t, i) => (
-                <span key={t}>
-                  {i > 0 && ", "}
-                  <mark className="rounded bg-amber-100 px-1 text-amber-950">{t}</mark>
-                </span>
-              ))}
-              . We flag it and do not repeat it as fact.
+            <p className="text-ink-soft">
+              This release contains {RELEASE_CONTAINS}. It has no treatment, treatment-response or cause-and-effect
+              records.
             </p>
-          )}
-          <p className="mt-3 text-slate-700">
-            This release contains {RELEASE_CONTAINS}. It has no treatment, treatment-response or cause-and-effect
-            records.
-          </p>
+          </div>
         </Section>
       )}
 
       {fact && (
-        <Section id="calculation" title="The calculation">
-          <dl className="grid gap-3 sm:grid-cols-[12rem_1fr]">
-            <dt className="font-medium text-slate-600">What we counted</dt>
-            <dd>{fact.label}</dd>
-            <dt className="flex items-center gap-2 font-medium text-slate-600">
+        <Section id="calculation" title="How we calculated it">
+          <div className="max-w-prose space-y-3 leading-7">
+            <p>
+              We counted <strong className="font-semibold">{fact.label}</strong>.
+            </p>
+            <p className="text-ink-soft">What we read from the sentence: {describeParams(claim)}.</p>
+            {fact.unknown_count > 0 && (
+              <p>
+                {fact.unknown_count.toLocaleString("en-US")} samples had no value for this, so they are left out of the
+                count.
+              </p>
+            )}
+            {typeof extra.note === "string" && <p>{extra.note}</p>}
+          </div>
+        </Section>
+      )}
+
+      {fact && (
+        <Section id="numbers" title="Numbers">
+          <Facts>
+            <Term>
               Result <StatementLabel kind="Computed" />
-            </dt>
-            <dd className="text-lg font-semibold">{formatFact(fact, claim.type)}</dd>
+            </Term>
+            <dd className="num font-mono text-lg font-semibold text-ink">{formatFact(fact, claim.type)}</dd>
             {claim.type === "COMPARISON" && typeof extra.mean_a === "number" && typeof extra.mean_b === "number" && (
               <>
-                <dt className="font-medium text-slate-600">Group means</dt>
-                <dd>
-                  {claim.params.group_a ?? "group A"}: {extra.mean_a.toFixed(3)} ({extra.n_a} samples) ·{" "}
+                <Term>Group means</Term>
+                <dd className="num font-mono text-sm leading-7">
+                  {claim.params.group_a ?? "group A"}: {extra.mean_a.toFixed(3)} ({extra.n_a} samples)
+                  <br />
                   {claim.params.group_b ?? "group B"}: {extra.mean_b.toFixed(3)} ({extra.n_b} samples)
                 </dd>
               </>
             )}
             {verdict === "contradicted" && result.correct_value && (
               <>
-                <dt className="font-medium text-slate-600">Correct value</dt>
-                <dd className="font-semibold">{result.correct_value}</dd>
+                <Term>Correct value</Term>
+                <dd className="num font-mono text-lg font-semibold text-ink">{result.correct_value}</dd>
               </>
             )}
-            {fact.unknown_count > 0 && (
-              <>
-                <dt className="font-medium text-slate-600">Left out as unknown</dt>
-                <dd>
-                  {fact.unknown_count.toLocaleString("en-US")} samples had no value for this, so they are not
-                  counted.
-                </dd>
-              </>
-            )}
-            {typeof extra.note === "string" && (
-              <>
-                <dt className="font-medium text-slate-600">Note</dt>
-                <dd>{extra.note}</dd>
-              </>
-            )}
-            {result.limitation && (
-              <>
-                <dt className="font-medium text-slate-600">Limitation</dt>
-                <dd>{result.limitation}</dd>
-              </>
-            )}
-          </dl>
+          </Facts>
         </Section>
       )}
 
       {fact && (
-        <Section id="sources" title="Source files">
-          <table className="w-full table-fixed text-left text-sm">
-            <caption className="sr-only">Files used for {claim.id}, with SHA-256 checksums</caption>
-            <thead>
-              <tr className="border-b border-slate-300 text-slate-700">
-                <th scope="col" className="w-2/5 py-2 pr-3 font-semibold">
-                  File (release {release.name})
-                </th>
-                <th scope="col" className="py-2 font-semibold">
-                  SHA-256 checksum
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {fact.files.map((file) => (
-                <tr key={file} className="border-b border-slate-200 align-top">
-                  <td className="py-2 pr-3 font-mono break-all">{file}</td>
-                  <td className="py-2 font-mono text-xs break-all text-slate-700">{checksum(file)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Section id="sources" title="Source files and checksums">
+          <p className="mb-4 text-sm text-ink-soft">
+            Release <span className="num font-mono">{release.name}</span>. Each checksum is the file&apos;s SHA-256, shown
+            in full so you can compare it with your own copy.
+          </p>
+          <ul aria-label={`Files used for ${claim.id}, with SHA-256 checksums`} className="divide-y divide-rule">
+            {fact.files.map((file) => (
+              <li key={file} className="py-3">
+                <p className="num font-mono text-sm font-medium break-all text-ink">{file}</p>
+                <p className="mt-1 text-sm text-ink-soft">
+                  <span className="mr-2">SHA-256</span>
+                  <span className="num font-mono text-[0.8125rem] break-all text-ink select-all">{checksum(file)}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
 
       {fact && fact.code.trim() && (
-        <Section id="code" title="The exact code">
+        <Section id="code" title="Code">
           <CodeBlock
             code={runnableCode(fact.code, releaseDir)}
             label="Python (pandas). Run it from the SecondOpinion folder to get the same number."
@@ -180,36 +179,51 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
       )}
 
       {fact && (
-        <Section id="samples" title="Samples">
-          <SampleList claimId={claim.id} sampleIds={fact.sample_ids} />
+        <Section id="samples" title="Samples used">
+          <SampleList claimId={claim.id} sampleIds={fact.sample_ids} denominator={fact.denominator} />
         </Section>
       )}
 
       {result.variants.length > 0 && (
-        <Section id="robustness" title="Counted different ways">
-          <p className="mb-4 leading-7 text-slate-700">{solidityText(result).long} Only the main definition sets the verdict; the others only test how solid it is.</p>
+        <Section id="robustness" title="Count it differently">
+          <p className="mb-4 max-w-prose leading-7 text-ink-soft">
+            {solidityText(result).long} Only the main definition sets the verdict; the others only test how solid it is.
+          </p>
           <RobustnessTable result={result} />
         </Section>
       )}
 
       {skeptic && (
         <Section id="skeptic" title="Skeptic tests">
-          <ul className="list-disc space-y-2 pl-6 leading-7">
+          <ul className="max-w-prose space-y-3 leading-7">
             {skeptic.shuffle_p !== null && (
-              <li>
-                Shuffled the group labels 200 times: the real difference was larger than{" "}
-                {Math.floor((1 - skeptic.shuffle_p) * 100)}% of the shuffled ones (p = {skeptic.shuffle_p.toFixed(3)}).
+              <li className="flex gap-3">
+                <Shuffle aria-hidden="true" className="mt-1.5 size-4 shrink-0 text-ink-soft" />
+                <span>
+                  Shuffled the group labels 200 times: the real difference was larger than{" "}
+                  {Math.floor((1 - skeptic.shuffle_p) * 100)}% of the shuffled ones (p ={" "}
+                  <span className="num font-mono">{skeptic.shuffle_p.toFixed(3)}</span>).
+                </span>
               </li>
             )}
-            <li>
-              Left out each of {skeptic.n_sites} hospitals one at a time:{" "}
-              {skeptic.site_flips.length === 0
-                ? "the direction never flips."
-                : `the direction flips without site ${skeptic.site_flips.join(", ")}. One hospital may be driving the result.`}
+            <li className="flex gap-3">
+              <Building2 aria-hidden="true" className="mt-1.5 size-4 shrink-0 text-ink-soft" />
+              <span>
+                Left out each of {skeptic.n_sites} hospitals one at a time:{" "}
+                {skeptic.site_flips.length === 0
+                  ? "the direction never flips."
+                  : `the direction flips without site ${skeptic.site_flips.join(", ")}. One hospital may be driving the result.`}
+              </span>
             </li>
           </ul>
         </Section>
       )}
-    </div>
+
+      {result.limitation && (
+        <Section id="limitation" title="Limitation">
+          <p className="max-w-prose leading-7">{result.limitation}</p>
+        </Section>
+      )}
+    </article>
   );
 }

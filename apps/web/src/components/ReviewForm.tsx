@@ -1,16 +1,20 @@
 "use client";
 
+import { Check, CircleAlert, CircleCheck, Circle, PencilLine } from "lucide-react";
 import { useId, useState } from "react";
+import SolidityTag from "@/components/SolidityTag";
+import VerdictBadge from "@/components/VerdictBadge";
 import { useAudit } from "@/lib/audit-context";
-import { keyNumber, SOLIDITY_LABEL, VERDICT_LABEL, VERDICT_STYLE, VERDICTS } from "@/lib/review";
+import { keyNumber, VERDICT_LABEL, VERDICTS } from "@/lib/review";
 import { useRoles } from "@/lib/roles";
 import type { ClaimResult, Verdict } from "@/lib/types";
-
-const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900";
+import { buttonSecondary, fieldHint, fieldInput, fieldLabel } from "@/lib/ui";
 
 type Choice = "accept" | "override";
 
-/** One claim: the tool's verdict and key number, and a person's Accept / Override with a reason. */
+const CHOICE_LABEL: Record<Choice, string> = { accept: "Accept the tool's verdict", override: "Override" };
+
+/** One ledger entry: the tool's verdict and key number, and a person's Accept / Override with a reason. */
 export default function ReviewForm({ result }: { result: ClaimResult }) {
   const id = useId();
   const { setReview, role } = useAudit();
@@ -25,6 +29,7 @@ export default function ReviewForm({ result }: { result: ClaimResult }) {
   const [reason, setReason] = useState(saved?.reason ?? "");
   const [reviewerRole, setReviewerRole] = useState(saved?.reviewer_role ?? role);
   const [error, setError] = useState<string | null>(null);
+  const [noteOpen, setNoteOpen] = useState(Boolean(saved?.reason));
 
   const draft = {
     decision: choice,
@@ -52,132 +57,174 @@ export default function ReviewForm({ result }: { result: ClaimResult }) {
   const roleNames = roles?.map((r) => r.name) ?? [];
   if (!roleNames.includes(reviewerRole)) roleNames.unshift(reviewerRole);
   const titleId = `${id}-title`;
+  const errorId = `${id}-error`;
+  const hintId = `${id}-hint`;
 
-  return (
-    <form
-      onSubmit={save}
-      aria-labelledby={titleId}
-      className="rounded-xl border border-emerald-900/15 bg-white p-6"
-      noValidate
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 id={titleId} className="text-lg font-semibold">
-          {result.claim.id}
-        </h2>
-        <p role="status" className="text-sm">
-          {saved && !dirty ? (
-            <span className="font-medium text-emerald-900">
-              ✓ Reviewed: {saved.decision === "accept" ? "accepted" : `overridden to ${VERDICT_LABEL[saved.final_verdict]}`}
-            </span>
-          ) : saved ? (
-            <span className="text-amber-900">Unsaved changes</span>
-          ) : (
-            <span className="text-slate-600">Not reviewed yet</span>
-          )}
-        </p>
-      </div>
-      <blockquote className="mt-2 border-l-4 border-slate-300 pl-3 text-slate-800">{result.claim.text}</blockquote>
-
-      <dl className="mt-4 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[max-content_1fr]">
-        <dt className="font-medium">Tool verdict</dt>
-        <dd>
-          <span className={`inline-block rounded border px-2 py-0.5 font-medium ${VERDICT_STYLE[result.verdict]}`}>
-            {VERDICT_LABEL[result.verdict]}
-          </span>
-        </dd>
-        <dt className="font-medium">Key number</dt>
-        <dd>{keyNumber(result)}</dd>
-        <dt className="font-medium">Solidity</dt>
-        <dd>{SOLIDITY_LABEL[result.solidity]}</dd>
-      </dl>
-
-      <fieldset className="mt-4">
-        <legend className="text-sm font-medium">Your review</legend>
-        <div className="mt-2 flex flex-wrap gap-4 text-sm">
-          {(["accept", "override"] as const).map((value) => (
-            <label key={value} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name={`${id}-choice`}
-                value={value}
-                checked={choice === value}
-                onChange={() => setChoice(value)}
-                className={FOCUS}
-              />
-              {value === "accept" ? "Accept the tool's verdict" : "Override"}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      {choice === "override" && (
-        <div className="mt-3">
-          <label htmlFor={`${id}-verdict`} className="block text-sm font-medium">
-            Your verdict
-          </label>
-          <select
-            id={`${id}-verdict`}
-            value={overrideTo}
-            onChange={(e) => setOverrideTo(e.target.value as Verdict)}
-            className={`mt-1 rounded-md border border-slate-400 bg-white px-3 py-2 text-sm ${FOCUS}`}
-          >
-            {otherVerdicts.map((v) => (
-              <option key={v} value={v}>
-                {VERDICT_LABEL[v]}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-slate-600">The tool&apos;s verdict is kept next to yours.</p>
-        </div>
-      )}
-
-      <div className="mt-3">
-        <label htmlFor={`${id}-reason`} className="block text-sm font-medium">
-          Reason {choice === "override" ? "(required)" : "(optional)"}
-        </label>
-        <textarea
-          id={`${id}-reason`}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={2}
-          required={choice === "override"}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
-          className={`mt-1 w-full rounded-md border border-slate-400 px-3 py-2 text-sm ${FOCUS}`}
-        />
-      </div>
-
-      <div className="mt-3">
-        <label htmlFor={`${id}-role`} className="block text-sm font-medium">
-          Reviewer role
-        </label>
-        <select
-          id={`${id}-role`}
-          value={reviewerRole}
-          onChange={(e) => setReviewerRole(e.target.value)}
-          className={`mt-1 rounded-md border border-slate-400 bg-white px-3 py-2 text-sm ${FOCUS}`}
-        >
-          {roleNames.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </div>
-
+  const reasonField = (
+    <div>
+      <label htmlFor={`${id}-reason`} className={fieldLabel}>
+        Reason {choice === "override" ? "(required)" : "(optional)"}
+      </label>
+      <textarea
+        id={`${id}-reason`}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={2}
+        required={choice === "override"}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`${fieldInput} mt-1 ${error ? "border-contradicted" : ""}`}
+      />
       {error && (
-        <p id={`${id}-error`} role="alert" className="mt-3 text-sm font-medium text-rose-800">
+        <p id={errorId} role="alert" className="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-contradicted">
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {error}
         </p>
       )}
+    </div>
+  );
 
-      <button
-        type="submit"
-        disabled={!dirty}
-        className={`mt-4 rounded-md bg-emerald-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${FOCUS}`}
+  const roleField = (
+    <div>
+      <label htmlFor={`${id}-role`} className={fieldLabel}>
+        Reviewer role
+      </label>
+      <select
+        id={`${id}-role`}
+        value={reviewerRole}
+        onChange={(e) => setReviewerRole(e.target.value)}
+        className={`${fieldInput} mt-1`}
       >
-        {saved ? "Update review" : "Save review"}
-      </button>
+        {roleNames.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  return (
+    <form onSubmit={save} aria-labelledby={titleId} className="p-5 sm:p-6" noValidate>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id={titleId} className="num font-mono text-base font-semibold text-ink">
+            {result.claim.id}
+          </h2>
+          <VerdictBadge verdict={result.verdict} />
+        </div>
+        <p role="status" className="text-sm">
+          {saved && !dirty ? (
+            <span className="inline-flex items-center gap-1.5 font-semibold text-supported">
+              <CircleCheck aria-hidden="true" className="size-4" />
+              Reviewed: {saved.decision === "accept" ? "accepted" : `overridden to ${VERDICT_LABEL[saved.final_verdict]}`}
+            </span>
+          ) : saved ? (
+            <span className="inline-flex items-center gap-1.5 font-semibold text-insufficient">
+              <PencilLine aria-hidden="true" className="size-4" />
+              Unsaved changes
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-ink-soft">
+              <Circle aria-hidden="true" className="size-4" />
+              Not reviewed yet
+            </span>
+          )}
+        </p>
+      </div>
+
+      <blockquote className="reported mt-3 max-w-prose text-ink">{result.claim.text}</blockquote>
+
+      <dl className="mt-4 grid items-center gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+        <dt className="font-semibold text-ink">Key number</dt>
+        <dd className="num text-ink">{keyNumber(result)}</dd>
+        <dt className="font-semibold text-ink">Solidity</dt>
+        <dd>
+          <SolidityTag result={result} />
+        </dd>
+      </dl>
+
+      <fieldset className="mt-5">
+        <legend className={fieldLabel}>Your review</legend>
+        <div className="mt-2 grid grid-cols-2 sm:inline-grid sm:grid-cols-[auto_auto]">
+          {(["accept", "override"] as const).map((value) => {
+            const selected = choice === value;
+            return (
+              <label key={value} className="relative flex cursor-pointer">
+                <input
+                  type="radio"
+                  name={`${id}-choice`}
+                  value={value}
+                  checked={selected}
+                  onChange={() => setChoice(value)}
+                  className="peer sr-only"
+                />
+                <span
+                  className={`flex min-h-11 w-full items-center justify-center gap-2 border px-4 py-2 text-center text-sm transition-colors duration-150 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-pen ${
+                    value === "accept" ? "rounded-l-control" : "-ml-px rounded-r-control"
+                  } ${
+                    selected
+                      ? "border-pen bg-pen-tint font-semibold text-pen-deep"
+                      : "border-rule-strong bg-sheet font-medium text-ink hover:bg-wash"
+                  }`}
+                >
+                  {selected && <Check aria-hidden="true" className="size-4 shrink-0" strokeWidth={2.5} />}
+                  {CHOICE_LABEL[value]}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      {choice === "override" ? (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor={`${id}-verdict`} className={fieldLabel}>
+              Your verdict
+            </label>
+            <select
+              id={`${id}-verdict`}
+              value={overrideTo}
+              onChange={(e) => setOverrideTo(e.target.value as Verdict)}
+              aria-describedby={hintId}
+              className={`${fieldInput} mt-1`}
+            >
+              {otherVerdicts.map((v) => (
+                <option key={v} value={v}>
+                  {VERDICT_LABEL[v]}
+                </option>
+              ))}
+            </select>
+            <p id={hintId} className={fieldHint}>
+              The tool&apos;s verdict is kept next to yours.
+            </p>
+          </div>
+          {roleField}
+          <div className="sm:col-span-2">{reasonField}</div>
+        </div>
+      ) : (
+        <details
+          className="mt-4"
+          open={noteOpen || Boolean(error)}
+          onToggle={(e) => setNoteOpen(e.currentTarget.open)}
+        >
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-control text-sm font-medium text-pen underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden">
+            <PencilLine aria-hidden="true" className="size-4" />
+            Add a note or change the reviewer role
+          </summary>
+          <div className="mt-2 grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">{reasonField}</div>
+            {roleField}
+          </div>
+        </details>
+      )}
+
+      <div className="mt-5">
+        <button type="submit" disabled={!dirty} className={buttonSecondary}>
+          {saved ? "Update review" : "Save review"}
+        </button>
+      </div>
     </form>
   );
 }

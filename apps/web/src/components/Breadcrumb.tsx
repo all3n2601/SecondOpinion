@@ -1,4 +1,6 @@
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { focusRing } from "@/lib/ui";
 
 export interface Crumb {
   label: string;
@@ -10,21 +12,21 @@ export interface Crumb {
 export default function Breadcrumb({ items }: { items: Crumb[] }) {
   return (
     <nav aria-label="Breadcrumb" className="mb-6 text-sm">
-      <ol className="flex flex-wrap items-center gap-1 text-slate-600">
+      <ol className="flex flex-wrap items-center gap-x-1 text-ink-soft">
         {items.map((item, i) => {
           const last = i === items.length - 1;
           return (
             <li key={`${item.label}-${i}`} className="flex items-center gap-1">
-              {i > 0 && <span aria-hidden="true">›</span>}
+              {i > 0 && <ChevronRight aria-hidden="true" className="size-4 text-ink-faint" />}
               {item.href && !last ? (
                 <Link
                   href={item.href}
-                  className="rounded underline underline-offset-4 hover:text-emerald-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
+                  className={`inline-flex min-h-11 items-center rounded-control px-1 underline underline-offset-4 transition-colors duration-150 hover:text-pen ${focusRing}`}
                 >
                   {item.label}
                 </Link>
               ) : (
-                <span aria-current={last ? "page" : undefined} className={last ? "font-semibold text-slate-900" : undefined}>
+                <span aria-current={last ? "page" : undefined} className={last ? "font-semibold text-ink" : undefined}>
                   {item.label}
                 </span>
               )}

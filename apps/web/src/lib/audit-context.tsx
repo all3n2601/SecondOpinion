@@ -3,12 +3,19 @@
 // The one place that holds the working state of an audit: the report, the claims the user keeps,
 // the audit result and the reviews. The API is stateless, so the browser owns all of this and sends
 // it back on each call. The provider sits in the root layout, so state survives page navigation.
+// It is also copied to sessionStorage (tab-scoped, see persist.ts) so a reload does not lose it.
+// The first render is always the empty state, so server and client markup match; the stored copy is
+// restored in an effect after mount, and `hydrated` says when that has happened.
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { classifySentence } from "./api";
+import { clearPersisted, DEFAULT_ROLE, emptyState, loadPersisted, savePersisted, type PersistedState } from "./persist";
 import type { AuditResult, Claim, ExtractResult, Review, SentenceInfo } from "./types";
 
-export const DEFAULT_ROLE = "Data-use reviewer";
+export { DEFAULT_ROLE };
+
+const WRITE_DELAY_MS = 250;
+const defaultReleaseDir = () => process.env.NEXT_PUBLIC_DEFAULT_RELEASE_DIR ?? "";
 
 export interface AuditState {
   reportText: string;
@@ -30,6 +37,11 @@ export interface AuditState {
 
   role: string;
   setRole: (name: string) => void;
+
+  /** False on the server and on the first client render; true once any stored state has been restored. */
+  hydrated: boolean;
+  /** Forget everything (memory and sessionStorage): report, extraction, audit, reviews and role. */
+  reset: () => void;
 }
 
 const AuditContext = createContext<AuditState | null>(null);
@@ -45,11 +57,72 @@ function nextClaimId(claims: Claim[]): string {
 
 export function AuditProvider({ children }: { children: React.ReactNode }) {
   const [reportText, setReportText] = useState("");
-  const [releaseDir, setReleaseDir] = useState(process.env.NEXT_PUBLIC_DEFAULT_RELEASE_DIR ?? "");
+  const [releaseDir, setReleaseDir] = useState(defaultReleaseDir);
   const [sentences, setSentences] = useState<SentenceInfo[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [role, setRole] = useState(DEFAULT_ROLE);
+  const [hydrated, setHydrated] = useState(false);
+  // The latest state worth saving; null until restore has run, so we never overwrite storage with the empty first render.
+  const latest = useRef<PersistedState | null>(null);
+
+  // Restore after mount (never during render, so hydration matches). Reading an external store
+  // (sessionStorage) into state on mount is exactly what this lint rule cannot tell from a cascade.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const stored = loadPersisted(defaultReleaseDir());
+    if (stored) {
+      setReportText(stored.reportText);
+      setReleaseDir(stored.releaseDir);
+      setSentences(stored.sentences);
+      setClaims(stored.claims);
+      setAudit(stored.audit);
+      setRole(stored.role);
+    }
+    setHydrated(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const snapshot = useMemo<PersistedState>(
+    () => ({ reportText, releaseDir, sentences, claims, audit, role }),
+    [reportText, releaseDir, sentences, claims, audit, role],
+  );
+
+  // Debounced write: typing in the report box must not hit storage on every keystroke.
+  useEffect(() => {
+    if (!hydrated) return;
+    latest.current = snapshot;
+    const timer = setTimeout(() => savePersisted(snapshot), WRITE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [hydrated, snapshot]);
+
+  // A reload or tab switch inside the debounce window would lose the last edit, so flush on the way out.
+  useEffect(() => {
+    const flush = () => {
+      if (latest.current) savePersisted(latest.current);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  const reset = useCallback(() => {
+    const fresh = emptyState(defaultReleaseDir());
+    latest.current = fresh;
+    clearPersisted();
+    setReportText(fresh.reportText);
+    setReleaseDir(fresh.releaseDir);
+    setSentences(fresh.sentences);
+    setClaims(fresh.claims);
+    setAudit(fresh.audit);
+    setRole(fresh.role);
+  }, []);
 
   const setExtract = useCallback((result: ExtractResult) => {
     setSentences(result.sentences);
@@ -102,8 +175,10 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       setReview,
       role,
       setRole,
+      hydrated,
+      reset,
     }),
-    [reportText, releaseDir, sentences, claims, setExtract, toggleClaim, audit, setReview, role],
+    [reportText, releaseDir, sentences, claims, setExtract, toggleClaim, audit, setReview, role, hydrated, reset],
   );
 
   return <AuditContext.Provider value={value}>{children}</AuditContext.Provider>;

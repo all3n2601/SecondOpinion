@@ -1,7 +1,8 @@
 "use client";
 
+import { CircleAlert, CircleCheck, FileText } from "lucide-react";
 import { useId, useState } from "react";
-import { buttonSecondary, card, fieldHint, fieldInput, fieldLabel, focusRing } from "@/lib/ui";
+import { buttonQuiet, fieldHint, fieldInput, fieldLabel, focusRing, sectionTitle } from "@/lib/ui";
 
 const ACCEPTED = [".md", ".txt"];
 
@@ -47,14 +48,14 @@ export default function ReportUpload({ value, onChange }: Props) {
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   return (
-    <section aria-labelledby="report-heading" className={card}>
-      <h2 id="report-heading" className="text-xl font-semibold">
-        1. The report to check
-      </h2>
-      <p className={fieldHint}>Upload a Markdown or text file, use the practice report, or paste the text below.</p>
+    <section aria-labelledby="report-heading">
+      <h3 id="report-heading" className={sectionTitle}>
+        1. Report
+      </h3>
+      <p className={fieldHint}>Upload a Markdown or text file, paste the text, or try the practice report.</p>
 
-      <div className="mt-5 flex flex-wrap items-end gap-4">
-        <div>
+      <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-2">
+        <div className="min-w-0 max-w-full">
           <label htmlFor={fileId} className={fieldLabel}>
             Upload a report (.md or .txt)
           </label>
@@ -67,18 +68,18 @@ export default function ReportUpload({ value, onChange }: Props) {
               if (file) readFile(file);
               e.target.value = ""; // allow choosing the same file again
             }}
-            className={`mt-2 block text-sm file:mr-3 file:rounded-lg file:border file:border-emerald-900/40 file:bg-white file:px-4 file:py-2 file:font-medium file:text-emerald-950 hover:file:bg-emerald-50 ${focusRing}`}
+            className={`mt-2 block max-w-full text-sm text-ink-soft file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-control file:border file:border-rule-strong file:bg-sheet file:px-4 file:py-2 file:text-[0.9375rem] file:font-semibold file:text-ink file:transition-colors file:duration-150 hover:file:bg-wash ${focusRing}`}
           />
         </div>
-        <span className="pb-2 text-slate-600">or</span>
-        <button type="button" onClick={loadPractice} className={buttonSecondary}>
+        <button type="button" onClick={loadPractice} className={buttonQuiet}>
+          <FileText aria-hidden="true" size={16} strokeWidth={1.75} />
           Use the practice report
         </button>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         <label htmlFor={pasteId} className={fieldLabel}>
-          Report text
+          Or paste the report text
         </label>
         <textarea
           id={pasteId}
@@ -89,7 +90,7 @@ export default function ReportUpload({ value, onChange }: Props) {
           }}
           rows={8}
           placeholder="Paste the report here…"
-          className={`${fieldInput} mt-2 font-mono text-sm`}
+          className={`${fieldInput} mt-2 font-serif text-base leading-7`}
         />
         <p className={fieldHint}>
           {words === 0 ? "No report yet." : `${words} words${source ? ` from ${source}` : ""}.`}
@@ -98,9 +99,18 @@ export default function ReportUpload({ value, onChange }: Props) {
 
       <p
         aria-live="polite"
-        className={`mt-2 text-sm ${message?.kind === "error" ? "font-medium text-red-800" : "text-emerald-900"}`}
+        className={`mt-2 text-sm ${message?.kind === "error" ? "font-medium text-contradicted" : "text-supported"}`}
       >
-        {message && (message.kind === "error" ? "✕ " : "✓ ") + message.text}
+        {message && (
+          <span className="flex items-start gap-2">
+            {message.kind === "error" ? (
+              <CircleAlert aria-hidden="true" size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+            ) : (
+              <CircleCheck aria-hidden="true" size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+            )}
+            <span>{message.text}</span>
+          </span>
+        )}
       </p>
     </section>
   );

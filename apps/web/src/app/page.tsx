@@ -5,6 +5,7 @@ import { useState } from "react";
 import ApiStatus from "@/components/ApiStatus";
 import ReleasePicker from "@/components/ReleasePicker";
 import ReportUpload from "@/components/ReportUpload";
+import RolePicker from "@/components/RolePicker";
 import { extractClaims } from "@/lib/api";
 import { useAudit } from "@/lib/audit-context";
 import { buttonPrimary } from "@/lib/ui";
@@ -42,7 +43,10 @@ export default function StartPage() {
             and show how solid each answer is.
           </p>
         </div>
-        <ApiStatus />
+        <div className="flex flex-col items-end gap-3">
+          <ApiStatus />
+          <RolePicker />
+        </div>
       </header>
 
       <div className="mt-8 grid gap-6">

@@ -30,6 +30,8 @@ NumPy 2.5.4 (BSD-3-Clause, with bundled 0BSD/MIT/Zlib/CC0-1.0 parts), certifi (M
 | [ESLint](https://eslint.org/) + `eslint-config-next` (dev) | 9.39.5 / 16.4.6 | MIT | Linting |
 | `@types/node`, `@types/react`, `@types/react-dom` (dev) | 20 / 19 / 19 | MIT | Type definitions |
 | [concurrently](https://github.com/open-cli-tools/concurrently) (dev) | 9.2.5 | MIT | Running web and API together |
+| [Lucide](https://lucide.dev/) (`lucide-react`) | 1.72.0 | ISC | Interface icons |
+| IBM Plex Sans, IBM Plex Mono ([IBM](https://github.com/IBM/plex)) and Newsreader ([Production Type](https://github.com/productiontype/Newsreader)), via `next/font/google` | n/a | SIL Open Font License 1.1 | Web fonts, downloaded at build and served from our own origin |
 
 Transitive npm packages are almost all MIT, Apache-2.0, ISC or BSD. Exceptions, none of which we
 modify:

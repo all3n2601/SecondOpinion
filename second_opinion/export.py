@@ -124,7 +124,7 @@ def _finding(result: ClaimResult, release_name: str) -> dict:
 
 
 def build_audit_json(
-    audit: AuditResult, decision: DecisionChoice | None = None, team: str = "SecondOpinion"
+    audit: AuditResult, decision: DecisionChoice | None = None, team: str = "Techminds"
 ) -> dict:
     name = audit.release.name
     doc: dict = {
@@ -138,13 +138,16 @@ def build_audit_json(
     }
     if decision is not None:
         doc["verdict"] = decision.choice.value
-    findings: list[dict] = []
+    # The checker matches findings to its answer key by claim_text, and a sentence listed twice
+    # breaks the match, so a sentence repeated in the report keeps only its first finding.
     seen: set[str] = set()
-    for r in audit.claims:  # one finding per sentence: a repeated claim_text would break matching
-        finding = _finding(r, name)
-        if finding["claim_text"] not in seen:
-            seen.add(finding["claim_text"])
-            findings.append(finding)
+    findings = []
+    for result in audit.claims:
+        key = " ".join(result.claim.text.split())
+        if key in seen:
+            continue
+        seen.add(key)
+        findings.append(_finding(result, name))
     doc["findings"] = findings
     return doc
 

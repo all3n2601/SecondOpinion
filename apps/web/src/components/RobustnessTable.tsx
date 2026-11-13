@@ -2,6 +2,7 @@ import { CircleCheck, CircleHelp, CircleX, TriangleAlert } from "lucide-react";
 import { formatFact, VERDICT_LABEL, variantWords } from "@/lib/claim-format";
 import type { ClaimResult, Verdict } from "@/lib/types";
 import { statedShare } from "./ClaimVsData";
+import GlossaryTerm from "./GlossaryTerm";
 
 /** Mirrors PRIMARY_VARIANT in second_opinion/variants.py: the organizers' definition. */
 export const PRIMARY_VARIANT_ID = "rna_call|everyone|primary_tumors";
@@ -51,7 +52,7 @@ export default function RobustnessTable({ result }: { result: ClaimResult }) {
           <thead>
             <tr className="border-b border-rule-strong bg-wash text-ink-soft">
               <th scope="col" className="px-4 py-2.5 font-semibold">
-                Way of counting
+                <GlossaryTerm term="variant">Way of counting</GlossaryTerm>
               </th>
               <th scope="col" className="px-4 py-2.5 font-semibold">
                 Value

@@ -3,6 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import VerdictBadge from "@/components/VerdictBadge";
 import { useAudit } from "@/lib/audit-context";
+import { GLOSSARY as GLOSSARY_TERMS } from "@/lib/glossary";
 import {
   countText,
   DECISION_NEXT_STEP,
@@ -22,8 +23,8 @@ const GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Supported", meaning: "We recounted it from the data and got the number the report states." },
   { term: "Contradicted", meaning: "The data gives a different number; the corrected value is shown." },
   { term: "Insufficient evidence", meaning: "This data has no field that can test the sentence, so we do not guess." },
-  { term: "Robust", meaning: "The answer stays the same under every reasonable way of counting (8 tried)." },
-  { term: "Fragile", meaning: "The answer changes with how you count, e.g. which subtype label is used." },
+  GLOSSARY_TERMS.robust,
+  GLOSSARY_TERMS.fragile,
 ];
 
 const SAMPLE_PREVIEW: Record<Role["detail"], number> = { summary: 3, standard: 5, full: 20 };

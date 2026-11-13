@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { runAudit } from "@/lib/api";
 import type { ReleaseInfo } from "@/lib/types";
 import { buttonSecondary, fieldHint, fieldInput, fieldLabel, sectionTitle } from "@/lib/ui";
+import GlossaryTerm from "./GlossaryTerm";
 
 /** Mirrors RELEASE_FILES in second_opinion/release.py. The RNA file is optional. */
 const REQUIRED_FILES = [
@@ -81,7 +82,7 @@ export default function ReleasePicker({ value, onChange }: Props) {
           </button>
         </div>
         <p id={hintId} className={fieldHint}>
-          The folder with the TCGA-BRCA files, for example an unsealed envelope’s <code className="font-mono">release/</code>{" "}
+          The folder with the TCGA-BRCA <GlossaryTerm term="release">release</GlossaryTerm> files, for example an unsealed envelope’s <code className="font-mono">release/</code>{" "}
           folder.
         </p>
       </div>
@@ -104,7 +105,8 @@ export default function ReleasePicker({ value, onChange }: Props) {
                 <CircleAlert aria-hidden="true" size={16} strokeWidth={1.75} className="mt-1 shrink-0" />
               )}
               <span>
-                {found} of {REQUIRED_FILES.length} data files found (release {check.release.name}). Checksums below.
+                {found} of {REQUIRED_FILES.length} data files found (release {check.release.name}).{" "}
+                <GlossaryTerm term="checksum">Checksums</GlossaryTerm> below.
               </span>
             </p>
             {check.notes.length > 0 && (

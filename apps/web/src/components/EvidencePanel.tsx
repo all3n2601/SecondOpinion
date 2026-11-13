@@ -9,7 +9,8 @@ import CodeBlock from "./CodeBlock";
 import LadderText, { ladderChanges } from "./LadderText";
 import RobustnessTable from "./RobustnessTable";
 import SampleList from "./SampleList";
-import SolidityTag from "./SolidityTag";
+import GlossaryTerm from "./GlossaryTerm";
+import SolidityExplained from "./SolidityExplained";
 import StatementLabel from "./StatementLabel";
 import VerdictBadge from "./VerdictBadge";
 
@@ -134,7 +135,7 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
             {resultTypeLabel(result)}
           </span>
           {result.ai_plan && <AiAssistedStamp />}
-          <SolidityTag result={result} />
+          <SolidityExplained result={result} />
         </div>
 
         <div className="mt-6 max-w-prose border-l-2 border-rule-strong pl-4">
@@ -185,8 +186,8 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
             {!result.ai_plan && <p className="text-ink-soft">What we read from the sentence: {describeParams(claim)}.</p>}
             {fact.unknown_count > 0 && (
               <p>
-                {fact.unknown_count.toLocaleString("en-US")} samples had no value for this, so they are left out of the
-                count.
+                {fact.unknown_count.toLocaleString("en-US")} samples had no value for this, so they are left out of the{" "}
+                <GlossaryTerm term="denominator">denominator</GlossaryTerm>.
               </p>
             )}
             {typeof extra.note === "string" && <p>{extra.note}</p>}
@@ -226,7 +227,8 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
       {fact && (
         <Section id="sources" title="Source files and checksums">
           <p className="mb-4 text-sm text-ink-soft">
-            Release <span className="num font-mono">{release.name}</span>. Each checksum is the file&apos;s SHA-256, shown
+            <GlossaryTerm term="release">Release</GlossaryTerm> <span className="num font-mono">{release.name}</span>. Each{" "}
+            <GlossaryTerm term="checksum">checksum</GlossaryTerm> is the file&apos;s SHA-256, shown
             in full so you can compare it with your own copy.
           </p>
           <ul aria-label={`Files used for ${claim.id}, with SHA-256 checksums`} className="divide-y divide-rule">
@@ -261,7 +263,9 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
       {result.variants.length > 0 && (
         <Section id="robustness" title="Count it differently">
           <p className="mb-4 max-w-prose leading-7 text-ink-soft">
-            {solidityText(result).long} Only the main definition sets the verdict; the others only test how solid it is.
+            {solidityText(result).long} Each row is one <GlossaryTerm term="variant">way of counting</GlossaryTerm>:
+            which <GlossaryTerm term="subtypeCall">subtype call</GlossaryTerm>, who is counted and which samples. Only the
+            main definition sets the verdict; the others only test how solid it is.
           </p>
           <RobustnessTable result={result} />
         </Section>

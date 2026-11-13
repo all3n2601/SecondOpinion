@@ -5,7 +5,8 @@ import type { ClaimResult } from "@/lib/types";
 import { buttonSecondary } from "@/lib/ui";
 import { AiAssistedStamp } from "./AiStamp";
 import LadderText, { ladderChanges } from "./LadderText";
-import SolidityTag from "./SolidityTag";
+import GlossaryTerm from "./GlossaryTerm";
+import SolidityExplained from "./SolidityExplained";
 import StatementLabel from "./StatementLabel";
 import VerdictBadge from "./VerdictBadge";
 
@@ -60,13 +61,19 @@ export default function ClaimCard({ result }: { result: ClaimResult }) {
         <span className="text-sm text-ink-soft sm:order-last">{resultTypeLabel(result)}</span>
         <VerdictBadge verdict={verdict} />
         {result.ai_plan && <AiAssistedStamp />}
-        <SolidityTag result={result} />
+        <SolidityExplained result={result} />
       </header>
 
       {/* Main column: the sentence, then the facts behind it. */}
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-soft">
-          {edited ? "The report says, with our edits" : "The report says"}
+          {edited ? (
+            <span>
+              The report says, <GlossaryTerm term="claimLadder">with our edits</GlossaryTerm>
+            </span>
+          ) : (
+            "The report says"
+          )}
           <StatementLabel kind={edited ? "Interpretation" : "Reported"} />
         </div>
         <div className="mt-1.5">

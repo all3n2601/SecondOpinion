@@ -27,3 +27,4 @@ namespaces = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["realdata: needs the real TCGA release in SO_RELEASE_DIR"]

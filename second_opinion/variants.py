@@ -39,3 +39,6 @@ def normalise_subtype(label: str) -> str:
         "normallike": "Normal-like",
     }
     return aliases.get(key, str(label))
+
+
+PRIMARY_VARIANT = Variant("rna_call", "everyone", "primary_tumors")

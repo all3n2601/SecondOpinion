@@ -1,4 +1,2 @@
-pandas>=2.0
-jsonschema>=4.0
-streamlit>=1.30
-pytest>=7.0
+# Install the shared engine, API, and test dependencies from pyproject.toml.
+-e .[dev]

@@ -30,6 +30,22 @@ Trap: the two subtype columns spell names differently (`LumA` vs `Luminal A`). N
 
 ## Build order
 
+### Tech stack
+
+- Frontend: Next.js App Router, TypeScript, Tailwind CSS, and shadcn/ui for the Claim Ladder,
+  report upload, evidence views, and audit download.
+- API: FastAPI with Pydantic request/response models, Uvicorn, and python-multipart for uploads.
+- Audit engine: the existing Python package with pandas; deterministic code sets verdicts.
+- Validation and tests: jsonschema for organizer exports and pytest for the engine/API.
+- Optional LLM: candidate claim extraction only, called from the backend.
+- Initial storage: local release files and temporary audit files; no database needed for the MVP.
+- Architecture: browser → Next.js UI → FastAPI → Python audit engine → evidence and audit.json.
+  Both the CLI and API will call the same engine. Keep large release files on the backend.
+
+The monorepo scaffold is in place: Next.js proxies `/api/*` to FastAPI, which exposes health
+and counting-variant endpoints using the shared engine. Claim auditing and export endpoints
+remain to be built. npm dependencies are locked; Python dependency ranges live in pyproject.toml.
+
 | When | Goal |
 |---|---|
 | Thu Nov 12 | Checks for the 3 practice claims on real data. Post as Checkpoint 1. |

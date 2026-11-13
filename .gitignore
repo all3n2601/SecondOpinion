@@ -8,3 +8,13 @@ raw/
 opened/
 audit.json
 .DS_Store
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env.*
+!.env.example
+*.egg-info/
+build/
+dist/

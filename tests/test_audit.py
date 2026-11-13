@@ -5,6 +5,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from second_opinion.audit import audit_claims
+from second_opinion.export import validate_audit_json
 from second_opinion.model import AuditResult, Claim, ClaimParams, ClaimType, Solidity, Verdict
 
 NO_RNA_NOTE = "No RNA file in this release."
@@ -157,9 +158,10 @@ def test_cli_with_claims_json_writes_audit_result(mini_release, tmp_path, monkey
         "second-opinion", "--release", str(mini_release), "--report", str(report),
         "--claims-json", str(claims_path), "--out", str(out)])
     cli.main()
-    audit = TypeAdapter(AuditResult).validate_json(out.read_text())
-    assert len(audit.claims) == 3
-    assert audit.claims[2].verdict == Verdict.INSUFFICIENT_EVIDENCE
+    doc = json.loads(out.read_text())  # the CLI writes audit.json (shared findings format)
+    assert validate_audit_json(doc) == []
+    assert len(doc["findings"]) == 3
+    assert doc["findings"][2]["claim_verdict"] == Verdict.INSUFFICIENT_EVIDENCE
 
 
 def test_cli_bad_release_exits_cleanly(tmp_path, monkeypatch, capsys):
@@ -257,8 +259,9 @@ def test_cli_uses_claims_from_extract_result(mini_release, tmp_path, monkeypatch
     _fake_extract(monkeypatch, practice_claims())
     out = _cli_args(monkeypatch, mini_release, tmp_path)
     cli.main()
-    audit = TypeAdapter(AuditResult).validate_json(out.read_text())
-    assert len(audit.claims) == 3
+    doc = json.loads(out.read_text())
+    assert validate_audit_json(doc) == []
+    assert len(doc["findings"]) == 3
 
 
 def test_cli_with_zero_claims_says_nothing_checkable_and_exits_zero(mini_release, tmp_path, monkeypatch, capsys):
@@ -268,7 +271,9 @@ def test_cli_with_zero_claims_says_nothing_checkable_and_exits_zero(mini_release
     out = _cli_args(monkeypatch, mini_release, tmp_path)
     cli.main()  # must not raise SystemExit(nonzero)
     assert "Nothing checkable found in the report." in capsys.readouterr().out
-    assert TypeAdapter(AuditResult).validate_json(out.read_text()).claims == []
+    doc = json.loads(out.read_text())
+    assert validate_audit_json(doc) == []
+    assert doc["findings"] == []
 
 
 def test_missing_optional_column_used_only_by_a_variant_does_not_fail_the_audit(mini_release):

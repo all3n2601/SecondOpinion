@@ -1,3 +1,4 @@
+import copy
 import json
 import subprocess
 import sys
@@ -28,7 +29,7 @@ def test_header_fields():
     doc = build_audit_json(load_fixture(), None)
     assert doc["format_version"] == "0.2"
     assert doc["producer"] == {
-        "team": "SecondOpinion", "product": "Research Claim Auditor", "track": "evidence-navigator",
+        "team": "Techminds", "product": "Research Claim Auditor", "track": "evidence-navigator",
     }
     assert doc["data"]["dataset"] == "TCGA-BRCA"
     assert doc["data"]["releases"][0]["name"] == "A"
@@ -127,3 +128,21 @@ def test_validator_reports_problems():
 
 def test_output_is_plain_json():
     json.dumps(build_audit_json(load_fixture(), None))  # no enums or dataclasses left inside
+
+
+def test_repeated_sentence_gives_one_finding():
+    # The checker matches findings by claim_text; the same sentence twice breaks it.
+    audit = load_fixture()
+    again = copy.deepcopy(audit.claims[1])
+    again.claim.id = "C4"
+    again.claim.text = "  " + again.claim.text.replace(" ", "  ") + " "  # same sentence, other spacing
+    audit.claims.append(again)
+    doc = build_audit_json(audit, None)
+    assert [f["id"] for f in doc["findings"]] == ["C1", "C2", "C3"]
+    assert len({f["claim_text"] for f in doc["findings"]}) == 3
+    assert validate_audit_json(doc) == []
+
+
+def test_claim_text_is_the_sentence_as_given():
+    doc = build_audit_json(load_fixture(), None)
+    assert [f["claim_text"] for f in doc["findings"]] == [c.claim.text for c in load_fixture().claims]

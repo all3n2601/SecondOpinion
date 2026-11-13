@@ -41,7 +41,7 @@ export default function ApiStatus() {
       className="inline-flex items-center gap-2 text-xs font-medium text-slate-300"
     >
       <span aria-hidden="true" className={`size-2 rounded-full ${DOT[connection]}`} />
-      {TEXT[connection]}
+      <span className="max-sm:sr-only">{TEXT[connection]}</span>
       {connection === "unavailable" && <span className="sr-only">. Start the backend with npm run dev.</span>}
     </p>
   );

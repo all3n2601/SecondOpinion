@@ -1,28 +1,30 @@
 "use client";
 
-import Breadcrumb from "@/components/Breadcrumb";
 import DecisionPanel from "@/components/DecisionPanel";
 import NoAuditNotice from "@/components/NoAuditNotice";
+import PageHeader from "@/components/PageHeader";
+import RestoringState from "@/components/RestoringState";
 import RolePicker from "@/components/RolePicker";
 import { useAudit } from "@/lib/audit-context";
+import { container } from "@/lib/ui";
 
 export default function DecisionPage() {
-  const { audit } = useAudit();
+  const { audit, restored } = useAudit();
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
+    <main className={`${container} py-8`}>
       <title>Decision | SecondOpinion</title>
-      <Breadcrumb items={[{ label: "Review", href: "/review" }, { label: "Decision" }]} />
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">One decision for this report</h1>
-          <p className="mt-2 max-w-2xl text-slate-700">
-            The tool suggests a decision from the reviewed verdicts. A person makes the final call.
-          </p>
-        </div>
-        <RolePicker />
-      </div>
-      {audit ? <DecisionPanel audit={audit} /> : <NoAuditNotice />}
+      <PageHeader
+        kicker="Step 5 of 5 · Decision"
+        title="One decision for this report"
+        description="The tool suggests a decision from the reviewed verdicts. A person makes the final call."
+        actions={<RolePicker />}
+      />
+      {!restored ? (
+        <RestoringState />
+      ) : (
+        <div className="mt-6">{audit ? <DecisionPanel audit={audit} /> : <NoAuditNotice />}</div>
+      )}
     </main>
   );
 }

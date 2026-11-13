@@ -5,6 +5,7 @@ import ClaimCard from "@/components/ClaimCard";
 import NoAuditNotice from "@/components/NoAuditNotice";
 import PageHeader from "@/components/PageHeader";
 import { VERDICT_ICON, VERDICT_LABEL } from "@/lib/claim-format";
+import RestoringState from "@/components/RestoringState";
 import { useAudit } from "@/lib/audit-context";
 import type { Verdict } from "@/lib/types";
 import { buttonPrimary, container, eyebrow, linkText, panel } from "@/lib/ui";
@@ -30,16 +31,20 @@ function Tile({ label, value, icon, accent }: { label: string; value: number; ic
 }
 
 export default function BoardPage() {
-  const { audit } = useAudit();
+  const { audit, restored } = useAudit();
   const kicker = "Step 3 of 5 · Audit board";
 
   if (!audit) {
     return (
       <main className={`${container} py-8`}>
         <PageHeader kicker={kicker} title="Audit results" />
-        <div className="mt-6">
-          <NoAuditNotice />
-        </div>
+        {restored ? (
+          <div className="mt-6">
+            <NoAuditNotice />
+          </div>
+        ) : (
+          <RestoringState />
+        )}
       </main>
     );
   }

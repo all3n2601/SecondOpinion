@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { useAudit } from "@/lib/audit-context";
 import { useRoles } from "@/lib/roles";
+import { fieldInput, focusRing } from "@/lib/ui";
 import AddRoleForm from "./AddRoleForm";
 
 /** "Viewing as" role select. The choice is kept in the shared audit state (setRole). */
@@ -15,7 +16,7 @@ export default function RolePicker({ allowAdd = true }: { allowAdd?: boolean }) 
   return (
     <div className="text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor={id} className="font-medium">
+        <label htmlFor={id} className="font-semibold whitespace-nowrap text-slate-700">
           Viewing as
         </label>
         <select
@@ -23,7 +24,7 @@ export default function RolePicker({ allowAdd = true }: { allowAdd?: boolean }) 
           value={role}
           onChange={(e) => setRole(e.target.value)}
           disabled={roles === null}
-          className="rounded-md border border-slate-400 bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
+          className={`${fieldInput} w-auto min-w-[12rem] pr-8`}
         >
           {roles === null && <option value={role}>Loading roles…</option>}
           {roles !== null && !known && <option value={role}>{role}</option>}
@@ -35,13 +36,20 @@ export default function RolePicker({ allowAdd = true }: { allowAdd?: boolean }) 
         </select>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-rose-800">
+        <p role="alert" className="mt-2 text-red-800">
           Could not load roles: {error}
         </p>
       )}
       {allowAdd && (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-emerald-900 underline underline-offset-4">Add a role</summary>
+        <details className="group mt-2">
+          <summary
+            className={`inline-flex cursor-pointer list-none items-center gap-1 rounded-sm font-medium text-emerald-900 hover:underline ${focusRing}`}
+          >
+            <span aria-hidden="true" className="transition-transform group-open:rotate-45">
+              +
+            </span>
+            Add a role
+          </summary>
           <AddRoleForm
             onAdded={(list, added) => {
               setRoles(list);

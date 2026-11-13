@@ -7,6 +7,7 @@ import ClaimRow from "@/components/ClaimRow";
 import PageHeader from "@/components/PageHeader";
 import Panel from "@/components/Panel";
 import { runAudit } from "@/lib/api";
+import RestoringState from "@/components/RestoringState";
 import { useAudit } from "@/lib/audit-context";
 import { buttonPrimary, container, linkText } from "@/lib/ui";
 
@@ -14,7 +15,7 @@ const plural = (n: number) => `${n} claim${n === 1 ? "" : "s"}`;
 
 export default function ClaimsPage() {
   const router = useRouter();
-  const { sentences, claims, toggleClaim, releaseDir, audit, setAudit } = useAudit();
+  const { sentences, claims, toggleClaim, releaseDir, audit, setAudit, restored } = useAudit();
   const [pendingIndex, setPendingIndex] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -52,6 +53,15 @@ export default function ClaimsPage() {
       description="Every sentence of the report, in order. Ticked sentences are checked against the data. Untick a sentence that is not a real claim, or tick one we missed."
     />
   );
+
+  if (!restored) {
+    return (
+      <main className={`${container} py-8`}>
+        {header}
+        <RestoringState />
+      </main>
+    );
+  }
 
   if (sentences.length === 0) {
     return (

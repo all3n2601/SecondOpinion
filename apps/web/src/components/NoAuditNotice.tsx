@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { useAudit } from "@/lib/audit-context";
 import type { AuditResult } from "@/lib/types";
+import { buttonPrimary, buttonSecondary, panel } from "@/lib/ui";
 
 const DEV = process.env.NODE_ENV === "development";
 
-/** Shown on /review and /decision before any audit exists. */
+/** Shown on /board, /review and /decision before any audit exists. */
 export default function NoAuditNotice() {
   const { setAudit } = useAudit();
   const [error, setError] = useState<string | null>(null);
@@ -23,29 +24,32 @@ export default function NoAuditNotice() {
   }
 
   return (
-    <section className="rounded-xl border border-slate-300 bg-white p-6">
-      <h2 className="text-lg font-semibold">No audit yet</h2>
-      <p className="mt-2 text-slate-700">
-        Audit a report first:{" "}
-        <Link href="/" className="text-emerald-900 underline underline-offset-4">
-          go to Start
-        </Link>
-        .
+    <section aria-labelledby="no-audit-title" className={`${panel} px-6 py-12 text-center`}>
+      <div
+        aria-hidden="true"
+        className="mx-auto grid size-12 place-items-center rounded-full border border-slate-200 bg-slate-50 text-xl text-slate-500"
+      >
+        ∅
+      </div>
+      <h2 id="no-audit-title" className="mt-4 text-base font-semibold text-slate-900">
+        No audit yet
+      </h2>
+      <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
+        Audit a report first. Add the report and the data on the Start screen, then run the audit.
       </p>
+      <Link href="/" className={`${buttonPrimary} mt-5`}>
+        Go to Start
+      </Link>
       {DEV && (
-        <div className="mt-4 border-t border-dashed border-slate-300 pt-4 text-sm">
+        <div className="mx-auto mt-8 max-w-md border-t border-dashed border-slate-300 pt-5 text-sm">
           <p className="text-slate-600">
             Development only: load the hand-made expected result for the practice report (not computed from data).
           </p>
-          <button
-            type="button"
-            onClick={loadSample}
-            className="mt-2 rounded-md border border-emerald-900 px-3 py-1.5 text-emerald-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900"
-          >
+          <button type="button" onClick={loadSample} className={`${buttonSecondary} mt-3`}>
             Load practice sample
           </button>
           {error && (
-            <p role="alert" className="mt-2 text-rose-800">
+            <p role="alert" className="mt-2 text-red-800">
               {error}
             </p>
           )}

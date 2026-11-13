@@ -4,8 +4,9 @@ import { useId, useState } from "react";
 import { saveRole } from "@/lib/api";
 import { DETAIL_LABEL, ROLE_SECTIONS } from "@/lib/roles";
 import type { Role } from "@/lib/types";
+import { buttonPrimary, fieldInput, fieldLabel, focusRing } from "@/lib/ui";
 
-const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900";
+const CONTROL = `size-4 accent-emerald-900 ${focusRing}`;
 
 /** Add a reviewer role without touching code. Saved to roles.yaml by the API. */
 export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], added: Role) => void }) {
@@ -44,9 +45,13 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
   }
 
   return (
-    <form onSubmit={submit} className="mt-3 space-y-4 rounded-lg border border-slate-300 bg-white p-4" noValidate>
+    <form
+      onSubmit={submit}
+      className="mt-3 space-y-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-left"
+      noValidate
+    >
       <div>
-        <label htmlFor={`${id}-name`} className="block text-sm font-medium">
+        <label htmlFor={`${id}-name`} className={fieldLabel}>
           Role name
         </label>
         <input
@@ -54,20 +59,20 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className={`mt-1 w-full max-w-sm rounded-md border border-slate-400 px-3 py-2 ${FOCUS}`}
+          className={`${fieldInput} mt-1.5 max-w-sm`}
         />
       </div>
 
       <fieldset>
-        <legend className="text-sm font-medium">What this role sees</legend>
-        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        <legend className={fieldLabel}>What this role sees</legend>
+        <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
           {ROLE_SECTIONS.map((section) => (
-            <label key={section.id} className="flex items-center gap-2 text-sm">
+            <label key={section.id} className="flex items-center gap-2 text-sm text-slate-800">
               <input
                 type="checkbox"
                 checked={sections.includes(section.id)}
                 onChange={() => toggleSection(section.id)}
-                className={FOCUS}
+                className={CONTROL}
               />
               {section.label}
             </label>
@@ -76,17 +81,17 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
       </fieldset>
 
       <fieldset>
-        <legend className="text-sm font-medium">Level of detail</legend>
+        <legend className={fieldLabel}>Level of detail</legend>
         <div className="mt-2 flex flex-wrap gap-4">
           {(Object.keys(DETAIL_LABEL) as Role["detail"][]).map((level) => (
-            <label key={level} className="flex items-center gap-2 text-sm">
+            <label key={level} className="flex items-center gap-2 text-sm text-slate-800">
               <input
                 type="radio"
                 name={`${id}-detail`}
                 value={level}
                 checked={detail === level}
                 onChange={() => setDetail(level)}
-                className={FOCUS}
+                className={CONTROL}
               />
               {DETAIL_LABEL[level]}
             </label>
@@ -94,27 +99,23 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
         </div>
       </fieldset>
 
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-sm text-slate-800">
         <input
           type="checkbox"
           checked={explainTerms}
           onChange={(e) => setExplainTerms(e.target.checked)}
-          className={FOCUS}
+          className={CONTROL}
         />
         Explain terms in plain words
       </label>
 
       {error && (
-        <p role="alert" className="text-sm font-medium text-rose-800">
+        <p role="alert" className="text-sm font-medium text-red-800">
           {error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={saving}
-        className={`rounded-md bg-emerald-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 ${FOCUS}`}
-      >
+      <button type="submit" disabled={saving} className={`${buttonPrimary} h-9`}>
         {saving ? "Saving…" : "Add role"}
       </button>
     </form>

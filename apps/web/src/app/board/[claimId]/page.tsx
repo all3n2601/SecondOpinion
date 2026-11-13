@@ -6,13 +6,14 @@ import Breadcrumb from "@/components/Breadcrumb";
 import EvidencePanel from "@/components/EvidencePanel";
 import NoAuditNotice from "@/components/NoAuditNotice";
 import PageHeader from "@/components/PageHeader";
+import RestoringState from "@/components/RestoringState";
 import { useAudit } from "@/lib/audit-context";
 import { buttonSecondary, container, linkText } from "@/lib/ui";
 
 export default function EvidencePage({ params }: { params: Promise<{ claimId: string }> }) {
   const { claimId: raw } = use(params);
   const claimId = decodeURIComponent(raw);
-  const { audit, releaseDir } = useAudit();
+  const { audit, releaseDir, restored } = useAudit();
   const crumbs = [{ label: "Audit board", href: "/board" }, { label: claimId }];
 
   if (!audit) {
@@ -20,9 +21,13 @@ export default function EvidencePage({ params }: { params: Promise<{ claimId: st
       <main className={`${container} py-8`}>
         <Breadcrumb items={crumbs} />
         <PageHeader kicker="Evidence" title={`Evidence for ${claimId}`} />
-        <div className="mt-6">
-          <NoAuditNotice />
-        </div>
+        {restored ? (
+          <div className="mt-6">
+            <NoAuditNotice />
+          </div>
+        ) : (
+          <RestoringState />
+        )}
       </main>
     );
   }

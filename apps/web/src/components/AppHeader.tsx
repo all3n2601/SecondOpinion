@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { container, focusRingOnDark } from "@/lib/ui";
 import ApiStatus from "./ApiStatus";
+import NewAuditButton from "./NewAuditButton";
 
 /** Top bar: product identity on the left, system status on the right. */
 export default function AppHeader() {
@@ -20,7 +21,8 @@ export default function AppHeader() {
         </Link>
         <div className="flex items-center gap-4">
           <ApiStatus />
-          <span className="hidden rounded-sm border border-slate-600 px-2 py-0.5 text-[0.7rem] font-semibold tracking-wider text-slate-300 uppercase md:inline">
+          <NewAuditButton />
+          <span className="hidden rounded-sm border border-slate-600 px-2 py-0.5 text-[0.7rem] font-semibold tracking-wider text-slate-300 uppercase lg:inline">
             Dataset · TCGA-BRCA
           </span>
         </div>

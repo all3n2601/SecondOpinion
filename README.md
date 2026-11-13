@@ -1,6 +1,6 @@
-# Claim Ladder
+# SecondOpinion
 
-OncoSys Cancer AI Lab hackathon · **Track 2: Evidence Navigator** · Research Claim Auditor + robustness checks.
+OncoSys Cancer AI Lab hackathon · **Track 2: Evidence Navigator** · Research Claim Auditor + robustness checks. The main screen is the "Claim Ladder".
 
 **User:** a reviewer handed a report and asked "can we trust this?"
 
@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ## Run
 
 ```bash
-python -m claim_ladder.cli --release <release-folder> --report <report.md> --out audit.json
+python -m second_opinion.cli --release <release-folder> --report <report.md> --out audit.json
 python ../oncosys-hackathon-challenge/format/validate.py audit.json
 ```
 

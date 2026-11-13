@@ -1,4 +1,4 @@
-from claim_ladder.variants import all_variants, normalise_subtype
+from second_opinion.variants import all_variants, normalise_subtype
 
 
 def test_eight_variants_with_unique_ids():

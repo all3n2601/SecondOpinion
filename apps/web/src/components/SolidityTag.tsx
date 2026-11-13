@@ -4,7 +4,7 @@ import type { ClaimResult } from "@/lib/types";
 
 /** How solid the verdict is, in words: Robust (8 of 8) / Fragile: flips when … / not tested. */
 export default function SolidityTag({ result }: { result: ClaimResult }) {
-  const { short, long } = solidityText(result);
+  const { short } = solidityText(result);
   const robust = result.solidity === "holds_under_every_variant";
   const fragile = result.solidity === "holds_under_some_variants";
   const style = robust
@@ -17,7 +17,6 @@ export default function SolidityTag({ result }: { result: ClaimResult }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-stamp border py-1 text-sm font-medium ${style}`}
-      title={long}
     >
       <Icon aria-hidden="true" className="size-4" />
       {short}

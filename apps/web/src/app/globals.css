@@ -92,9 +92,12 @@ ins {
   padding: 0 0.15em;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-pen);
-  outline-offset: 2px;
+/* In the base layer so a component's own focus utilities (e.g. an inset ring inside a clipped box) win. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-pen);
+    outline-offset: 2px;
+  }
 }
 
 ::selection {

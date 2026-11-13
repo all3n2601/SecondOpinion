@@ -2,7 +2,7 @@
 
 import { Check, CircleAlert, CircleCheck, Circle, PencilLine } from "lucide-react";
 import { useId, useState } from "react";
-import SolidityTag from "@/components/SolidityTag";
+import SolidityExplained from "@/components/SolidityExplained";
 import VerdictBadge from "@/components/VerdictBadge";
 import { useAudit } from "@/lib/audit-context";
 import { keyNumber, VERDICT_LABEL, VERDICTS } from "@/lib/review";
@@ -140,7 +140,7 @@ export default function ReviewForm({ result }: { result: ClaimResult }) {
         <dd className="num text-ink">{keyNumber(result)}</dd>
         <dt className="font-semibold text-ink">Solidity</dt>
         <dd>
-          <SolidityTag result={result} />
+          <SolidityExplained result={result} />
         </dd>
       </dl>
 

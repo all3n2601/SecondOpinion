@@ -1,0 +1,13 @@
+[
+  {"claim_contains": "535 of 1,101", "type": "COUNT", "verdict": "supported", "verdict_no_rna": null,
+   "why": "practice brief value; a release without RNA counts four layers, so skip it there"},
+  {"claim_contains": "Every primary tumor has protein data", "type": "COVERAGE", "verdict": "contradicted",
+   "why": "only 535 tumors have all five layers and RPPA covers far fewer than 1,101 - confirm the count with pandas"},
+  {"claim_contains": "Every primary tumor has RNA-seq data", "type": "COVERAGE", "verdict": "contradicted",
+   "verdict_no_rna": "insufficient_evidence",
+   "why": "not every primary tumor has RNA; on a release with no RNA file the tool must say it cannot check"},
+  {"claim_contains": "139 normal tissue samples", "type": "COUNT", "verdict": "supported",
+   "why": "plan Review Focus: 139 normal-tissue samples. Needs check_count to support subject normal_tissue_samples"},
+  {"claim_contains": "12 samples are from male patients", "type": "COUNT", "verdict": "supported",
+   "why": "plan Review Focus: 12 male samples. Needs check_count to support subject male_samples"}
+]

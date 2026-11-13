@@ -4,7 +4,7 @@
   {"claim_contains": "nearly 50%", "type": "SHARE", "verdict": "supported",
    "why": "LumA spelling; 49.9% (421 of 844) is within 2 points of an approximate 50%"},
   {"claim_contains": "between 10 and 30 percent", "type": "SHARE", "verdict": "supported",
-   "why": "Basal vs Basal-like spelling; range is deliberately wide (Basal-like is about 17-20% in TCGA-BRCA) - confirm with pandas"},
+   "why": "Basal vs Basal-like spelling; range is deliberately wide (Basal-like is 16.7%, 141 of 844, checked with pandas)"},
   {"claim_contains": "respond well to hormone therapy", "type": "NOT_ANSWERABLE", "verdict": "insufficient_evidence",
    "why": "checkable part (49.9%) mixed with a treatment-response part the data cannot answer"},
   {"claim_contains": "median age", "type": "UNMAPPED", "verdict": "insufficient_evidence",

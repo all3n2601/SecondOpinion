@@ -1,0 +1,75 @@
+[
+  {
+    "claim_contains": "1,247 samples",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "1,247 / 1,101 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "742 tumours have both",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "1,097 RNA; 742 RNA and protein (blind test written and answered with pandas by an independent agent)",
+    "verdict_no_rna": null
+  },
+  {
+    "claim_contains": "roughly two thirds",
+    "type": "COVERAGE",
+    "verdict": "contradicted",
+    "why": "791/1,101 = 71.8%, 5 points from two thirds (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Luminal A and Luminal B together",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "613/844 = 72.6% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "third most common",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "Basal-like 141 third (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "four to one",
+    "type": "RATIO",
+    "verdict": "contradicted",
+    "why": "421/141 = 3.0 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "definitive HER2",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "164/728 = 22.5% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "273 of 791",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "PIK3CA 273 first (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "85% versus 10%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "84.9% vs 10.3% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "12.3% of tumours with copy-number",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "133/1,080 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "trastuzumab",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no treatment data (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "946 were alive",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "OS 151 dead, 946 alive (blind test written and answered with pandas by an independent agent)"
+  }
+]

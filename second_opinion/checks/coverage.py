@@ -33,19 +33,29 @@ def check_coverage(claim: Claim, release: Release, variant: Variant) -> Fact:
         raise CannotCheck("no RNA file in this release")
 
     scoped = replace(variant, sample_scope="primary_tumors")
-    pop = population(release, scoped)
+    noun = "female primary tumors" if variant.sex_filter == "women_only" else "primary tumors"
+    files_extra: list[str] = []
+    if claim.params.within_attribute:  # "Protein data covers most triple-negative tumors"
+        from second_opinion.checks.attribute import scoped as scoped_population
+
+        pop, group_code, noun = scoped_population(claim, release, scoped)
+        code_start = group_code
+    else:
+        pop = population(release, scoped)
+        code_start = population_code(scoped)
     primary = pop["sampleID"].astype(str).tolist()
     have_ids = release.layer_ids(layer)
     missing = [i for i in primary if i not in have_ids]
     have = len(primary) - len(missing)
 
     code = (
-        population_code(scoped)
+        code_start
         + "\nprimary = pop.sampleID.tolist()"
         + f"\nmissing = [s for s in primary if s not in r.{layer}_ids]"
         + "\nn, total = len(primary) - len(missing), len(primary)"
     )
-    noun = "female primary tumors" if variant.sex_filter == "women_only" else "primary tumors"
+    if not primary and claim.params.within_attribute:
+        raise CannotCheck(f"this release has no {noun}")
     extra: dict[str, float | int | str] = {"missing_count": len(missing)}
     if pop.attrs.get("excluded_unknown_sex"):
         extra["excluded_unknown_sex"] = pop.attrs["excluded_unknown_sex"]

@@ -1,0 +1,86 @@
+[
+  {
+    "claim_contains": "numbered 1,101",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "1,101 primary, 139 normal, 7 metastatic (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "mean age, 59.5",
+    "type": "STATISTIC",
+    "verdict": "contradicted",
+    "why": "mean 58.5; median 58 and range 26-90 right (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "over 60",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": ">60: 493/1,097 = 44.9% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "808/1,046",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "77.2% rounds to 77.2, not 77.3 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "16.1% of the 722",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "116/722 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "HR+/HER2-",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "445 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Stage II predominated",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "622/1,075; 20 stage IV (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "203 cases",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "203/1,096 = 18.5% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Male patients: 13",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "12 male (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Node-positive",
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "key: supported 561/1,077 (debatable node definition); the tool declines to define node status (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "concentrated in lobular",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "59.0% vs 1.6% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Deaths: 151",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "151/1,097 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Fifteen of the 20",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "15 of 20 stage IV died (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "absent in basal",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "0/106 basal; 97/791 = 12.3% overall (blind test written and answered with pandas by an independent agent)"
+  }
+]

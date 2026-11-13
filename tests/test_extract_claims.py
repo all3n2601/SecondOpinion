@@ -99,12 +99,17 @@ def test_share_as_n_of_m():
 
 
 def test_her2_positive_is_not_the_her2_subtype():
-    # IHC status, not the PAM50 subtype: no share check exists for it, so it stays UNMAPPED.
-    assert claim("HER2-positive tumors make up 15% of primary tumors.").type is ClaimType.UNMAPPED
+    # IHC status, not the PAM50 subtype: a share of HER2 status, never of the HER2-enriched subtype.
+    c = claim("HER2-positive tumors make up 15% of primary tumors.")
+    assert c.type is ClaimType.SHARE
+    assert (c.params.attribute, c.params.category, c.params.subtype) == ("her2_status", "positive", None)
 
 
 def test_two_subtypes_in_one_sentence_is_not_one_share():
-    assert claim("Luminal A and Luminal B together make up 70% of subtyped tumors.").type is ClaimType.UNMAPPED
+    # "together" makes them one group (Luminal = A + B), never a claim about Luminal A alone
+    c = claim("Luminal A and Luminal B together make up 70% of subtyped tumors.")
+    assert (c.type, c.params.attribute, c.params.category) == (ClaimType.SHARE, "subtype", "Luminal")
+    assert claim("Luminal A and Basal-like tumors make up 70% of subtyped tumors.").type is ClaimType.UNMAPPED
 
 
 # --- comparison -----------------------------------------------------------------------------
@@ -194,11 +199,15 @@ def test_count_range():
 
 def test_bound_count_is_not_checked_as_exact():
     # "more than 500" is a one-sided bound; checking it as "exactly 500" would be wrong.
-    assert claim("More than 500 primary tumors have all five data layers.").type is ClaimType.UNMAPPED
+    c = claim("More than 500 primary tumors have all five data layers.")
+    assert c.type is ClaimType.COUNT
+    assert (c.params.stated_value, c.params.bound) == (500.0, "gt")
 
 
-def test_some_layers_is_unmapped():
-    assert claim("Of the 1,101 primary tumors, 800 have mutation and protein data.").type is ClaimType.UNMAPPED
+def test_some_layers_is_a_layer_overlap_count():
+    c = claim("Of the 1,101 primary tumors, 800 have mutation and protein data.")
+    assert (c.type, c.params.subject, c.params.stated_value) == (ClaimType.COUNT, "layers:mutation+protein", 800.0)
+    assert claim("Some 355 tumours have RNA but no protein data.").type is ClaimType.UNMAPPED
 
 
 # --- what is not a claim, and what is kept as unmapped --------------------------------------
@@ -207,8 +216,14 @@ def test_sentence_with_no_claim_is_skipped():
     assert extract_claims("Protein measurements add a useful layer.").claims == []
 
 
+def test_median_age_is_a_statistic():
+    c = claim("The median age was 58 years.")
+    assert c.type is ClaimType.STATISTIC
+    assert (c.params.measure, c.params.stated_value) == ("median", 58.0)
+
+
 def test_unknown_number_sentence_is_kept_as_unmapped():
-    assert claim("The median age was 58 years.").type is ClaimType.UNMAPPED
+    assert claim("The cohort was assembled over 11 sites.").type is ClaimType.UNMAPPED
 
 
 @pytest.mark.parametrize("text", [
@@ -268,8 +283,10 @@ def test_an_age_is_not_a_count_of_the_noun_before_it():
     assert claim("HER2-enriched tumors are more aggressive, and the median age at diagnosis was 58 years.").type is ClaimType.UNMAPPED
 
 
-def test_male_and_female_counts_in_one_sentence_are_not_one_count():
-    assert claim("There are 1,085 female patients and 12 male patients.").type is ClaimType.UNMAPPED
+def test_male_and_female_counts_in_one_sentence_are_two_parts():
+    c = claim("There are 1,085 female patients and 12 male patients.")
+    assert [(p.params.subject, p.params.stated_value) for p in c.parts] == [
+        ("female_patients", 1085.0), ("male_patients", 12.0)]
 
 
 def test_a_sentence_about_named_genes_is_not_a_layer_coverage_claim():

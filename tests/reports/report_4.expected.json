@@ -1,0 +1,92 @@
+[
+  {
+    "claim_contains": "1,247 samples from 1,101 patients",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "two counts in one sentence: 1,247 samples and 1,101 distinct patients (checked with pandas)"
+  },
+  {
+    "claim_contains": "7 metastatic samples and 139",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "two counts: 7 metastatic (-06) and 139 solid-tissue normal (-11) samples; once misread as one group that is both (0)"
+  },
+  {
+    "claim_contains": "about a third",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "TP53 mutated in 264 of 791 primary tumors with mutation calls = 33.4%"
+  },
+  {
+    "claim_contains": "most frequently mutated gene",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "PIK3CA 273 vs TP53 264 of 791: first, but a close call"
+  },
+  {
+    "claim_contains": "more than 10%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "GATA3 97 of 791 = 12.3% > 10%"
+  },
+  {
+    "claim_contains": "two to one",
+    "type": "RATIO",
+    "verdict": "supported",
+    "why": "Basal-like 141 vs HER2-enriched 67 = 2.10 to 1"
+  },
+  {
+    "claim_contains": "HER2-positive",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "IHC status (the column family the organizers' A1 analysis uses): 164 of 728 = 22.5%; fragile: HER2_Final_Status_nature2012 gives 114 of 766 = 14.9%"
+  },
+  {
+    "claim_contains": "Between 70% and 80%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "ER-positive 808 of 1,046 = 77.2%"
+  },
+  {
+    "claim_contains": "live longer",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "a survival comparison needs a survival analysis with follow-up time, not counts"
+  },
+  {
+    "claim_contains": "150 deaths",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "151 deaths (OS = 1) among 1,097 primary tumors with survival data; > 150"
+  },
+  {
+    "claim_contains": "covers most triple-negative",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "82 of 116 triple-negative primary tumors have RPPA data = 70.7% > 50%"
+  },
+  {
+    "claim_contains": "large enough",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no stated sample-size requirement: a person decides"
+  },
+  {
+    "claim_contains": "Stage II",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "Stage II (IIA, IIB, II) 622 of 1,075 with a recorded stage = 57.9%, not about 50%"
+  },
+  {
+    "claim_contains": "Ki-67",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "the release has no Ki-67 data; once misread as 'most tumors are Luminal B'"
+  },
+  {
+    "claim_contains": "PARP inhibitors",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "treatment claim: no treatment data"
+  }
+]

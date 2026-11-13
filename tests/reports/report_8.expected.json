@@ -1,0 +1,77 @@
+[
+  {
+    "claim_contains": "1,247 samples from 1,101 patients, including",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "1,247 samples, 1,101 patients, 139 normal, 7 metastases; blind test: written and answered with pandas by an independent agent before the tool ran"
+  },
+  {
+    "claim_contains": "553 primary tumors",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "535 have all five layers",
+    "verdict_no_rna": null
+  },
+  {
+    "claim_contains": "742 primary tumors",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "742 protein, 791 mutation"
+  },
+  {
+    "claim_contains": "median age at diagnosis was 58",
+    "type": "STATISTIC",
+    "verdict": "supported",
+    "why": "median 58.0"
+  },
+  {
+    "claim_contains": "Twelve patients were men",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "12 male patients"
+  },
+  {
+    "claim_contains": "Infiltrating ductal carcinoma",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "ductal 784/1,096 = 71.5% (about 72%) but lobular 203/1,096 = 18.5%, not about 25%"
+  },
+  {
+    "claim_contains": "Stage II disease",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "Stage II (II, IIA, IIB) 622, Stage IV 20; Stage II the most common"
+  },
+  {
+    "claim_contains": "151 patients died",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "151 deaths = 13.8% of 1,097 with survival data"
+  },
+  {
+    "claim_contains": "Disease-specific deaths",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "DSS = 1 for 83"
+  },
+  {
+    "claim_contains": "slides outnumber frozen",
+    "type": "RATIO",
+    "verdict": "contradicted",
+    "why": "1,133 diagnostic vs 1,978 frozen slides",
+    "verdict_no_rna": "insufficient_evidence"
+  },
+  {
+    "claim_contains": "at least one diagnostic slide",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "patients with a diagnostic slide > 1,000",
+    "verdict_no_rna": "insufficient_evidence"
+  },
+  {
+    "claim_contains": "body-mass index",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no BMI data"
+  }
+]

@@ -18,6 +18,8 @@ def _run_one(claim: Claim, release: Release, variant: Variant) -> VariantResult:
         verdict, _ = judge(claim, fact)
     except (CannotCheck, ValueError):
         return VariantResult(variant.id, None, None)
+    except Exception:  # noqa: BLE001 - a variant that cannot run gives no verdict, never an error
+        return VariantResult(variant.id, None, None)
     return VariantResult(variant.id, fact, verdict)
 
 

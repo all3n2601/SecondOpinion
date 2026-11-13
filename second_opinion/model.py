@@ -27,6 +27,9 @@ class ClaimType(str, Enum):
     COMPARISON = "COMPARISON"
     AGREEMENT = "AGREEMENT"
     COVERAGE = "COVERAGE"
+    RANK = "RANK"  # "PIK3CA is the most frequently mutated gene", "Luminal A is the largest subtype"
+    RATIO = "RATIO"  # "Basal-like tumors outnumber HER2-enriched tumors about two to one"
+    STATISTIC = "STATISTIC"  # "The median age at diagnosis was 58 years"
     NOT_ANSWERABLE = "NOT_ANSWERABLE"
     UNMAPPED = "UNMAPPED"
 
@@ -36,7 +39,7 @@ class ClaimParams:
     stated_value: float | None = None  # 62.0 for "62%", 535 for "535"; range: the lower end
     stated_high: float | None = None  # upper end of a range like "55-65%"
     stated_total: float | None = None  # 1101 in "535 of 1,101"
-    unit: str | None = None  # "percent" | "count" | "all" (for "every ...")
+    unit: str | None = None  # "percent" | "count" | "all" (for "every ...") | "ratio" | "rank" | "years"
     decimals: int | None = None  # digits after the point as written: "49.9%" -> 1
     approximate: bool = False  # about / roughly / nearly / ~ / around
     subject: str | None = None  # "primary_tumors" | "all_five_layers" | "samples" | ...
@@ -45,6 +48,16 @@ class ClaimParams:
     measure: str | None = None  # e.g. "ER-alpha protein"
     group_a: str | None = None  # e.g. "ER-positive"
     group_b: str | None = None  # e.g. "ER-negative"
+    # One-sided bounds: "more than 150" -> "gt", "at least" -> "gte", "fewer than" -> "lt", "at most" -> "lte".
+    # Vague words become bounds too: "most" -> gt 50 percent, "nearly all" -> gte 90 percent.
+    bound: str | None = None
+    # A sample attribute (see second_opinion/attributes.py): "er_status", "mutation", "stage", ...
+    attribute: str | None = None
+    category: str | None = None  # the attribute value claimed: "positive", "TP53", "Stage II", "deceased"
+    category_b: str | None = None  # RATIO / share COMPARISON: the second value ("HER2-enriched")
+    within_attribute: str | None = None  # the claim is about a subgroup: "among triple-negative tumors"
+    within_category: str | None = None
+    top_n: int | None = None  # RANK: "the two most frequently mutated genes" -> 2
 
 
 @dataclass
@@ -58,6 +71,10 @@ class Claim:
     clinical_terms: list[str] = field(default_factory=list)
     source: str = "rules"  # "rules", or "ai" for a claim the AI recovered from a sentence the rules skipped
     original_text: str = ""  # the sentence copied exactly as written in the report, Markdown included; "" = same as `text`
+    # A sentence that makes several checkable statements ("7 metastatic and 139 normal-tissue samples")
+    # carries one sub-claim per statement. The sentence is judged by its worst part.
+    parts: list["Claim"] = field(default_factory=list)
+    part_label: str = ""  # for a part: the words it checks, e.g. "7 metastatic samples"
 
 
 @dataclass
@@ -131,6 +148,8 @@ class ClaimResult:
     limitation: str | None
     review: Review | None = None
     ai_plan: dict | None = None  # the validated QueryPlan (as JSON) when the verdict came from an AI plan
+    parts: list["ClaimResult"] = field(default_factory=list)  # one result per Claim.parts entry
+    notes: list[str] = field(default_factory=list)  # e.g. "Close call: TP53 is 1.1 points behind"
 
 
 @dataclass

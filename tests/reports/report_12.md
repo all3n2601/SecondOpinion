@@ -1,0 +1,5 @@
+# Limitations and conclusions
+
+Several limitations should be kept in mind when interpreting these results. Follow-up is short: the median recorded overall survival time is under three years. Only about one in eight patients is recorded as deceased, so survival analyses may be underpowered. Could the 355 tumours with RNA but no protein data differ systematically from those with both? HER2 status was equivocal for 197 primary tumours. Postmenopausal women numbered 705, roughly 64 per cent of primary-tumour patients.
+
+Basal-like tumours showed the highest death rate of any PAM50 subtype. CDKN2A was deeply deleted in 47 tumours. Patients whose tumours carried these deletions did not benefit from CDK4/6 inhibitors. Not a single tumour in the cohort carried a BRCA1 mutation. Lobular tumours were almost all ER-positive (190 of 198 with known status). Obese patients were more likely to have triple-negative disease. E-cadherin protein was markedly lower in invasive lobular than in invasive ductal tumours. Future work should validate these findings in an independent cohort.

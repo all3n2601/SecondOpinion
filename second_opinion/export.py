@@ -11,6 +11,7 @@ from pathlib import Path
 import jsonschema
 
 from .decision import final_verdict
+from .verdict import format_fact
 from .model import (
     AuditResult,
     ClaimResult,
@@ -38,9 +39,21 @@ def _load_schema() -> dict:
     return json.loads(SCHEMA_PATH.read_text())
 
 
-def _n_of_m(fact: Fact | None) -> str | None:
+def _n_of_m(fact: Fact | None, claim=None) -> str | None:
     if fact is None:
         return None
+    if claim is not None and claim.type in (ClaimType.RANK, ClaimType.RATIO, ClaimType.STATISTIC):
+        unit = {ClaimType.RANK: "rank", ClaimType.RATIO: "ratio", ClaimType.STATISTIC: "years"}[claim.type]
+        try:
+            return format_fact(fact, unit)
+        except (ValueError, TypeError):
+            pass
+    if claim is not None and claim.type == ClaimType.COMPARISON and claim.params.attribute and fact.extra:
+        x = fact.extra
+        return (f"{x['group_a']} {x['share_a']}% ({int(x['hits_a']):,} of {int(x['n_a']):,}) vs "
+                f"{x['group_b']} {x['share_b']}% ({int(x['hits_b']):,} of {int(x['n_b']):,})")
+    if claim is not None and claim.params.unit == "percent" and fact.numerator is not None and fact.denominator:
+        return format_fact(fact, "percent")
     if fact.numerator is not None and fact.denominator is not None:
         return f"{fact.numerator:,} of {fact.denominator:,}"
     if fact.value is not None:
@@ -48,14 +61,30 @@ def _n_of_m(fact: Fact | None) -> str | None:
     return None
 
 
+def _part_line(part: ClaimResult) -> str:
+    label = part.claim.part_label or part.claim.text
+    if part.verdict == Verdict.CONTRADICTED:
+        return f'"{label}": contradicted, the data shows {part.correct_value or _n_of_m(part.fact, part.claim)}'
+    if part.verdict == Verdict.SUPPORTED:
+        return f'"{label}": supported ({_n_of_m(part.fact, part.claim)})'
+    return f'"{label}": cannot be checked ({part.missing_evidence or "no check"})'
+
+
 def _summary(result: ClaimResult, verdict: Verdict) -> str:
+    if result.parts and len(result.parts) > 1 and (result.review is None or result.review.decision != "override"):
+        lead = {
+            Verdict.CONTRADICTED: "Contradicted in part.",
+            Verdict.SUPPORTED: "Every part agrees with the data.",
+            Verdict.INSUFFICIENT_EVIDENCE: "Not every part can be checked.",
+        }[verdict]
+        return lead + " " + "; ".join(_part_line(p) for p in result.parts) + "."
     if verdict == Verdict.CONTRADICTED:
         if result.correct_value:
             text = f"{result.correct_value} in the data, not what the report says."
         else:
             text = "The data does not match what the report says."
     elif verdict == Verdict.SUPPORTED:
-        n_of_m = _n_of_m(result.fact)
+        n_of_m = _n_of_m(result.fact, result.claim)
         text = f"Recomputed from the data: {n_of_m}." if n_of_m else "Recomputed from the data."
     else:
         need = result.missing_evidence or result.claim.needed_data or "data this release does not have"
@@ -70,6 +99,10 @@ def _summary(result: ClaimResult, verdict: Verdict) -> str:
 
 
 def _confidence(result: ClaimResult, verdict: Verdict) -> str:
+    if result.solidity == Solidity.FRAGILE:
+        return "low"  # the verdict changes with a reasonable choice of column or population
+    if result.notes:
+        return "medium"  # a close call
     if result.solidity == Solidity.HOLDS_EVERYWHERE:
         return "high"
     if verdict == Verdict.INSUFFICIENT_EVIDENCE and result.claim.type == ClaimType.NOT_ANSWERABLE:
@@ -77,26 +110,70 @@ def _confidence(result: ClaimResult, verdict: Verdict) -> str:
     return "medium"
 
 
+_CHOICE_WORDS = {
+    "subtype_source=study_2012_label": "reading the 2012 study's columns instead",
+    "sex_filter=women_only": "counting women only",
+    "sample_scope=all_samples": "counting every sample type, not just primary tumors",
+}
+
+
+def plain_flip(flip: str) -> str:
+    """"subtype_source=study_2012_label + sex_filter=women_only" -> plain words."""
+    return " and ".join(_CHOICE_WORDS.get(part.strip(), part.strip()) for part in flip.split("+"))
+
+
 def _solidity_note(result: ClaimResult) -> str | None:
     if result.solidity == Solidity.FRAGILE:
-        return "fragile: flips on " + (", ".join(result.flips_on) or "some ways of counting")
+        single = [f for f in result.flips_on if "+" not in f] or result.flips_on[:1]
+        return "fragile: the verdict changes when " + ("; or ".join(plain_flip(f) for f in single) or "counting another way")
     if result.solidity == Solidity.HOLDS_EVERYWHERE and result.variants:
         agree = sum(1 for v in result.variants if v.verdict == result.verdict)
         return f"robust: {agree} of {len(result.variants)} ways of counting agree"
     return None
 
 
-def _evidence(result: ClaimResult, release_name: str) -> list[dict]:
+def _calculation(result: ClaimResult, release_name: str) -> dict | None:
+    """The calculation behind a checked claim: what was counted, the numbers and the pandas code."""
     fact = result.fact
+    if fact is None or not fact.code:
+        return None
+    numbers = _n_of_m(fact, result.claim)
+    note = f"{fact.label}: {numbers}." if numbers else f"{fact.label}."
+    if fact.unknown_count:
+        note += f" Left out for a missing value: {fact.unknown_count:,}."
+    note += " Code (r = load_release(folder)): " + " | ".join(line for line in fact.code.splitlines() if line.strip())
+    if result.ai_plan is not None:
+        note += f". {AI_ASSISTED_NOTE}"
+    return {"kind": "analysis", "id": f"{result.claim.id}-calculation", "release": release_name, "note": note}
+
+
+def _evidence(result: ClaimResult, release_name: str) -> list[dict]:
     ai_note = AI_ASSISTED_NOTE if result.ai_plan is not None else None
+    if result.parts and len(result.parts) > 1:
+        refs: list[dict] = []
+        for part in result.parts:
+            refs.append({"kind": "claim", "id": part.claim.id, "note": _part_line(part)})
+            calc = _calculation(part, release_name)
+            if calc:
+                refs.append(calc)
+        files = list(dict.fromkeys(f for part in result.parts if part.fact for f in part.fact.files))
+        refs += [{"kind": "file", "id": name, "release": release_name} for name in files]
+        refs += [{"kind": "claim", "id": result.claim.id, "note": n} for n in result.notes]
+        return refs
+    fact = result.fact
     if fact is not None and fact.files:
         note = "; ".join(p for p in (fact.label, _solidity_note(result)) if p)
         if ai_note:
             note = f"{note}. {ai_note}" if note else ai_note
-        return [
+        refs = [
             {"kind": "file", "id": name, "release": release_name, "note": note}
             for name in fact.files
         ]
+        calc = _calculation(result, release_name)
+        if calc:
+            refs.append(calc)
+        refs += [{"kind": "claim", "id": result.claim.id, "note": n} for n in result.notes]
+        return refs
     note = "no data field can test this claim"
     return [{"kind": "claim", "id": result.claim.id, "note": f"{note}. {ai_note}" if ai_note else note}]
 

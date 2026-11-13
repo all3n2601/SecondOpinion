@@ -1,0 +1,68 @@
+[
+  {
+    "claim_contains": "survival time",
+    "type": "STATISTIC",
+    "verdict": "supported",
+    "why": "median OS.time 843 days = 2.3 years (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "one in eight",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "151/1,097 = 13.8% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "equivocal for 197",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "179 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Postmenopausal women numbered 705",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "705 of 973 with a known status = 72.5% (the key's author used /1,101 = 64.0%: debatable) (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "highest death rate",
+    "type": "RANK",
+    "verdict": "contradicted",
+    "why": "Normal-like 21.7% and HER2-enriched 20.9% are higher than Basal-like 13.6% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "CDKN2A",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "47 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "CDK4/6",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no treatment data (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Not a single tumour",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "22 BRCA1-mutated (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "190 of 198",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "190/198 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Obese",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no BMI (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "E-cadherin",
+    "type": "COMPARISON",
+    "verdict": "supported",
+    "why": "-1.89 vs 0.04 (blind test written and answered with pandas by an independent agent)"
+  }
+]

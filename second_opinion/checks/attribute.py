@@ -1,0 +1,332 @@
+"""Checks over sample attributes: shares, counts, rankings, ratios, summary statistics, group comparisons.
+
+Every check here reads labels through `attributes.attribute_values`, so a share, a count and a ranking
+of the same thing always agree with each other.
+"""
+
+from __future__ import annotations
+
+import pandas as pd
+
+from second_opinion.checks.attributes import (
+    ATTRIBUTE_NOUNS,
+    CLINICAL,
+    age_values,
+    attribute_values,
+    clinical_frame,
+    describe,
+    gene_frequencies,
+    gene_symbol,
+)
+from second_opinion.checks.base import CannotCheck
+from second_opinion.checks.population import population, population_code, population_noun
+from second_opinion.model import Claim, Fact
+from second_opinion.release import Release
+from second_opinion.variants import Variant
+
+def ordinal(n: int) -> str:
+    if 10 <= n % 100 <= 20:
+        return f"{n}th"
+    return f"{n}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def _noun(variant: Variant) -> str:
+    return population_noun(variant)
+
+
+def scoped(claim: Claim, release: Release, variant: Variant, within_category: str | None = None):
+    """(frame, code, words): the population after the variant's scope and the claim's subgroup, if any."""
+    p = claim.params
+    pop = population(release, variant)
+    frame = clinical_frame(pop)
+    code = population_code(variant) + '\npop = pop.drop_duplicates("sampleID").set_index("sampleID", drop=False)'
+    words = _noun(variant)
+    category = within_category if within_category is not None else p.within_category
+    if p.within_attribute:
+        w = attribute_values(release, frame, p.within_attribute, category, variant)
+        keep = (w.values == w.hit).reindex(frame.index, fill_value=False).astype(bool)
+        frame = frame[keep.values]
+        code += "\n" + w.code.replace("vals", "group") + f'\npop = pop[group == "{w.hit}"]'
+        words = f"{describe(p.within_attribute, category)} {words}"
+    frame.attrs["excluded_unknown_sex"] = pop.attrs.get("excluded_unknown_sex", 0)
+    return frame, code, words
+
+
+def _sex_extra(frame: pd.DataFrame) -> dict[str, float | int | str]:
+    excluded = frame.attrs.get("excluded_unknown_sex", 0)
+    return {"excluded_unknown_sex": excluded} if excluded else {}
+
+
+def _tally(claim: Claim, release: Release, variant: Variant, category: str | None = None, within: str | None = None):
+    p = claim.params
+    frame, code, words = scoped(claim, release, variant, within)
+    av = attribute_values(release, frame, p.attribute, category if category is not None else p.category, variant)
+    known = av.values.notna()
+    hits = (av.values == av.hit) & known
+    return frame, code, words, av, hits, known
+
+
+def check_attribute_share(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Percent of the samples with a known value that have the claimed one (e.g. ER-positive among ER-known)."""
+    p = claim.params
+    if p.attribute == "slide_kind" and p.subject == "slides":  # a share of slides, not of samples
+        from second_opinion.checks.attributes import slide_kind_counts
+        from second_opinion.release import SLIDE_MANIFEST
+
+        counts = slide_kind_counts(release)
+        n, total = int(counts.get(p.category, 0)), int(counts.sum())
+        return Fact(
+            label=f"{p.category} slides among all slides (read from {SLIDE_MANIFEST})", value=100 * n / total if total else None,
+            numerator=n, denominator=total, sample_ids=[], files=[SLIDE_MANIFEST],
+            code=(f'kind = pd.read_csv("{SLIDE_MANIFEST}").slide_kind.str.lower().str.extract(r"^(diagnostic|frozen)")[0]'
+                  f'\nn, total = int((kind == "{p.category}").sum()), int(kind.notna().sum())'),
+        )
+    frame, code, words, av, hits, known = _tally(claim, release, variant)
+    n, total = int(hits.sum()), int(known.sum())
+    if total == 0:
+        raise CannotCheck(f"no {words} have a recorded {ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)}")
+    code += "\n" + av.code + f'\nknown = vals.notna()\nn, total = int((vals == "{av.hit}").sum()), int(known.sum())\npercent = 100 * n / total'
+    return Fact(
+        label=f"{words} with a recorded {ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)} that are {describe(p.attribute, p.category)} (read from {av.source})",
+        value=100 * n / total, numerator=n, denominator=total,
+        sample_ids=[str(s) for s in hits[hits].index], files=av.files, code=code,
+        unknown_count=len(frame) - total, extra=_sex_extra(frame),
+    )
+
+
+def check_attribute_count(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """How many samples (or distinct patients) have the claimed value."""
+    p = claim.params
+    frame, code, words, av, hits, known = _tally(claim, release, variant)
+    ids = [str(s) for s in hits[hits].index]
+    by_patient = (p.subject or "").endswith("patients") or p.attribute in ("vital_status", "dss_status")
+    code += "\n" + av.code
+    if by_patient:
+        ids = sorted({s[:12] for s in ids})
+        code += f'\nn = pop[vals == "{av.hit}"].sampleID.str[:12].nunique()  # distinct patients'
+        noun = "patients"
+    else:
+        code += f'\nn = int((vals == "{av.hit}").sum())'
+        noun = words
+    total = int(known.sum())
+    return Fact(
+        label=f"{describe(p.attribute, p.category)} {noun if by_patient else words} (read from {av.source})",
+        value=len(ids), numerator=len(ids), denominator=total if p.stated_total is not None else None,
+        sample_ids=ids, files=av.files, code=code, unknown_count=len(frame) - total,
+        extra={"known": total, **_sex_extra(frame)},
+    )
+
+
+def check_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Where a category ranks by size (1 = most common); for genes, among all genes in the mutation file."""
+    p = claim.params
+    if p.measure == "rate":
+        return _rate_rank(claim, release, variant)
+    if p.attribute in ("mutation", "amplification", "deletion", "gain", "loss"):
+        return _gene_rank(claim, release, variant)
+    frame, code, words, av, hits, known = _tally(claim, release, variant)
+    counts = av.values[known].value_counts()
+    if counts.empty:
+        raise CannotCheck(f"no {words} have a recorded {ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)}")
+    wanted = [av.hit] + ([_label(release, frame, p.attribute, p.category_b, variant)] if p.category_b else [])
+    return _rank_fact(claim, counts, wanted, int(known.sum()), words, av.files,
+                      code + "\n" + av.code + "\ncounts = vals.value_counts()  # rank 1 = most common", av.source, len(frame))
+
+
+def _label(release, frame, attribute, category, variant) -> str:
+    return attribute_values(release, frame, attribute, category, variant).hit
+
+
+def _gene_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
+    p = claim.params
+    frame, code, words = scoped(claim, release, variant)
+    counts, n_samples = gene_frequencies(release, list(frame.index), p.attribute)
+    if n_samples == 0:
+        raise CannotCheck(f"no {words} are in the mutation file")
+    genes = [gene_symbol(g) for g in (p.category, p.category_b) if g]
+    for g in genes:
+        if g not in counts.index:
+            raise CannotCheck(f"the mutation file has no {g} row")
+    test = {"mutation": "> 0", "amplification": ">= 2", "deletion": "<= -2", "gain": ">= 1", "loss": "<= -1"}[p.attribute]
+    matrix = "r.mutation()" if p.attribute == "mutation" else "r.copy_number()"
+    code += (f"\nm = {matrix}[[s for s in pop.sampleID if s in {matrix}.columns]]"
+             f"\ncounts = (m {test}).sum(axis=1).sort_values(ascending=False)  # rank 1 = most often")
+    return _rank_fact(claim, counts, genes, n_samples, words, [CLINICAL, _file(p.attribute)], code,
+                      f"{_file(p.attribute)}", len(frame), gene=True)
+
+
+def _file(attribute: str) -> str:
+    from second_opinion.release import RELEASE_FILES
+    return RELEASE_FILES["mutation"] if attribute == "mutation" else RELEASE_FILES["copy_number"]
+
+
+def _rank_fact(claim, counts: pd.Series, wanted: list[str], total: int, words: str, files, code, source, pop_size,
+               gene: bool = False) -> Fact:
+    """Fact.value = the worst (largest) competition rank among `wanted`; extra holds the leaders."""
+    p = claim.params
+    least = p.direction == "lower"
+    ordered = counts.sort_values(ascending=least, kind="stable")
+    ranks = {}
+    for name in wanted:
+        n = int(ordered.get(name, 0))
+        better = (ordered < n).sum() if least else (ordered > n).sum()
+        ranks[name] = int(better) + 1
+    worst = max(ranks.values())
+    lead_name, lead_n = str(ordered.index[0]), int(ordered.iloc[0])
+    extra: dict[str, float | int | str] = {
+        "leader": lead_name, "leader_count": lead_n, "total": total, "least": 1 if least else 0,
+        "ranks": "; ".join(f"{name} {ordinal(r)} ({int(ordered.get(name, 0)):,} of {total:,})" for name, r in ranks.items()),
+    }
+    first = wanted[0]
+    n_first = int(ordered.get(first, 0))
+    # how close is the call: the gap to the neighbour that would change the rank
+    position = list(ordered.index).index(first) if first in ordered.index else None
+    if position is not None:
+        neighbour = ordered.index[position + 1] if position + 1 < len(ordered) else None
+        if position > 0:
+            neighbour = ordered.index[position - 1]
+        if neighbour is not None:
+            extra["neighbour"] = str(neighbour)
+            extra["neighbour_count"] = int(ordered[neighbour])
+    thing = "genes" if gene else f"{ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)} values"
+    return Fact(
+        label=f"rank of {', '.join(wanted)} among {thing} by how many {words} have it (read from {source})",
+        value=float(worst), numerator=n_first, denominator=total,
+        sample_ids=[], files=list(files), code=code, unknown_count=pop_size - total if not gene else 0, extra=extra,
+    )
+
+
+def check_ratio(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """count(category) / count(category_b) within the same population."""
+    p = claim.params
+    if not p.category_b:
+        raise CannotCheck("the claim names only one group")
+    if p.attribute == "slide_kind":  # "Diagnostic slides outnumber frozen sections": count slides, not samples
+        from second_opinion.checks.attributes import slide_kind_counts
+        from second_opinion.release import SLIDE_MANIFEST
+
+        counts = slide_kind_counts(release)
+        a, b = int(counts.get(p.category, 0)), int(counts.get(p.category_b, 0))
+        if b == 0:
+            raise CannotCheck(f"the slide manifest has no {p.category_b} slides")
+        return Fact(
+            label=f"{p.category} vs {p.category_b} slides (read from {SLIDE_MANIFEST})", value=a / b, numerator=a,
+            denominator=b, sample_ids=[], files=[SLIDE_MANIFEST],
+            code=(f'kind = pd.read_csv("{SLIDE_MANIFEST}").slide_kind.str.lower().str.extract(r"^(diagnostic|frozen)")[0]'
+                  f'\na, b = (kind == "{p.category}").sum(), (kind == "{p.category_b}").sum()\nratio = a / b'),
+            extra={"n_a": a, "n_b": b},
+        )
+    frame, code, words, av, hits, known = _tally(claim, release, variant)
+    if p.attribute in ("mutation", "amplification", "deletion", "gain", "loss"):  # two genes: each has its own calls
+        _, _, _, av_b, hits_b, _ = _tally(claim, release, variant, category=p.category_b)
+        a, b = int(hits.sum()), int(hits_b.sum())
+        hit_b = av_b.hit
+    else:
+        hit_b = _label(release, frame, p.attribute, p.category_b, variant)
+        a, b = int(hits.sum()), int(((av.values == hit_b) & known).sum())
+    if b == 0:
+        raise CannotCheck(f"no {describe(p.attribute, p.category_b)} {words} to compare with")
+    code += "\n" + av.code + f'\na, b = int((vals == "{av.hit}").sum()), int((vals == "{hit_b}").sum())\nratio = a / b'
+    return Fact(
+        label=f"{describe(p.attribute, p.category)} vs {describe(p.attribute, p.category_b)} {words} (read from {av.source})",
+        value=a / b, numerator=a, denominator=b, sample_ids=[], files=av.files, code=code,
+        extra={"n_a": a, "n_b": b, **_sex_extra(frame)},
+    )
+
+
+def check_statistic(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Median / mean / youngest / oldest age at diagnosis over the population (one row per sample)."""
+    p = claim.params
+    stat = p.measure or "median"
+    frame, code, words = scoped(claim, release, variant)
+    if stat.startswith("os_"):  # "the median recorded overall survival time is under three years"
+        stat = stat[3:]
+        survival = release.survival
+        if survival is None or "OS.time" not in survival.columns:
+            raise CannotCheck("this release's survival file has no OS.time column")
+        by_sample = survival.drop_duplicates("sample").set_index("sample")["OS.time"]
+        days = pd.to_numeric(pd.Series([by_sample.get(s) for s in frame.index], index=frame.index), errors="coerce")
+        known = days.dropna() / 365.25
+        if known.empty:
+            raise CannotCheck(f"no {words} have a recorded survival time")
+        value = {"median": known.median, "mean": known.mean, "min": known.min, "max": known.max}[stat]()
+        code += ('\ndays = pop.sampleID.map(r.survival.drop_duplicates("sample").set_index("sample")["OS.time"])'
+                 f"\nvalue = (days.dropna() / 365.25).{stat}()  # years")
+        return Fact(
+            label=f"{stat} recorded overall survival time (years; survival.tsv OS.time / 365.25) of {words}",
+            value=float(value), numerator=None, denominator=int(len(known)), sample_ids=[],
+            files=[CLINICAL, "survival.tsv"], code=code, unknown_count=len(frame) - len(known),
+            extra={"no_age_word": 1, **_sex_extra(frame)},
+        )
+    ages, col = age_values(release, frame, variant)
+    known = ages.dropna()
+    if known.empty:
+        raise CannotCheck(f"no {words} have a recorded age at diagnosis")
+    value = {"median": known.median, "mean": known.mean, "min": known.min, "max": known.max}[stat]()
+    code += f'\nages = pd.to_numeric(pop["{col}"], errors="coerce").dropna()\nvalue = ages.{stat}()'
+    return Fact(
+        label=f"{stat} age at diagnosis (years) of {words} with a recorded age (read from {col})",
+        value=float(value), numerator=None, denominator=int(len(known)), sample_ids=[], files=[CLINICAL],
+        code=code, unknown_count=len(frame) - len(known), extra=_sex_extra(frame),
+    )
+
+
+def check_share_comparison(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Share of the claimed value in group A minus group B, in percentage points."""
+    p = claim.params
+    if not (p.within_attribute and p.within_category and p.category_b):
+        raise CannotCheck("the claim does not name two groups to compare")
+    sides = []
+    for group in (p.within_category, p.category_b):
+        frame, code, words, av, hits, known = _tally(claim, release, variant, within=group)
+        n, total = int(hits.sum()), int(known.sum())
+        if total == 0:
+            raise CannotCheck(f"no {words} have a recorded {ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)}")
+        sides.append((n, total, words, av, code))
+    (na, ta, wa, av, code_a), (nb, tb, wb, _, _) = sides
+    pa, pb = 100 * na / ta, 100 * nb / tb
+    code = code_a.replace(f'== "{p.within_category}"', "== GROUP") + "\n" + av.code + (
+        f'\nshare = lambda g: 100 * (vals[group == g] == "{av.hit}").sum() / vals[group == g].notna().sum()'
+        f'\ndifference = share("{p.within_category}") - share("{p.category_b}")  # percentage points'
+    )
+    return Fact(
+        label=f"share {describe(p.attribute, p.category)}: {wa} minus {wb} (percentage points, read from {av.source})",
+        value=pa - pb, numerator=None, denominator=None, sample_ids=[], files=av.files, code=code,
+        extra={"n_a": ta, "n_b": tb, "hits_a": na, "hits_b": nb, "share_a": round(pa, 1), "share_b": round(pb, 1),
+               "group_a": wa, "group_b": wb},
+    )
+
+
+def _rate_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Rank of one group's rate (e.g. deaths among Basal-like) against every other group of the same attribute."""
+    p = claim.params
+    pop = population(release, variant)
+    frame = clinical_frame(pop)
+    groups = attribute_values(release, frame, p.within_attribute, p.within_category, variant)
+    target = attribute_values(release, frame, p.attribute, p.category, variant)
+    known = target.values.notna()
+    rates: dict[str, tuple[int, int]] = {}
+    for label in sorted({g for g in groups.values.dropna().unique()}):
+        in_group = (groups.values == label) & known
+        total = int(in_group.sum())
+        if total:
+            rates[str(label)] = (int(((target.values == target.hit) & in_group).sum()), total)
+    if groups.hit not in rates:
+        raise CannotCheck(f"no {describe(p.within_attribute, p.within_category)} {_noun(variant)} have a recorded value")
+    share = pd.Series({k: 100 * n / t for k, (n, t) in rates.items()})
+    least = p.direction == "lower"
+    ordered = share.sort_values(ascending=least, kind="stable")
+    mine = share[groups.hit]
+    rank = int((ordered < mine).sum() if least else (ordered > mine).sum()) + 1
+    lead = str(ordered.index[0])
+    lines = "; ".join(f"{k} {share[k]:.1f}% ({rates[k][0]:,} of {rates[k][1]:,})" for k in ordered.index)
+    code = (population_code(variant) + "\n" + groups.code.replace("vals", "group") + "\n" + target.code
+            + f'\nrate = (vals == "{target.hit}").groupby(group).mean() * 100  # among samples with a known value'
+            + "\nrank = rate.rank(ascending=False)")
+    return Fact(
+        label=f"rank of {groups.hit} by the share of {describe(p.attribute, p.category)} among {ATTRIBUTE_NOUNS.get(p.within_attribute)} groups",
+        value=float(rank), numerator=rates[groups.hit][0], denominator=rates[groups.hit][1], sample_ids=[],
+        files=sorted(set(groups.files) | set(target.files)), code=code,
+        extra={"leader": f"{lead} ({share[lead]:.1f}%)", "leader_count": rates[lead][0], "total": rates[lead][1],
+               "ranks": lines, "least": 1 if least else 0, "rate": 1},
+    )

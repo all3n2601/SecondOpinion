@@ -101,6 +101,12 @@ def _find_group(measure: str, raw: str | None, other: str | None) -> str:
 
 def check_comparison(claim: Claim, release: Release, variant: Variant) -> Fact:
     """value = mean(group_a) - mean(group_b); the primary variant matches reference analysis A1."""
+    if claim.params.attribute:  # "TP53 mutations are more common in Basal-like than in Luminal A tumors"
+        from second_opinion.checks.attribute import check_share_comparison
+
+        return check_share_comparison(claim, release, variant)
+    if claim.params.within_attribute:  # "E-cadherin protein was lower in lobular than in ductal tumours"
+        return _protein_by_groups(claim, release, variant)
     measure = _find_measure(claim)
     spec = _MEASURES[measure]
     group_a = _find_group(measure, claim.params.group_a, claim.params.group_b)
@@ -141,4 +147,45 @@ def check_comparison(claim: Claim, release: Release, variant: Variant) -> Fact:
         files=[RELEASE_FILES["clinical"], RELEASE_FILES["protein"]],
         code=code,
         extra={"n_a": len(in_a), "n_b": len(in_b), "mean_a": round(mean_a, 3), "mean_b": round(mean_b, 3)},
+    )
+
+
+def _protein_row(release: Release, measure: str) -> str:
+    key = re.sub(r"[^A-Z0-9]", "", measure.upper()).replace("ALFA", "ALPHA")
+    aliases = {"ESR1": "ERALPHA", "ER": "ERALPHA", "ERBB2": "HER2", "CDH1": "ECADHERIN", "TP53": "P53", "PGR": "PR"}
+    key = aliases.get(key, key)
+    for name in release.protein.index:
+        if re.sub(r"[^A-Z0-9]", "", str(name).upper()) == key:
+            return str(name)
+    raise CannotCheck(f"this release's protein (RPPA) file has no {measure} measurement")
+
+
+def _protein_by_groups(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Mean of one RPPA protein in group A minus group B, groups read from any sample attribute."""
+    from second_opinion.checks.attribute import scoped
+    from second_opinion.checks.attributes import attribute_values, describe
+
+    p = claim.params
+    row = _protein_row(release, p.measure or "")
+    sides = []
+    for category in (p.within_category, p.category_b):
+        frame, code, words = scoped(claim, release, variant, within_category=category)
+        samples = [s for s in frame.index if s in release.protein.columns]
+        values = release.protein.loc[row, samples].astype(float).dropna()
+        if values.empty:
+            raise CannotCheck(f"no {words} have a {row} protein measurement")
+        sides.append((values, words, code))
+    (va, wa, code_a), (vb, wb, _) = sides
+    mean_a, mean_b = float(va.mean()), float(vb.mean())
+    av = attribute_values(release, population(release, variant), p.within_attribute, p.within_category, variant)
+    code = (population_code(variant) + "\n" + av.code.replace("vals", "group")
+            + f'\nvalues = r.protein.loc["{row}"]'
+            + f'\nmean = lambda g: values[[s for s in group[group == g].index if s in values.index]].mean()'
+            + f'\ndifference = mean("{av.hit}") - mean(<{describe(p.within_attribute, p.category_b)}>)')
+    return Fact(
+        label=f"mean {row} protein (RPPA) in {wa} minus {wb}",
+        value=mean_a - mean_b, numerator=None, denominator=None, sample_ids=list(va.index) + list(vb.index),
+        files=[RELEASE_FILES["clinical"], RELEASE_FILES["protein"]] + [f for f in av.files if f not in RELEASE_FILES.values()],
+        code=code, extra={"n_a": len(va), "n_b": len(vb), "mean_a": round(mean_a, 3), "mean_b": round(mean_b, 3),
+                          "group_a_words": wa, "group_b_words": wb},
     )

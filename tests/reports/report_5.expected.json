@@ -1,0 +1,171 @@
+[
+  {
+    "claim_contains": "1,080 have copy number data",
+    "type": "COVERAGE",
+    "verdict": "contradicted",
+    "why": "1,080 of 1,101 have copy number (right) but 742, not 750, have protein data"
+  },
+  {
+    "claim_contains": "triple-negative.",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "116 triple-negative of 722 primary tumors with all three statuses recorded (Positive or Negative) = 16.1%, not about 12% (checked with pandas)"
+  },
+  {
+    "claim_contains": "66% are PR-positive",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "'About' covers both: ER 808/1,046 = 77.2%, PR 699/1,043 = 67.0%"
+  },
+  {
+    "claim_contains": "more likely to carry TP53",
+    "type": "COMPARISON",
+    "verdict": "supported",
+    "why": "TP53 mutated in 77.5% of ER-negative vs 20.1% of ER-positive tumors with mutation calls"
+  },
+  {
+    "claim_contains": "more common in Basal-like",
+    "type": "COMPARISON",
+    "verdict": "supported",
+    "why": "TP53: Basal-like 84.9% vs Luminal A 10.3%"
+  },
+  {
+    "claim_contains": "two most frequently",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "PIK3CA 273 and TP53 264 are the top two genes"
+  },
+  {
+    "claim_contains": "CDH1",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "CDH1 102 of 791 = 12.9%, about 13%"
+  },
+  {
+    "claim_contains": "Lobular",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "203 of 1,096 with a histological type = 18.5%, about 18%"
+  },
+  {
+    "claim_contains": "most common histological type",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "ductal 784 of 1,096 is the largest type"
+  },
+  {
+    "claim_contains": "postmenopausal",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "705 of 973 with a menopause status = 72.5% > 50%"
+  },
+  {
+    "claim_contains": "Fewer than 1%",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "12 of 1,097 = 1.09% male, not under 1%"
+  },
+  {
+    "claim_contains": "ERBB2 is amplified",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "GISTIC 2 for ERBB2 in 133 of 1,080 = 12.3%"
+  },
+  {
+    "claim_contains": "second most common subtype",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "Luminal A 421, Luminal B 192: second"
+  },
+  {
+    "claim_contains": "least common subtype",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "Normal-like 23 is the smallest"
+  },
+  {
+    "claim_contains": "three to one",
+    "type": "RATIO",
+    "verdict": "supported",
+    "why": "421 vs 141 = 2.99 to 1"
+  },
+  {
+    "claim_contains": "twice as many",
+    "type": "RATIO",
+    "verdict": "supported",
+    "why": "421 vs 192 = 2.19, within 10% of 2"
+  },
+  {
+    "claim_contains": "61 years",
+    "type": "STATISTIC",
+    "verdict": "contradicted",
+    "why": "median age at diagnosis 58.0 (1,097 primary tumors)"
+  },
+  {
+    "claim_contains": "died during follow-up",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "151 of 1,097 = 13.8%, about 14%"
+  },
+  {
+    "claim_contains": "Stage IV",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "20 of 1,075 = 1.9% < 5%"
+  },
+  {
+    "claim_contains": "Nearly all primary tumors",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "'nearly all' is at least 90%: 1,080 of 1,101 = 98.1% have copy number; once misread as 'every'"
+  },
+  {
+    "claim_contains": "majority of primary tumors have RNA",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "1,097 of 1,101 have RNA",
+    "verdict_no_rna": "insufficient_evidence"
+  },
+  {
+    "claim_contains": "At least 1,000",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "1,097 primary tumors have survival data"
+  },
+  {
+    "claim_contains": "164 of 728",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "164 HER2-positive of 728 with a known IHC status"
+  },
+  {
+    "claim_contains": "are Basal-like",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "77 of 90 subtyped triple-negative tumors = 85.6%, not about 80%"
+  },
+  {
+    "claim_contains": "Only 7 samples",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "7 metastatic samples"
+  },
+  {
+    "claim_contains": "median age was 55",
+    "type": "STATISTIC",
+    "verdict": "contradicted",
+    "why": "median age of triple-negative primary tumors is 53.5"
+  },
+  {
+    "claim_contains": "worse overall survival",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "survival comparison"
+  },
+  {
+    "claim_contains": "Black women",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "the release has no race data"
+  }
+]

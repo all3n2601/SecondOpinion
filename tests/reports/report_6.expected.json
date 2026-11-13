@@ -1,0 +1,68 @@
+[
+  {
+    "claim_contains": "808 of 1,046",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "ER-positive 808/1,046 = 77.2%; blind test: written and answered with pandas by an independent agent before the tool ran"
+  },
+  {
+    "claim_contains": "67 per cent",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "PR-positive 699/1,043 = 67.0%"
+  },
+  {
+    "claim_contains": "HER2 was positive by immunohistochemistry",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "HER2 IHC 164/728 = 22.5%, not 31%; once misread as the HER2-enriched subtype (7.9%)"
+  },
+  {
+    "claim_contains": "Triple-negative tumours",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "116/722 with all three results = 16.1%; HER2 in 'ER, PR and HER2' is a receptor, not the subtype"
+  },
+  {
+    "claim_contains": "followed by Luminal B",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "Luminal A 421 > Luminal B 192 > Basal-like 141"
+  },
+  {
+    "claim_contains": "Nearly half",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "Luminal A 421/844 = 49.9%"
+  },
+  {
+    "claim_contains": "more than two to one",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "141 vs 67 = 2.10 > 2"
+  },
+  {
+    "claim_contains": "rarest group",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "Normal-like is the rarest (true) but has 23, not 32"
+  },
+  {
+    "claim_contains": "one in ten Basal-like",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "ER-positive among Basal-like 12/136 = 8.8% < 10%; once read as the Basal share of all tumours"
+  },
+  {
+    "claim_contains": "ER-alpha protein",
+    "type": "COMPARISON",
+    "verdict": "supported",
+    "why": "reference analysis A1"
+  },
+  {
+    "claim_contains": "trastuzumab",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no treatment data"
+  }
+]

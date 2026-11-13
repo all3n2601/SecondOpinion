@@ -228,7 +228,7 @@ def test_the_practice_fixture_still_validates():
 # ------------------------------------------------------------------ /extract
 
 REPORT = (
-    "We thank the team. Luminal B is the second most common subtype. "
+    "We thank the team. Most samples were collected at a single site. "
     "Of the 1,101 primary tumors in the release, 535 have survival, mutation, copy number, RNA and protein data. "
     "Protein data adds a layer."
 )
@@ -247,7 +247,7 @@ def test_extract_recovers_claims_in_sentence_order(monkeypatch):
     assert [(c["id"], c["sentence_index"], c["source"], c["type"]) for c in body["claims"]] == [
         ("C1", 1, "ai", "UNMAPPED"), ("C2", 2, "rules", "COUNT"), ("C3", 3, "ai", "UNMAPPED"),
     ]
-    assert body["claims"][0]["text"] == "Luminal B is the second most common subtype."
+    assert body["claims"][0]["text"] == "Most samples were collected at a single site."
     by_index = {s["index"]: s["claim_id"] for s in body["sentences"]}
     assert by_index == {0: None, 1: "C1", 2: "C2", 3: "C3"}
     assert body["claims"][1]["params"]["stated_value"] == 535  # the rules claim is untouched, only renumbered

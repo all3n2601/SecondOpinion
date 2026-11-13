@@ -30,6 +30,14 @@ KEYWORD_GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
             "hormone therapy", "endocrine therapy", "targeted therapy", "guide treatment",
             "guide therapy", "treatment", "treatments", "therapy", "therapies",
             "chemotherapy", "tamoxifen", "trastuzumab",
+            # "treated" alone is left out (see above); these phrases only ever mean a treatment
+            "treated with", "best treated", "were treated", "was treated", "is treated", "are treated",
+            "inhibitor", "inhibitors", "PARP", "olaparib", "talazoparib", "palbociclib", "ribociclib",
+            "abemaciclib", "CDK4/6", "aromatase", "letrozole", "anastrozole", "exemestane", "fulvestrant",
+            "pertuzumab", "lapatinib", "neratinib", "pembrolizumab", "immunotherapy", "radiotherapy",
+            "radiation therapy", "neoadjuvant", "adjuvant", "mastectomy", "lumpectomy", "drug", "drugs",
+            "should receive", "should be offered", "eligible for", "candidates for", "benefit from",
+            "benefits from", "benefited from", "benefitted from", "sensitive to", "resistant to", "resistance to",
         ),
     ),
     "response": (
@@ -49,6 +57,13 @@ KEYWORD_GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
         (
             "survival benefit", "survival advantage", "improves survival", "improved survival",
             "improve survival", "prolongs survival", "prolonged survival",
+        ),
+    ),
+    "diagnosis": (
+        "clinical diagnostic data; and this tool never makes diagnostic or risk statements about individuals",
+        (
+            "diagnose", "diagnoses", "diagnostic test", "screening test", "risk score", "risk scores",
+            "should be screened", "biopsy", "biopsies",
         ),
     ),
 }

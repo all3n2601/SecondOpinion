@@ -1,0 +1,93 @@
+[
+  {
+    "claim_contains": "About half (50%)",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "421/844 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "least common PAM50",
+    "type": "RANK",
+    "verdict": "contradicted",
+    "why": "Normal-like 23 is least common (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Two in five",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "33.4% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "co-occurred",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "57 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "MYC is amplified",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "229/1,080 = 21.2% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "CCND1 (GISTIC 1 or 2)",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "397/1,080 = 36.8% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "loss of TP53",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "657/1,080 = 60.8% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "older than 65",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "321/1,097 = 29.3% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "under 40",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "76 under 40 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Every slide",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "1,133 of 3,111 diagnostic (blind test written and answered with pandas by an independent agent)",
+    "verdict_no_rna": "insufficient_evidence"
+  },
+  {
+    "claim_contains": "ER-positive tumours | 41.4%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "235/567 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "ER-negative tumours | 21.4%",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "22/178 = 12.4% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "HER2-positive by IHC",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "87/162 = 53.7% (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "Basal tumours | 54 years",
+    "type": "STATISTIC",
+    "verdict": "supported",
+    "why": "54.0 (blind test written and answered with pandas by an independent agent)"
+  },
+  {
+    "claim_contains": "2.18 vs -0.87",
+    "type": "COMPARISON",
+    "verdict": "supported",
+    "why": "2.179 vs -0.872 (blind test written and answered with pandas by an independent agent)"
+  }
+]

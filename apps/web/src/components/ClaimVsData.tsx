@@ -1,7 +1,7 @@
 import { CircleHelp } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { describeStated, paramsFromAiPlan } from "@/lib/ai-plan";
-import { formatFact, formatResultFact } from "@/lib/claim-format";
+import { formatFact, formatResultFact, VERDICT_LABEL } from "@/lib/claim-format";
 import type { ClaimParams, ClaimResult, Verdict } from "@/lib/types";
 import { sectionTitle } from "@/lib/ui";
 
@@ -375,11 +375,34 @@ function Needs({ result }: { result: ClaimResult }) {
  * Report says X, data shows Y, in plain words. For results whose plan is a rank, an order or a summary
  * statistic, where a 0 to 100 gauge would mislead.
  */
+/** A sentence that makes several checks: one line per part, the worst part decides the sentence. */
+function Parts({ result }: { result: ClaimResult }) {
+  const parts = result.parts ?? [];
+  const summary = `This sentence makes ${parts.length} checks. The sentence takes the verdict of its worst part.`;
+  return (
+    <Figure title="Each part of the sentence" summary={summary}>
+      <ul className="mt-3 divide-y divide-rule border-y border-rule">
+        {parts.map((part) => (
+          <li key={part.claim.id} className="grid gap-1 py-3 sm:grid-cols-[1fr_auto] sm:gap-4">
+            <q className="reported text-ink">{part.claim.part_label || part.claim.text}</q>
+            <span className="text-sm font-medium text-ink">
+              {VERDICT_LABEL[part.verdict]}
+              {part.verdict === "contradicted" && part.correct_value ? `: data shows ${part.correct_value}` : ""}
+              {part.verdict === "supported" && part.fact ? `: ${formatResultFact(part)}` : ""}
+              {part.verdict === "insufficient_evidence" && part.missing_evidence ? `: ${part.missing_evidence}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Figure>
+  );
+}
+
 function PlainPair({ result }: { result: ClaimResult }) {
   const { fact, verdict } = result;
   const stated = result.ai_plan?.stated ?? null;
   if (!fact) return null;
-  const says = stated?.span ?? "";
+  const says = stated?.span ?? (result.claim.part_label || result.claim.text);
   const reading = stated ? describeStated(stated) : "";
   const shows = verdict === "contradicted" && result.correct_value ? result.correct_value : formatResultFact(result);
   const summary = `${says ? `Report says: ${says}. ` : "The report states no figure. "}The data shows ${shows}.`;
@@ -424,6 +447,9 @@ export default function ClaimVsData({ result }: { result: ClaimResult }) {
     }
   }
 
+  if (result.parts && result.parts.length > 1) return <Parts result={result} />;
+  if (claim.type === "RANK" || claim.type === "RATIO" || claim.type === "STATISTIC") return <PlainPair result={result} />;
+  if (claim.type === "COMPARISON" && typeof fact.extra.share_a === "number") return <PlainPair result={result} />;
   if (claim.type === "COMPARISON") return <ComparisonGauge result={result} />;
   if (claim.type === "SHARE" || (claim.params.unit === "percent" && fact.value !== null)) {
     return <ShareGauge result={result} />;

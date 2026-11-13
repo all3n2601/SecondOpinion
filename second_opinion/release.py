@@ -2,7 +2,7 @@
 
 import hashlib
 import zlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, TypeVar
 
@@ -16,6 +16,7 @@ RELEASE_FILES = {
     "protein": "protein_rppa.tsv.gz",
 }
 RNA_FILE = "rna_hiseq.tsv.gz"  # optional: sealed envelopes ship without it
+SLIDE_MANIFEST = "slide_manifest.csv"  # optional: next to release A's raw/ folder; envelopes have none
 
 class ReleaseError(Exception):
     """A release file exists but cannot be read (empty, corrupt, or missing a required column)."""
@@ -36,6 +37,24 @@ class Release:
     protein: pd.DataFrame  # protein_rppa, index = protein name, columns = sample ids
     rna_ids: set[str] | None  # None when the folder has no rna_hiseq.tsv.gz
     checksums: dict[str, str]  # file name -> sha256 of every file present
+    survival: pd.DataFrame | None = None  # the whole survival.tsv (sample, _PATIENT, OS, OS.time, ...)
+    slides: pd.DataFrame | None = None  # slide_manifest.csv when the folder (or the one above) has it
+    _mutation: pd.DataFrame | None = field(default=None, repr=False)
+    _copy_number: pd.DataFrame | None = field(default=None, repr=False)
+
+    def mutation(self) -> pd.DataFrame:
+        """Gene-level mutation calls: index = gene symbol, columns = sample ids, 1 = mutated. Read once, on first use."""
+        if self._mutation is None:
+            self._mutation = _read(RELEASE_FILES["mutation"], lambda: _int8_matrix(self.folder / RELEASE_FILES["mutation"]))
+        return self._mutation
+
+    def copy_number(self) -> pd.DataFrame:
+        """GISTIC calls (-2 deep deletion ... 2 high-level amplification): index = gene, columns = sample ids."""
+        if self._copy_number is None:
+            self._copy_number = _read(
+                RELEASE_FILES["copy_number"], lambda: _int8_matrix(self.folder / RELEASE_FILES["copy_number"])
+            )
+        return self._copy_number
 
     def primary_ids(self) -> list[str]:
         """Clinical sampleID where chars [13:15] == "01" (primary tumor), in clinical.tsv file order."""
@@ -76,6 +95,16 @@ def _header_ids(path: Path) -> set[str]:
     return set(pd.read_csv(path, sep="\t", nrows=0).columns[1:])
 
 
+def _int8_matrix(path: Path) -> pd.DataFrame:
+    """A gene x sample matrix of small whole numbers, stored compactly (the real files are ~40,000 rows)."""
+    header = pd.read_csv(path, sep="\t", nrows=0).columns
+    dtypes = {name: "float32" for name in header[1:]}
+    matrix = pd.read_csv(path, sep="\t", index_col=0, dtype=dtypes)
+    matrix.index = matrix.index.astype(str)
+    matrix = matrix[~matrix.index.duplicated()]
+    return matrix.fillna(0).astype("int8")
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as f:
@@ -102,9 +131,7 @@ def load_release(folder: str | Path) -> Release:
     has_rna = rna_path.exists()
     files = RELEASE_FILES
     protein = _read(files["protein"], lambda: pd.read_csv(folder / files["protein"], sep="\t", index_col=0))
-    survival = _read(
-        files["survival"], lambda: pd.read_csv(folder / files["survival"], sep="\t", usecols=["sample"])
-    )
+    survival = _read(files["survival"], lambda: _read_survival(folder / files["survival"]))
     names = [*files.values(), *([RNA_FILE] if has_rna else [])]
 
     return Release(
@@ -117,4 +144,27 @@ def load_release(folder: str | Path) -> Release:
         protein=protein,
         rna_ids=_read(RNA_FILE, lambda: _header_ids(rna_path)) if has_rna else None,
         checksums={name: _read(name, lambda n=name: _sha256(folder / n)) for name in names},
+        survival=survival,
+        slides=_read_slides(folder),
     )
+
+
+def _read_slides(folder: Path) -> pd.DataFrame | None:
+    """The organizers' slide manifest, if it sits in the release folder or one level up; None otherwise."""
+    for candidate in (folder / SLIDE_MANIFEST, folder.resolve().parent / SLIDE_MANIFEST):
+        if candidate.is_file():
+            try:
+                slides = pd.read_csv(candidate)
+            except (OSError, ValueError, pd.errors.ParserError):
+                return None
+            return slides if {"slide_barcode", "sample_id", "slide_kind"} <= set(slides.columns) else None
+    return None
+
+
+def _read_survival(path: Path) -> pd.DataFrame:
+    survival = pd.read_csv(path, sep="\t")
+    if "sample" not in survival.columns:
+        raise ValueError("it has no sample column")
+    survival = survival[survival["sample"].notna()].copy()
+    survival["sample"] = survival["sample"].astype(str)
+    return survival

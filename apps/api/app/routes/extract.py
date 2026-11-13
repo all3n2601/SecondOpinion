@@ -1,11 +1,11 @@
 """Report reading endpoints: cut a report into sentences and claims, or type one ticked sentence."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from fastapi import APIRouter, HTTPException
 
 from second_opinion.ai.client import make_client
-from second_opinion.ai.extract_ai import find_missed_claims
+from second_opinion.ai.extract_ai import add_missed_claims
 from second_opinion.extract import classify_sentence, extract_claims
 from second_opinion.model import Claim, ClaimType, ExtractResult, SentenceInfo
 
@@ -27,33 +27,12 @@ class ClassifyRequest:
 
 
 def _with_ai_claims(result: ExtractResult) -> ExtractResult:
-    """Add claims the AI recovered from sentences the rules skipped; the rules-only result on any failure.
-
-    Claim ids are re-numbered C1..Cn in sentence order so SentenceInfo.claim_id keeps matching.
-    """
+    """Add claims the AI recovered from sentences the rules skipped; the rules-only result on any failure."""
     try:
         client = make_client()
-        if client is None:
-            return result
-        recovered = find_missed_claims(result.sentences, client)
     except Exception:  # noqa: BLE001 - the AI layer is optional; /extract must still answer
         return result
-    if not recovered:
-        return result
-    by_index = {s.index: s for s in result.sentences}
-    claims = list(result.claims) + [
-        Claim(
-            id="", text=by_index[i].text, sentence_index=i, type=ClaimType.UNMAPPED, source="ai",
-            original_text=by_index[i].original_text,
-        )
-        for i in recovered
-        if i in by_index and by_index[i].claim_id is None
-    ]
-    claims.sort(key=lambda c: c.sentence_index)
-    claims = [replace(c, id=f"C{n}") for n, c in enumerate(claims, start=1)]
-    claim_ids = {c.sentence_index: c.id for c in claims}
-    sentences = [replace(s, claim_id=claim_ids.get(s.index)) for s in result.sentences]
-    return ExtractResult(sentences=sentences, claims=claims)
+    return add_missed_claims(result, client)
 
 
 @router.post("/extract", response_model=ExtractResult)

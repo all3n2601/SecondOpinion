@@ -57,15 +57,33 @@ All verdicts come from code. There is no AI in the verdict path and no API key a
 - A stated number is **supported** if it equals the computed value after rounding to the report's own
   precision. For "about / roughly / nearly" it is supported within **2 percentage points** (shares)
   or **2% of the count** (counts). Ranges ("55-65%") must contain the value.
+- One-sided bounds are checked as bounds: "more than 150", "at least 1,000", "fewer than 1%".
+- Amount words become numbers: "a third", "half", "one in ten" (within 2 points); "most" / "the
+  majority" is more than 50%; "nearly all" at least 90%; "a minority" under 50%.
+- Rankings ("the most frequently mutated gene", "the second most common subtype", "the two most
+  frequently mutated genes") must hold exactly; ties count as holding. Ratios ("about two to one",
+  "twice as many") are supported within 15% ("about") or 10% of the stated ratio.
+- A sentence that makes several checks ("7 metastatic and 139 normal-tissue samples", "about 77% are
+  ER-positive and 66% PR-positive", "Luminal A is the largest subtype, at about 62%") is checked part by
+  part and takes the verdict of its worst part; every part is listed in the finding.
 - Otherwise it is **contradicted**, and the tool gives the correct value with its denominator.
 - A direction claim ("higher in ER-positive") is supported when the sign of the difference matches.
-- Claims about treatment, response, cause or prediction, or about data the release does not contain,
-  are `insufficient_evidence`, with what data would be needed.
-- The primary number always follows the organizers' reference definitions. The other ways of
-  counting only decide the robust/fragile tag; they never change the verdict.
+- Claims about treatment, response, cause or prediction, survival differences between groups,
+  measures the release does not hold (Ki-67, grade, tumor size, race, BMI, ...), or "large enough"
+  judgments are `insufficient_evidence`, with what data would be needed.
+- The primary number always follows the organizers' reference definitions: primary tumors by barcode,
+  PAM50 from `PAM50Call_RNAseq`, receptor status from the clinical IHC columns (Positive among
+  Positive + Negative), deaths from `survival.tsv` OS. The other ways of counting (including the 2012
+  study's columns) only decide the robust/fragile tag; they never change the verdict.
+- Close calls are flagged for the reviewer: a ranking won by under 2 points, a share near the edge of
+  its tolerance, a count right at its bound.
 
-Claim types checked: counts, shares of a subtype, coverage ("every tumor has protein data"), group
-comparisons (ER-alpha protein by ER status), and "the data can't answer this".
+Claim types checked: counts (samples, patients, sample types, sexes, deaths, slides), shares (PAM50
+subtype, ER / PR / HER2 / hormone-receptor / triple-negative status, stage, histology, menopause, sex,
+gene mutation, ERBB2-style amplification and deep deletion, deaths), data-layer coverage, also within a
+subgroup ("protein data covers most triple-negative tumors"), rankings, ratios, comparisons of a share
+between groups ("TP53 mutations are more common in Basal-like than Luminal A tumors"), protein
+comparisons (ER-alpha by ER status), median / mean age, and "the data can't answer this".
 
 ## Quick start
 
@@ -130,25 +148,35 @@ cd ../oncosys-hackathon-challenge
 ../SecondOpinion/.venv/bin/python envelopes/unseal.py <number> <four words>
 ```
 
-The new release is in `envelopes/opened/E<number>/release/`. It has no RNA file and no manifest, and
-the tool says so instead of failing. Rehearse with the public practice envelope:
+On Windows, set `PYTHONUTF8=1` first (`$env:PYTHONUTF8=1` in PowerShell): `unseal.py` prints check
+marks and can otherwise stop with a `UnicodeEncodeError`. Rehearse with the public practice envelope:
 
 ```bash
 ../SecondOpinion/.venv/bin/python envelopes/unseal.py practice orange meadow pilot lantern
 ```
 
-Then either use the web app with `envelopes/opened/practice/release/` as the release folder, or the
-command line, from this repository:
+**Which release to audit against.** Our product's input in the envelope is
+`envelopes/opened/E<number>/claim_auditor_report.md`. The envelope's `release/` folder is the input for
+Cohort Control Tower (see the table in `envelopes/README.md`); it is a changed release with no RNA file
+and no manifests. The practice brief says it describes "release A from `fetch.py`", and the product brief
+lists "the TCGA-BRCA files from `fetch.py` and the manifests" as our data, so **check the judges' report
+against release A**, `../oncosys-hackathon-challenge/data/tcga-brca/raw` (its manifests sit one folder
+up and are read for slide counts). The tool works on an envelope's `release/` folder too, if the judges
+ask for it.
+
+From this repository (`.venv\Scripts\second-opinion.exe` and backslashes on Windows):
 
 ```bash
-.venv/bin/second-opinion --release ../oncosys-hackathon-challenge/envelopes/opened/practice/release \
-  --report docs/challenge/products/research-claim-auditor/practice_brief.md --out audit.json
-.venv/bin/python docs/challenge/format/validate.py audit.json
+.venv/bin/second-opinion --release ../oncosys-hackathon-challenge/data/tcga-brca/raw \
+  --report ../oncosys-hackathon-challenge/envelopes/opened/E<number>/claim_auditor_report.md --out audit.json
+.venv/bin/python ../oncosys-hackathon-challenge/format/validate.py audit.json
 ```
 
-On the day, the judges' report is `envelopes/opened/E<number>/claim_auditor_report.md`; use it as
-`--report` (or upload it in the app). `--claims-json claims.json` skips sentence extraction and audits a given list of claims (then
-`--report` is not needed). The validator must print `valid`. A full run takes well under a minute.
+It prints one line per claim (verdict, the data's value or what is missing, fragile and close-call
+warnings), then writes `audit.json` only if it passes the shared-format checks. `--no-ai` runs on the
+rules alone; `--quiet` skips the table. Or upload the report in the web app with the same release folder.
+`--claims-json claims.json` skips sentence extraction and audits a given list of claims (then `--report`
+is not needed). The validator must print `valid`. A full run takes under 10 seconds.
 
 ## Configuration
 
@@ -213,8 +241,21 @@ These are shown in the product next to the claims they affect, not only here.
 - **Sex and sample type:** 13 male samples (12 of them primary tumors), 4 primary tumors with no
   recorded sex, and 139 normal-tissue and 7 metastasis samples are mixed in. "Women only" excludes
   unknown-sex rows and reports how many.
-- **Claim types covered:** counts, shares, coverage and group comparisons. Any other kind of claim
-  gets `insufficient_evidence` ("No check exists yet for this kind of claim") for a person to check.
+- **Claim types covered:** see "How a verdict is decided". Any other kind of claim gets
+  `insufficient_evidence` ("No check exists yet for this kind of claim") for a person to check, and the
+  optional AI helper may propose a check for it. A check that fails on an unusual release never stops
+  the audit: that claim alone becomes `insufficient_evidence`, marked for checking by hand.
+- **Receptor status depends on the column:** HER2-positive is 22.5% (164 of 728) by the clinical IHC
+  status the tool uses, but 14.9% (114 of 766) by the 2012 study's final status. Claims like this are
+  marked fragile with low confidence so a reviewer looks at them.
+- **Slide counts need the slide manifest**, which sits next to release A; envelope releases have none.
+- **Denominators are the samples with a recorded value.** "64% of patients are postmenopausal" is
+  checked as 705 of 973 with a recorded menopause status (72.5%), not 705 of all 1,101. Triple-negative
+  is counted among tumours with all three receptor results recorded (116 of 722).
+- **Lymph-node status is not checked:** the release has node counts but no single agreed
+  "node-positive" field, so such claims get `insufficient_evidence` for a person to judge.
+- **Blind-tested:** two independent agents wrote 7 reports (87 claims) with pandas answer keys before
+  seeing the tool; all 7 are now in `tests/reports` (reports 6–12) and run with the test suite.
 - **The suggested decision is advice.** Every verdict needs a human review before export, and the
   Decision Record names who must sign off.
 
@@ -235,7 +276,7 @@ and Decision Record. No database. The API keeps no session: the browser sends ba
 | --- | --- |
 | `extract.py`, `unanswerable.py` | Split the report into sentences, type each claim, parse numbers, detect "the data can't answer this" |
 | `release.py` | Load a release folder (any envelope), checksums, which samples are in which data layer |
-| `checks/` | One check per claim type: count, coverage, share, comparison |
+| `checks/` | One check per claim type: count, coverage, share, comparison, rank, ratio, statistic; `attributes.py` reads receptor status, stage, histology, mutations, copy number and deaths the same way for every check |
 | `verdict.py`, `robustness.py`, `skeptic.py` | Tolerance rules, the eight ways of counting, label-shuffle and leave-one-site-out tests |
 | `ladder.py` | The Claim Ladder wording rules (fixed rules, same output every time) |
 | `audit.py` | Runs a list of claims through all of the above and returns the audit result |

@@ -105,9 +105,10 @@ export default function ClaimCard({ result }: { result: ClaimResult }) {
             </Row>
           )}
 
-          {(result.limitation || typeof note === "string") && (
+          {(result.limitation || typeof note === "string" || (result.notes?.length ?? 0) > 0) && (
             <Row label="Keep in mind">
               <ul className="space-y-1 text-ink-soft">
+                {result.notes?.map((n) => <li key={n} className="font-medium text-ink">{n}</li>)}
                 {result.limitation && <li>{result.limitation}</li>}
                 {typeof note === "string" && <li>{note}</li>}
               </ul>

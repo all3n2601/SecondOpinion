@@ -29,5 +29,9 @@ def _ai_off_by_default(monkeypatch):
     """No test reaches a real AI service, even if the developer has a key in the environment or .env.
 
     Tests that want the layer on pass a ScriptedClient or set the SO_AI_* variables themselves.
+    The developer's own repo-root .env is hidden too, so a real key there never changes a test result.
     """
+    from second_opinion.ai import config
+
     monkeypatch.setenv("SO_AI", "off")
+    monkeypatch.setattr(config, "_DEFAULT_DOTENV", Path(__file__).resolve().parent / "no-such-dotenv")

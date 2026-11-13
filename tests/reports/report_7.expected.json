@@ -1,0 +1,74 @@
+[
+  {
+    "claim_contains": "264 (33%)",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "TP53 264/791 = 33.4%; blind test: written and answered with pandas by an independent agent before the tool ran"
+  },
+  {
+    "claim_contains": "single most frequently mutated",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "PIK3CA 273/791 = 34.5%, first (TP53 264 second)"
+  },
+  {
+    "claim_contains": "CDH1 mutations were found in 15%",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "CDH1 102/791 = 12.9%"
+  },
+  {
+    "claim_contains": "GATA3 and MAP3K1",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "GATA3 12.3% > 10% but MAP3K1 66/791 = 8.3%"
+  },
+  {
+    "claim_contains": "far more common in Basal-like",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "TP53 Basal-like 90/106 = 84.9%, Luminal A 31/301 = 10.3%"
+  },
+  {
+    "claim_contains": "lobular carcinomas with mutation data",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "CDH1 among lobular with mutation calls 85/144 = 59.0%; once read as lobular share of all tumours"
+  },
+  {
+    "claim_contains": "BRCA1 and BRCA2",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "BRCA1 22/791 = 2.8%, BRCA2 20/791 = 2.5%, each < 3%"
+  },
+  {
+    "claim_contains": "GISTIC value of 2",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "133 of 1,080; once read '2' as the stated total"
+  },
+  {
+    "claim_contains": "MYC was amplified",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "MYC GISTIC 2 in 229/1,080 = 21.2%, about one in five"
+  },
+  {
+    "claim_contains": "CCND1 amplification",
+    "type": "RATIO",
+    "verdict": "supported",
+    "why": "CCND1 177 vs ERBB2 133 high-level amplifications"
+  },
+  {
+    "claim_contains": "PTEN",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "deep deletion 56/1,080 = 5.2%, not 8-10%"
+  },
+  {
+    "claim_contains": "alpelisib",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no drug-response data; 'will be needed' sentence is not a claim"
+  }
+]

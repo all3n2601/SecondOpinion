@@ -66,24 +66,26 @@ def test_summaries_severity_and_confidence():
     assert "limitation" not in c1
 
 
-def test_fragile_claim_is_medium_confidence_and_says_where_it_flips():
+def test_fragile_claim_is_low_confidence_and_says_where_it_flips():
     audit = load_fixture()
     audit.claims[1].solidity = Solidity.FRAGILE
     audit.claims[1].flips_on = ["subtype_source=study_2012_label"]
     c2 = _finding(build_audit_json(audit, None), "C2")
-    assert c2["confidence"] == "medium"
-    assert "fragile: flips on subtype_source=study_2012_label" in c2["evidence"][0]["note"]
+    assert c2["confidence"] == "low"
+    assert "fragile: the verdict changes when reading the 2012 study's columns instead" in c2["evidence"][0]["note"]
 
 
 def test_evidence_points_at_files_or_the_claim():
     doc = build_audit_json(load_fixture(), None)
     c1, c2, c3 = (_finding(doc, c) for c in ("C1", "C2", "C3"))
     assert [e["id"] for e in c1["evidence"]][0] == "clinical.tsv"
-    assert len(c1["evidence"]) == 5
-    assert c2["evidence"] == [{
+    assert [e["kind"] for e in c1["evidence"]] == ["file"] * 5 + ["analysis"]
+    assert c2["evidence"][0] == {
         "kind": "file", "id": "clinical.tsv", "release": "A",
         "note": "primary tumors with a PAM50 RNA-seq call that are Luminal A; robust: 8 of 8 ways of counting agree",
-    }]
+    }
+    calc = c2["evidence"][1]
+    assert calc["kind"] == "analysis" and "421 of 844" in calc["note"] and "Code" in calc["note"]
     assert c3["evidence"] == [{"kind": "claim", "id": "C3", "note": "no data field can test this claim"}]
 
 

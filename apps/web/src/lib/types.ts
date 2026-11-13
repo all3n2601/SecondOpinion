@@ -15,6 +15,9 @@ export type ClaimType =
   | "COMPARISON"
   | "AGREEMENT"
   | "COVERAGE"
+  | "RANK"
+  | "RATIO"
+  | "STATISTIC"
   | "NOT_ANSWERABLE"
   | "UNMAPPED";
 
@@ -31,6 +34,15 @@ export interface ClaimParams {
   measure: string | null;
   group_a: string | null;
   group_b: string | null;
+  /** One-sided bound: "more than 150" -> "gt"; "most" -> gt 50 percent. */
+  bound?: "gt" | "gte" | "lt" | "lte" | null;
+  /** A sample attribute: "er_status", "mutation", "stage", "vital_status", ... (second_opinion/checks/attributes.py) */
+  attribute?: string | null;
+  category?: string | null;
+  category_b?: string | null;
+  within_attribute?: string | null;
+  within_category?: string | null;
+  top_n?: number | null;
 }
 
 export interface Claim {
@@ -45,6 +57,10 @@ export interface Claim {
   source?: ClaimSource;
   /** The sentence copied exactly as written in the report, Markdown included. Absent or "" = same as `text`. */
   original_text?: string;
+  /** A sentence with several checkable statements carries one sub-claim per statement; its worst part decides. */
+  parts?: Claim[];
+  /** For a part: the words it checks, e.g. "7 metastatic samples". */
+  part_label?: string;
 }
 
 export type ClaimSource = "rules" | "ai";
@@ -182,6 +198,10 @@ export interface ClaimResult {
   review: Review | null;
   /** Present only when the optional AI helper proposed the check plan for this claim. */
   ai_plan?: AiPlan | null;
+  /** One result per part of a multi-part sentence. */
+  parts?: ClaimResult[];
+  /** Close calls a reviewer should look at twice. */
+  notes?: string[];
 }
 
 export interface ReleaseInfo {

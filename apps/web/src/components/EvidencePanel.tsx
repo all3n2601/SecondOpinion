@@ -302,6 +302,14 @@ export default function EvidencePanel({ result, release, releaseDir }: Props) {
           <p className="max-w-prose leading-7">{result.limitation}</p>
         </Section>
       )}
+
+      {(result.notes?.length ?? 0) > 0 && (
+        <Section id="close-call" title="Close call">
+          <ul className="max-w-prose list-disc space-y-1 pl-5 leading-7">
+            {result.notes?.map((n) => <li key={n}>{n}</li>)}
+          </ul>
+        </Section>
+      )}
     </article>
   );
 }

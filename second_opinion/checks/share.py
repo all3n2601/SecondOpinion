@@ -15,6 +15,10 @@ _SOURCE_WORDS = {
 
 def check_share(claim: Claim, release: Release, variant: Variant) -> Fact:
     """Denominator = samples in the population that HAVE a call; unknown_count = those with none."""
+    if claim.params.attribute:  # "77% are ER-positive", "TP53 is mutated in a third of tumors"
+        from second_opinion.checks.attribute import check_attribute_share
+
+        return check_attribute_share(claim, release, variant)
     if not claim.params.subtype:
         raise CannotCheck("claim names no subtype")
     subtype = normalise_subtype(claim.params.subtype)

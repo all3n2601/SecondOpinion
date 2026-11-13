@@ -9,6 +9,9 @@ export const TYPE_LABEL: Record<ClaimType, string> = {
   COMPARISON: "Comparison",
   AGREEMENT: "Agreement",
   COVERAGE: "Coverage",
+  RANK: "Ranking",
+  RATIO: "Ratio",
+  STATISTIC: "Statistic",
   NOT_ANSWERABLE: "Not answerable",
   UNMAPPED: "No check yet",
 };
@@ -111,6 +114,19 @@ export function formatFact(fact: Fact, type: Claim["type"]): string {
   const { value, numerator: num, denominator: den } = fact;
   const ofTotal = num !== null && den !== null ? `${count.format(num)} of ${count.format(den)}` : null;
 
+  const x = fact.extra;
+  if (type === "RATIO" && value !== null && num !== null && den !== null) {
+    return `${value.toFixed(2)} to 1 (${count.format(num)} vs ${count.format(den)})`;
+  }
+  if (type === "RANK" && typeof x.ranks === "string") {
+    return `${x.ranks}; most common: ${x.leader} (${count.format(Number(x.leader_count))} of ${count.format(Number(x.total))})`;
+  }
+  if (type === "STATISTIC" && value !== null) {
+    return `${value.toFixed(1)} years${den !== null ? ` (${count.format(den)} with a recorded age)` : ""}`;
+  }
+  if (type === "COMPARISON" && typeof x.share_a === "number" && typeof x.share_b === "number") {
+    return `${x.group_a} ${x.share_a}% (${count.format(Number(x.hits_a))} of ${count.format(Number(x.n_a))}) vs ${x.group_b} ${x.share_b}% (${count.format(Number(x.hits_b))} of ${count.format(Number(x.n_b))})`;
+  }
   if (type === "COMPARISON" && value !== null) {
     const n = fact.extra;
     const groups = n.n_a !== undefined && n.n_b !== undefined ? ` (groups of ${n.n_a} and ${n.n_b})` : "";

@@ -1,0 +1,21 @@
+# Reviewer roles: the same facts, different wording and detail.
+# Add a role here or with the "Add a role" form in the web app.
+# detail: summary | standard | full
+# sections (valid names only): decision, counts, sign_off, claims, review_queue, decision_record,
+#   corrected_wording, robustness, skeptic, sample_ids, files, code
+- name: Program leader
+  sections: [decision, counts, sign_off]
+  detail: summary
+  explain_terms: true
+- name: Data-use reviewer
+  sections: [claims, review_queue, decision_record]
+  detail: standard
+  explain_terms: true
+- name: Researcher
+  sections: [corrected_wording, robustness, skeptic]
+  detail: full
+  explain_terms: false
+- name: Data engineer
+  sections: [sample_ids, files, code]
+  detail: full
+  explain_terms: false

@@ -1,32 +1,23 @@
-"""Reviewer roles (in-memory stub until Meghana's M4)."""
+"""Reviewer roles: list them, or add one (saved to second_opinion/roles.yaml)."""
 
-from dataclasses import dataclass, field
-from typing import Literal
+from fastapi import APIRouter, HTTPException
 
-from fastapi import APIRouter
+from second_opinion import roles as roles_store
+from second_opinion.roles import DuplicateRoleError, Role
 
 router = APIRouter(tags=["roles"])
 
 
-@dataclass
-class Role:
-    name: str
-    sections: list[str] = field(default_factory=list)
-    detail: Literal["summary", "standard", "full"] = "standard"
-    explain_terms: bool = False
-
-
-_ROLES: list[Role] = [
-    Role(name="Reviewer", sections=["claims", "evidence", "decision"], detail="standard"),
-]
-
-
 @router.get("/roles", response_model=list[Role])
 def list_roles() -> list[Role]:
-    return _ROLES
+    return roles_store.load_roles()
 
 
 @router.post("/roles", response_model=list[Role])
 def add_role(role: Role) -> list[Role]:
-    _ROLES[:] = [r for r in _ROLES if r.name != role.name] + [role]
-    return _ROLES
+    try:
+        return roles_store.add_role(role)
+    except DuplicateRoleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -60,9 +60,10 @@ def _sex_extra(frame: pd.DataFrame) -> dict[str, float | int | str]:
 def _tally(claim: Claim, release: Release, variant: Variant, category: str | None = None, within: str | None = None):
     p = claim.params
     frame, code, words = scoped(claim, release, variant, within)
-    av = attribute_values(release, frame, p.attribute, category if category is not None else p.category, variant)
+    wanted = category if category is not None else p.category
+    av = attribute_values(release, frame, p.attribute, None if wanted == "any" else wanted, variant)
     known = av.values.notna()
-    hits = (av.values == av.hit) & known
+    hits = known.copy() if wanted == "any" else (av.values == av.hit) & known  # "any": every sample with a recorded value
     return frame, code, words, av, hits, known
 
 
@@ -101,6 +102,13 @@ def check_attribute_count(claim: Claim, release: Release, variant: Variant) -> F
     ids = [str(s) for s in hits[hits].index]
     by_patient = (p.subject or "").endswith("patients") or p.attribute in ("vital_status", "dss_status")
     code += "\n" + av.code
+    if p.category == "any":  # "PAM50 calls are available for 844 tumors": samples with any recorded value
+        code += "\nn = int(vals.notna().sum())"
+        return Fact(
+            label=f"{words} with a recorded {ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)} (read from {av.source})",
+            value=len(ids), numerator=len(ids), denominator=None, sample_ids=ids, files=av.files, code=code,
+            unknown_count=len(frame) - len(ids), extra=_sex_extra(frame),
+        )
     if by_patient:
         ids = sorted({s[:12] for s in ids})
         code += f'\nn = pop[vals == "{av.hit}"].sampleID.str[:12].nunique()  # distinct patients'
@@ -122,6 +130,8 @@ def check_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
     p = claim.params
     if p.measure == "rate":
         return _rate_rank(claim, release, variant)
+    if p.measure and not p.attribute and p.within_attribute:  # "Mean HER2 protein was highest in HER2-enriched"
+        return _protein_rank(claim, release, variant)
     if p.attribute in ("mutation", "amplification", "deletion", "gain", "loss"):
         return _gene_rank(claim, release, variant)
     frame, code, words, av, hits, known = _tally(claim, release, variant)
@@ -329,4 +339,47 @@ def _rate_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
         files=sorted(set(groups.files) | set(target.files)), code=code,
         extra={"leader": f"{lead} ({share[lead]:.1f}%)", "leader_count": rates[lead][0], "total": rates[lead][1],
                "ranks": lines, "least": 1 if least else 0, "rate": 1},
+    )
+
+
+def _protein_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Rank of one group by its mean (or median) RPPA level of a protein, against every other group of the attribute."""
+    import re
+
+    from second_opinion.checks.compare import _protein_row
+    from second_opinion.release import RELEASE_FILES
+
+    p = claim.params
+    row = _protein_row(release, p.measure or "")
+    stat = "median" if re.search(r"\bmedian\b", claim.text, re.IGNORECASE) else "mean"
+    pop = population(release, variant)
+    frame = clinical_frame(pop)
+    groups = attribute_values(release, frame, p.within_attribute, p.within_category, variant)
+    values = release.protein.loc[row].astype(float)
+    levels: dict[str, tuple[float, int]] = {}
+    for label in sorted({g for g in groups.values.dropna().unique()}):
+        ids = [s for s in groups.values.index[(groups.values == label).values] if s in values.index]
+        v = values[ids].dropna()
+        if len(v):
+            levels[str(label)] = (float(getattr(v, stat)()), len(v))
+    if groups.hit not in levels:
+        raise CannotCheck(f"no {describe(p.within_attribute, p.within_category)} {_noun(variant)} have a {row} protein measurement")
+    level = pd.Series({k: v for k, (v, _) in levels.items()})
+    least = p.direction == "lower"
+    ordered = level.sort_values(ascending=least, kind="stable")
+    mine = level[groups.hit]
+    rank = int((ordered < mine).sum() if least else (ordered > mine).sum()) + 1
+    lead = str(ordered.index[0])
+    lines = "; ".join(f"{k} {level[k]:.2f} (n = {levels[k][1]:,})" for k in ordered.index)
+    code = (population_code(variant) + "\n" + groups.code.replace("vals", "group")
+            + f'\nvalues = r.protein.loc["{row}"]'
+            + f"\nlevel = values.groupby(group.reindex(values.index)).{stat}()  # per group"
+            + f"\nrank = level.rank(ascending={least})")
+    return Fact(
+        label=f"rank of {groups.hit} by {stat} {row} protein (RPPA) among {ATTRIBUTE_NOUNS.get(p.within_attribute)} groups",
+        value=float(rank), numerator=None, denominator=levels[groups.hit][1], sample_ids=[],
+        files=[RELEASE_FILES["clinical"], RELEASE_FILES["protein"]] + [f for f in groups.files if f not in RELEASE_FILES.values()],
+        code=code,
+        extra={"leader": f"{lead} ({stat} {level[lead]:.2f})", "ranks": lines, "least": 1 if least else 0, "protein": stat,
+               "mean_a": round(mine, 3)},
     )

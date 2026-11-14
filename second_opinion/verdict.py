@@ -33,6 +33,8 @@ def format_fact(fact: Fact, unit: str | None) -> str:
         ranks = fact.extra.get("ranks")
         leader = fact.extra.get("leader")
         which = "least" if fact.extra.get("least") else "most"
+        if fact.extra.get("protein"):
+            return f"{leader} has the {'lowest' if fact.extra.get('least') else 'highest'} {fact.extra['protein']} level; {ranks}"
         if fact.extra.get("rate"):
             return f"{leader} has the {'lowest' if fact.extra.get('least') else 'highest'} rate; {ranks}"
         text = f"{leader} is the {which} common ({int(fact.extra.get('leader_count', 0)):,} of {int(fact.extra.get('total', 0)):,})"

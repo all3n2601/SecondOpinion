@@ -119,6 +119,10 @@ export function formatFact(fact: Fact, type: Claim["type"]): string {
     return `${value.toFixed(2)} to 1 (${count.format(num)} vs ${count.format(den)})`;
   }
   if (type === "RANK" && typeof x.ranks === "string") {
+    const end = x.least ? "lowest" : "highest";
+    // a group ranked by its mean protein level, or by its rate of something (deaths in Stage IV)
+    if (typeof x.protein === "string") return `${x.ranks}; ${end} ${x.protein}: ${x.leader}`;
+    if (x.rate) return `${x.ranks}; ${end} rate: ${x.leader}`;
     return `${x.ranks}; most common: ${x.leader} (${count.format(Number(x.leader_count))} of ${count.format(Number(x.total))})`;
   }
   if (type === "STATISTIC" && value !== null) {

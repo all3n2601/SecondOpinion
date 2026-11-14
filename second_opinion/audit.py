@@ -369,7 +369,7 @@ def _audit_one(claim: Claim, release: Release, hooks: _Hooks, client: ChatClient
     elif ai_may_try:  # only claims the rules cannot handle; a rules verdict is never overridden
         result = _ai_checked(claim, release, client)
     elif claim.type == ClaimType.UNMAPPED or check is None:
-        result = _insufficient(claim, UNMAPPED_MISSING)
+        result = _insufficient(claim, claim.needed_data or UNMAPPED_MISSING)
     else:
         result = _checked(claim, check, release, hooks)
     if hooks.build_ladder:

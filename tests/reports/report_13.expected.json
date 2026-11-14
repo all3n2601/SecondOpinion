@@ -1,0 +1,141 @@
+[
+  {
+    "claim_contains": "CDH1 was mutated in 59% of lobular",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "CDH1 85/144 lobular = 59.0%, 9/560 ductal = 1.6%; PIK3CA 146/301 Luminal A = 48.5%, 7/106 Basal-like = 6.6% (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "about 54% carry an ERBB2",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "ERBB2 amplified in 87/162 HER2-positive = 53.7%, 9/556 HER2-negative = 1.6% (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "all of them ER-positive",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "12 male patients; 12/12 male primary tumors ER-positive (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "with sex missing for 4",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "1,101 primary; 1,085 female, 12 male, 4 with no recorded sex (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "where 15 of 20 patients died",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "Stage IV death rate 15/20 = 75%, highest of any stage (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "844 of the 1,097",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "844 PAM50 RNA-seq calls; 1,097 primary tumors have RNA data (multi-part sentence; answer worked with pandas)",
+    "verdict_no_rna": "insufficient_evidence"
+  },
+  {
+    "claim_contains": "highest in the HER2-enriched",
+    "type": "RANK",
+    "verdict": "supported",
+    "why": "mean HER2 RPPA 2.02 in HER2-enriched, highest of the five subtypes (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "equivocal for 179",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "179 primary tumors HER2-equivocal by IHC (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "GATA3 mutations were found only",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "0/178 ER-negative tumors carry a GATA3 mutation (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "59% of them",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "lobular 203/1,096 = 18.5%; CDH1 in 85/144 lobular = 59.0% (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "80% of Basal-like",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "TP53 in 90/106 Basal-like = 84.9%, not 80% (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "about 30% carry a PIK3CA",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "PIK3CA in 235/567 ER-positive = 41.4%, not about 30%; 22/178 ER-negative = 12.4%, not 15% (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "all of them ER-negative",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "all 12 male primary tumors are ER-positive (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "with sex missing for 9",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "4 primary tumors have no recorded sex, not 9 (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "most frequent in stage I disease",
+    "type": "RANK",
+    "verdict": "contradicted",
+    "why": "Stage I death rate 8.7% is the lowest, not the highest (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "highest in the Luminal A",
+    "type": "RANK",
+    "verdict": "contradicted",
+    "why": "HER2-enriched has the highest mean HER2 protein (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "equivocal for 250",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "179, not 250 (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "TP53 mutations were found only",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "TP53 is mutated in many ER-positive tumors (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "60% of them",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "ductal 784/1,096 = 71.5%; PIK3CA in 181/560 ductal = 32.3%, not 60% (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "CDH1 and PIK3CA were mutated",
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "two genes and two groups: which share belongs to which gene cannot be read, so no guess (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "50% of them ER-negative",
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "a share of 'them' that no rule ties to its group: never read as a share of all tumors (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "likely reflect screening",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "an explanation the release cannot test (multi-part sentence; answer worked with pandas)"
+  },
+  {
+    "claim_contains": "DNA-binding domain",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "mutation positions are not in the gene-level release (multi-part sentence; answer worked with pandas)"
+  }
+]

@@ -67,7 +67,7 @@ class Claim:
     sentence_index: int
     type: ClaimType
     params: ClaimParams = field(default_factory=ClaimParams)
-    needed_data: str | None = None  # NOT_ANSWERABLE only
+    needed_data: str | None = None  # NOT_ANSWERABLE: the data needed; UNMAPPED: why the rules did not check it
     clinical_terms: list[str] = field(default_factory=list)
     source: str = "rules"  # "rules", or "ai" for a claim the AI recovered from a sentence the rules skipped
     original_text: str = ""  # the sentence copied exactly as written in the report, Markdown included; "" = same as `text`

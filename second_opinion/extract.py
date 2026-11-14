@@ -687,6 +687,10 @@ UNAVAILABLE_MEASURES: tuple[tuple[str, str], ...] = (
      r"|\b(?:Black|White)\s+(?:women|patients|individuals|people|participants|cases)\b",
      "race or ethnicity data"),
     (r"\bincome\b|\binsurance\b|\bsocioeconomic\b|\beducation(?:al)?\s+level\b", "socioeconomic data"),
+    (r"\b(?:DNA[\s-]binding|kinase|helical|binding)\s+domains?\b|\bhot[\s-]?spots?\b|\bcodons?\b|\bamino[\s-]acids?\b"
+     r"|\bmissense\b|\bnonsense\b|\btruncating\b|\bframe[\s-]?shift\b|\bsplice[\s-]site\b|\bin[\s-]frame\b",
+     "mutation-level data showing where in the gene each mutation falls and what kind it is (such as a MAF file; "
+     "the release has one mutated / not-mutated call per gene)"),
 )
 _UNAVAILABLE = [(re.compile(p, re.IGNORECASE), need) for p, need in UNAVAILABLE_MEASURES]
 
@@ -710,7 +714,7 @@ SURVIVAL_NEED = (
 # Receptor status, written many ways: "ER-positive", "ER+", "estrogen receptor negative", "HER2 status positive".
 STATUS_ENTITY = re.compile(
     r"\b(?P<rec>ER|PR|PgR|HER-?2(?:/neu)?|ERBB2|(?:o?estrogen|progesterone|hormone)[\s-]+receptors?|HR)"
-    r"(?:\s+status)?(?:\s+(?:was|were|is|are)(?:\s+also)?)?"
+    r"(?:\s+(?:IHC|immunohistochemistry|immunohistochemical))?(?:\s+(?:status|results?|scores?))?(?:\s+(?:was|were|is|are)(?:\s+also)?)?"
     r"(?:[\s-]*(?P<word>positive|negative|positivity|negativity|pos|neg|equivocal|indeterminate)\b|(?P<sym>\+|−|-)(?![\w-]))",
     re.IGNORECASE,
 )
@@ -1375,7 +1379,7 @@ def _rule_statistic(info: SentenceInfo, claim_id: str, numbers: list[StatedNumbe
 
 
 _TRAILING_JOINERS = re.compile(
-    r"(?:[\s,;:.]+|\s+(?:and|or|from|of|with|in|while|whereas|but|plus|to|compared|versus|vs\.?|than))+$", re.IGNORECASE
+    r"(?:[\s,;:.]+|\s+(?:and|or|from|of|with|in|for|while|whereas|but|plus|to|compared|versus|vs\.?|than|only))+$", re.IGNORECASE
 )
 
 
@@ -1385,11 +1389,23 @@ def _part(claim: Claim, label: str, index: int) -> Claim:
     return claim
 
 
+UNKNOWN_SEX_BEFORE = re.compile(
+    r"\b(?:sex|gender)\s+(?:was\s+|is\s+|were\s+)?(?:missing|unknown|not\s+recorded|unrecorded|absent|not\s+known)\s+(?:for|in)\s*$",
+    re.IGNORECASE,
+)
+UNKNOWN_SEX_AFTER = re.compile(
+    r"^\s*(?:\w+\s+){0,2}?(?:with|have|had|has)\s+(?:no|an?\s+unknown|unknown|missing|unrecorded)\s+(?:recorded\s+)?(?:sex|gender)\b",
+    re.IGNORECASE,
+)
+
+
 def _count_window_subject(text: str, start: int, end: int, number_start: int | None = None) -> str | None:
     """Count subject for a number: filters from the words right after it (or, in a "label, number" list such as
     "(normal tissue, 139; metastatic, 7)", right before it) and the count noun after it, else before it."""
     window = re.split(r"[(;]", text[start:end], maxsplit=1)[0]
     filters = [name for name, pattern in COUNT_FILTERS.items() if re.search(pattern, window, re.IGNORECASE)]
+    if number_start is not None and (UNKNOWN_SEX_BEFORE.search(text[:number_start]) or UNKNOWN_SEX_AFTER.match(window)):
+        filters = ["unknown_sex"]  # "with sex missing for 4", "4 with no recorded sex": neither women nor men
     if not filters and number_start is not None:
         before = re.split(r"[(;]", text[:number_start])[-1]
         if re.search(r"[,:]\s*$", before):
@@ -1457,6 +1473,10 @@ def _rule_compound(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
         parts.append(_part(comparison, f"more common in {cp.within_category} than {cp.category_b}"
                            if cp.direction == "higher" else f"less common in {cp.within_category} than {cp.category_b}", 3))
         return _compound(info, claim_id, parts)
+    entities_all = find_entities(text)
+    by_group = _group_shares(info, claim_id, amounts, entities_all)
+    if by_group is not None:
+        return by_group
     if amounts[0].approximate:  # "About 77% are ER-positive and 66% are PR-positive": "about" covers both
         for later in amounts[1:]:
             if later.bound is None and later.high is None:
@@ -1493,14 +1513,18 @@ def _rule_compound(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
         window = text[amount.end:nxt]
         entity = paired[k]
         if entity is None:
-            window_entities = [e for e in find_entities(window) if e.attribute != "sex"]
+            window_entities = [_shifted(e, amount.end) for e in find_entities(window) if e.attribute != "sex"]
             if not window_entities:
-                window_entities = [e for e in find_entities(text[prev:amount.start]) if e.attribute != "sex"]
+                window_entities = [_shifted(e, prev) for e in find_entities(text[prev:amount.start]) if e.attribute != "sex"]
             if same_as_previous[k] and parts:
                 window_entities = []  # use the count's own reading below
             entity = window_entities[0] if window_entities else None
             if entity is None and len(pairing) == 1 and not same_as_previous[k]:
                 entity = pairing[0]  # "Stage II predominated (622 of 1,075 staged tumours; 58%)": one thing named
+            if entity is not None and _out_of_group(text, amount, entity, entities):
+                # "59% of lobular carcinomas" names the group the share is out of, not what was counted; with
+                # something else named too, we cannot tell what was counted, so we do not guess
+                return _unsure(info, claim_id)
         window_layers = [layer for layer, pattern in LAYERS.items() if re.search(pattern, window, re.IGNORECASE)]
         if not window_layers:
             window_layers = [layer for layer, pattern in LAYERS.items() if re.search(pattern, text[prev:amount.start], re.IGNORECASE)]
@@ -1618,10 +1642,18 @@ def _rule_clauses(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]
     verb = _SUBJECT_END.search(first)
     subject = first[: verb.start()].strip() if verb else ""
     parts: list[Claim] = []
+    named = [e for e in find_entities(first) if e.attribute in GROUP_ATTRIBUTES]
     for clause in clauses:
         reading = clause
         if subject and find_entities(subject) and not find_entities(clause) and not _layers(clause):
             reading = f"{subject} {clause}"
+        them = OF_THEM.search(reading)
+        if them and clause is not first:
+            if len({(e.attribute, e.category) for e in named}) != 1:
+                return None  # no single group for "them" to mean; _rule_of_them marks the sentence unsure
+            group = first[named[0].start:named[0].end]
+            noun = "" if _POPULATION_AFTER.match(first[named[0].end:]) is None else _POPULATION_AFTER.match(first[named[0].end:]).group(0)
+            reading = f"{reading[:them.start()]}of {group}{noun or ' tumors'}{reading[them.end():]}"
         sub = classify_sentence(SentenceInfo(index=info.index, text=reading + ".", claim_id=None), claim_id)
         if sub is None or sub.type in (ClaimType.UNMAPPED, ClaimType.NOT_ANSWERABLE):
             return None
@@ -1776,8 +1808,300 @@ def _rule_protein_first(info: SentenceInfo, claim_id: str, numbers: list[StatedN
     return _rule_protein_comparison(info, claim_id, numbers)
 
 
+# ---------------------------------------------------------------------------------------------
+# Sentences that say several things about named groups
+# ---------------------------------------------------------------------------------------------
+
+# Attributes that name a group of samples a share can be taken within ("of lobular carcinomas").
+GROUP_ATTRIBUTES = ("subtype", "stage", "histology", "triple_negative", "er_status", "pr_status", "her2_status",
+                    "hr_status", "menopause", "age_group", "sex")
+UNSURE_PAIRING = (
+    "We could not tell which group each figure in this sentence is out of, so it was not checked automatically; "
+    "a person should check it"
+)
+
+
+def _shifted(entity: Entity, offset: int) -> Entity:
+    """An entity found in a slice of the sentence, placed back at its position in the whole sentence."""
+    return Entity(entity.start + offset, entity.end + offset, entity.attribute, entity.category)
+
+
+# "59% of them", "half of whom": the group is named earlier in the sentence
+OF_THEM = re.compile(r"\b(?:of|among)\s+(?:them|whom)\b|\b(?:of|among)\s+(?:these|those)\b(?=\s*(?:[,.;:)]|$))", re.IGNORECASE)
+
+
+def _rule_of_them(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """A share "of them" that no earlier rule tied to its group: never read as a share of every tumor."""
+    if OF_THEM.search(info.text) and [a for a in find_amounts(info.text) if a.percent and not a.is_total]:
+        return _unsure(info, claim_id)
+    return None
+
+
+def _unsure(info: SentenceInfo, claim_id: str) -> Claim:
+    """Insufficient evidence instead of a guess: the sentence is shown to a person (and the AI helper, if on)."""
+    return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.UNMAPPED,
+                 needed_data=UNSURE_PAIRING)
+
+
+def _is_group(text: str, entity: Entity) -> bool:
+    """"... of lobular carcinomas", "Among HER2-positive tumors, ...": the entity names a population."""
+    return (entity.attribute in GROUP_ATTRIBUTES and bool(_POPULATION_AFTER.match(text[entity.end:]))
+            and bool(_SUBGROUP_BEFORE.search(text[: entity.start])))
+
+
+_OF_RIGHT_AFTER = re.compile(r"\s*(?:of|among|in)\s+(?:the\s+|all\s+|these\s+|those\s+)?(?:primary\s+)?", re.IGNORECASE)
+
+
+def _out_of_group(text: str, amount: "Amount", entity: Entity, entities: list[Entity]) -> bool:
+    """True when a percent is "N% of <group>" and the sentence also names something else that may be what was counted."""
+    if not amount.percent or not _is_group(text, entity) or entity.start < amount.end:
+        return False
+    if not _OF_RIGHT_AFTER.fullmatch(text[amount.end:entity.start]):
+        return False
+    return any(e.attribute != entity.attribute for e in entities)
+
+
+def _group_shares(info: SentenceInfo, claim_id: str, amounts: list["Amount"], entities: list[Entity]) -> Claim | None:
+    """One share per group: "CDH1 was mutated in 59% of lobular carcinomas but only 1.6% of ductal carcinomas",
+    "Among HER2-positive tumors, about 54% carry an ERBB2 amplification, compared with under 2% of HER2-negative tumors".
+
+    Each percent is the share of the one other thing named (the gene, status, ...) within its group; groups and
+    figures pair in the order they are written.
+    """
+    text = info.text
+    if len(amounts) < 2 or not all(a.percent for a in amounts):
+        return None
+    groups = [e for e in entities if _is_group(text, e)]
+    if len(groups) != len(amounts) or len({e.attribute for e in groups}) != 1 or len({e.category for e in groups}) != len(groups):
+        return None
+    targets = {(e.attribute, e.category): e for e in entities if e.attribute != groups[0].attribute}
+    if len(targets) != 1:
+        return None
+    for k, group in enumerate(groups):  # group k sits between figure k-1 and figure k+1
+        if k + 1 < len(amounts) and group.start > amounts[k + 1].start:
+            return None
+        if k > 0 and group.end < amounts[k - 1].end:
+            return None
+    target = next(iter(targets.values()))
+    parts = []
+    for k, (amount, group) in enumerate(zip(amounts, groups), start=1):
+        share = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.SHARE,
+                      params=_params_for(target, amount, group, ""))
+        parts.append(_part(share, f"{text[amount.start:amount.end]} of {text[group.start:group.end]}", k))
+    return _compound(info, claim_id, parts)
+
+
+def _named_group(text: str) -> Entity | None:
+    """The group a phrase like "12 male patients" or "the 116 triple-negative tumours" names."""
+    groups = [e for e in find_entities(text) if e.attribute in GROUP_ATTRIBUTES]
+    if groups:
+        return groups[-1]
+    sexes = [name for name in ("male", "female") if re.search(COUNT_FILTERS[name], text, re.IGNORECASE)]
+    if len(sexes) == 1:
+        return Entity(0, 0, "sex", sexes[0])
+    return None
+
+
+ALL_OF_THEM = re.compile(
+    r",?\s*(?:and\s+)?(?P<q>all|none|every\s+one|each)\s+of\s+(?:them|whom|these|those)\s+(?:(?:was|were|is|are|being)\s+)?",
+    re.IGNORECASE,
+)
+
+
+def _rule_all_of_them(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"The cohort includes 12 male patients, all of them ER-positive": the count, then 100% (or 0%) within that group."""
+    text = info.text
+    m = ALL_OF_THEM.search(text)
+    if m is None:
+        return None
+    head, tail = text[: m.start()], text[m.end():]
+    targets = [e for e in find_entities(tail) if e.attribute != "sex"]
+    if len({(e.attribute, e.category) for e in targets}) != 1:
+        return None
+    group = _named_group(head)
+    if group is None:
+        return _unsure(info, claim_id)
+    parts: list[Claim] = []
+    if find_amounts(head):
+        counted = classify_sentence(SentenceInfo(index=info.index, text=head.strip(" ,;") + ".", claim_id=None), claim_id)
+        if counted is None or counted.type in (ClaimType.UNMAPPED, ClaimType.NOT_ANSWERABLE):
+            return _unsure(info, claim_id)
+        for piece in counted.parts or [counted]:
+            parts.append(_part(piece, piece.part_label or head.strip(" ,;"), len(parts) + 1))
+    none = m.group("q").lower() == "none"
+    target = targets[0]
+    params = ClaimParams(attribute=target.attribute, category=target.category, within_attribute=group.attribute,
+                         within_category=group.category, subject="primary_tumors", unit="percent",
+                         stated_value=0.0 if none else 100.0, bound="lte" if none else "gte")
+    share = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.SHARE, params=params)
+    parts.append(_part(share, text[m.start():].strip(" ,;."), len(parts) + 1))
+    if len(parts) == 1:
+        single = parts[0]
+        single.id, single.part_label = claim_id, ""
+        return single
+    return _compound(info, claim_id, parts)
+
+
+MOST_IN = re.compile(
+    r"\b(?:was|were|is|are)\s+(?:the\s+)?(?P<sup>most|least)\s+(?:common(?:ly)?|frequent(?:ly)?|prevalent|often)\s+"
+    r"(?:seen\s+|found\s+|observed\s+|recorded\s+)?(?:in|among)\s+",
+    re.IGNORECASE,
+)
+
+
+def _rule_most_in(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"Death was most frequent in stage IV disease, where 15 of 20 patients died": the death rate is highest in
+    Stage IV (not "Stage IV is the most common stage"), plus the figure stated for that group."""
+    text = info.text
+    m = MOST_IN.search(text)
+    if m is None:
+        return None
+    entities = find_entities(text)
+    before = [e for e in entities if e.end <= m.start()]
+    after = [e for e in entities if e.start >= m.end() and e.attribute in GROUP_ATTRIBUTES]
+    if not before or not after:
+        return None
+    target, group = before[-1], after[0]
+    if target.attribute == group.attribute:
+        return None
+    rank = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RANK,
+                 params=ClaimParams(attribute=target.attribute, category=target.category, within_attribute=group.attribute,
+                                    within_category=group.category, measure="rate", unit="rank", stated_value=1.0,
+                                    direction="lower" if m.group("sup").lower() == "least" else None,
+                                    subject="primary_tumors"))
+    rest = text[group.end:]
+    rest_amounts = [a for a in find_amounts(rest) if not a.words]
+    values = [a for a in rest_amounts if not a.is_total]
+    if not values:
+        return rank
+    if len(values) > 1 or len([a for a in rest_amounts if a.is_total]) > 1:
+        return _unsure(info, claim_id)
+    value, total = _amount_for_claim(rest, rest_amounts)
+    params = _params_for(target, value, group, "")
+    if not value.percent:
+        params.subject = "patients" if target.attribute in ("vital_status", "dss_status") else "primary_tumors"
+        if total is not None:
+            params.stated_total = total.value
+    figure = Claim(id=claim_id, text=text, sentence_index=info.index,
+                   type=ClaimType.SHARE if value.percent else ClaimType.COUNT, params=params)
+    return _compound(info, claim_id, [_part(rank, text[: group.end], 1),
+                                      _part(figure, rest[value.start:].strip(" ,;."), 2)])
+
+
+SUBTYPE_CALLS = re.compile(
+    r"\b(?:PAM50|(?:intrinsic|molecular|RNA)[\s-]+subtype)\b(?:[\s-]+(?:RNA[\s-]?seq|mRNA))?(?:\s+subtype)?\s+"
+    r"(?:calls?|labels?|assignments?|classifications?)\b",
+    re.IGNORECASE,
+)
+
+
+def _rule_subtype_calls(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"PAM50 RNA-seq calls are available for 844 of the 1,097 primary tumors with RNA data": 844 tumors have a
+    subtype call, and 1,097 have RNA data. The total is its own claim, never the denominator of the call count."""
+    text = info.text
+    if SUBTYPE_CALLS.search(text) is None:
+        return None
+    amounts = [a for a in find_amounts(text) if not a.words]
+    if not amounts or any(a.percent for a in amounts):
+        return None
+    values = [a for a in amounts if not a.is_total]
+    totals = [a for a in amounts if a.is_total]
+    if len(values) != 1 or len(totals) > 1:
+        return None
+    value = values[0]
+    params = ClaimParams(attribute="subtype", category="any", subject="primary_tumors", unit="count",
+                         stated_value=value.value, bound=value.bound, approximate=value.approximate)
+    calls = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COUNT, params=params)
+    if not totals:
+        return calls
+    total = totals[0]
+    after = text[total.end:]
+    layers = [layer for layer, pattern in LAYERS.items() if re.search(pattern, after, re.IGNORECASE)]
+    if len(layers) > 1:
+        return _unsure(info, claim_id)
+    if layers:
+        whole = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COVERAGE,
+                      params=ClaimParams(subject=f"has_{layers[0]}", unit="count", stated_value=total.value))
+    else:
+        whole = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COUNT,
+                      params=ClaimParams(subject=_count_subject(text, total.end) or "primary_tumors", unit="count",
+                                         stated_value=total.value))
+    return _compound(info, claim_id, [_part(calls, f"{text[value.start:value.end]} with a PAM50 subtype call", 1),
+                                      _part(whole, text[total.start:].strip(" ,;."), 2)])
+
+
+PROTEIN_RANK = re.compile(r"\b(?:was|were|is|are)\s+(?:the\s+)?(?P<sup>highest|lowest)\s+(?:in|among)\s+", re.IGNORECASE)
+
+
+def _rule_protein_rank(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"Mean HER2 protein was highest in the HER2-enriched subtype": that group ranks first by mean protein level."""
+    text = info.text
+    if not _PROTEIN_WORDS.search(text):
+        return None
+    m = PROTEIN_RANK.search(text)
+    if m is None:
+        return None
+    name = re.search(r"\b([A-Z][A-Za-z0-9-]*[A-Za-z0-9](?:[\s-]?(?:alpha|α))?)\s+(?:\(RPPA\)\s+)?(?:protein|levels?|abundance|expression)\b",
+                     text[: m.start()])
+    if name is None or name.group(1).lower() in ("mean", "median", "average"):
+        return None
+    groups = [e for e in find_entities(text[m.end():]) if e.attribute in GROUP_ATTRIBUTES]
+    if len({(e.attribute, e.category) for e in groups}) != 1:
+        return None
+    g = groups[0]
+    params = ClaimParams(measure=name.group(1).replace("α", "alpha"), within_attribute=g.attribute, within_category=g.category,
+                         unit="rank", stated_value=1.0, direction="lower" if m.group("sup").lower() == "lowest" else None,
+                         subject="primary_tumors")
+    return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RANK, params=params)
+
+
+ONLY_IN = re.compile(r"\b(?:only|exclusively|solely)\s+(?:in|among)\s+|\b(?:restricted|confined|limited)\s+to\s+", re.IGNORECASE)
+_OPPOSITE = {"positive": "negative", "negative": "positive"}
+
+
+def _rule_only_in(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"GATA3 mutations were found only in ER-positive tumors": none of the ER-negative tumors has one."""
+    text = info.text
+    m = ONLY_IN.search(text)
+    if m is None or numbers:
+        return None
+    groups = [e for e in find_entities(text[m.end():]) if e.attribute in ("er_status", "pr_status", "her2_status", "hr_status")]
+    targets = [e for e in find_entities(text[: m.start()]) if e.attribute not in GROUP_ATTRIBUTES]
+    if len(groups) != 1 or len({(e.attribute, e.category) for e in targets}) != 1:
+        return None
+    other = _OPPOSITE.get(groups[0].category)
+    if other is None:
+        return None
+    t = targets[0]
+    params = ClaimParams(attribute=t.attribute, category=t.category, within_attribute=groups[0].attribute,
+                         within_category=other, subject="primary_tumors", unit="percent", stated_value=0.0, bound="lte")
+    return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.SHARE, params=params)
+
+
+SPECULATION = re.compile(
+    r"\b(?:likely|probably|possibly|presumably|may|might|could)\s+(?:also\s+)?(?:reflects?|indicates?|arises?|stems?"
+    r"|results?\s+from|be\s+(?:due|explained|driven|caused|related|attributable|a\s+(?:result|consequence)))\b"
+    r"|\b(?:is|are|was|were)\s+(?:likely|probably|presumably)\s+(?:due|explained|driven|caused|related|attributable)\b",
+    re.IGNORECASE,
+)
+SPECULATION_NEED = (
+    "a study designed to test this explanation; the release records what was measured, not why, so an "
+    "explanation is an interpretation for a person to weigh"
+)
+
+
+def _rule_speculation(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"These differences likely reflect screening practice": an explanation the release cannot test."""
+    if numbers or not SPECULATION.search(info.text):
+        return None
+    return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.NOT_ANSWERABLE,
+                 needed_data=SPECULATION_NEED, clinical_terms=[])
+
+
 RULES = (
-    _rule_not_answerable_first, _rule_protein_first, _rule_rate_rank, _rule_every_slide, _rule_clauses, _rule_compound,
+    _rule_not_answerable_first, _rule_speculation, _rule_protein_first, _rule_protein_rank, _rule_rate_rank,
+    _rule_most_in, _rule_every_slide, _rule_subtype_calls, _rule_all_of_them, _rule_only_in, _rule_clauses,
+    _rule_of_them, _rule_compound,
     _rule_share_alone, _rule_rank,
     _rule_ratio, _rule_comparison, _rule_share_comparison, _rule_subgroup_coverage, _rule_attribute,
     _rule_coverage, _rule_count, _rule_statistic, _rule_readiness, _rule_unmapped,

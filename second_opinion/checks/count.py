@@ -22,6 +22,7 @@ _FILTERS: dict[str, tuple[str, str, object]] = {
     "female": ("female", 'pop.gender == "FEMALE"', lambda pop: pop["gender"] == "FEMALE"),
     "normal_tissue": ("normal-tissue", 'pop.sampleID.str[13:15] == "11"  # solid tissue normal',
                       lambda pop: pop["sampleID"].astype(str).str[13:15] == "11"),
+    "unknown_sex": ("sex-unrecorded", "pop.gender.isna()  # no recorded sex", lambda pop: pop["gender"].isna()),
     "metastatic": ("metastatic", 'pop.sampleID.str[13:15] == "06"  # metastasis',
                    lambda pop: pop["sampleID"].astype(str).str[13:15] == "06"),
 }

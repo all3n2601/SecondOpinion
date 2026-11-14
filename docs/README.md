@@ -4,7 +4,6 @@
 
 - [Build plan and scope](PLAN.md)
 - [Implementation plan: tasks, owners, timeline](superpowers/plans/2026-11-12-secondopinion-claim-auditor.md)
-- [Demo video script](DEMO.md)
 - [Idea analysis](Idea_Analysis_Report.pdf)
 - [Stack implementation references](STACK_REFERENCES.md) — collected from official framework docs.
 

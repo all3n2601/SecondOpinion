@@ -215,6 +215,7 @@ export default function RoleSummary({ audit, suggestion }: {
     sections: ["decision", "counts", "sign_off"],
     detail: "standard",
     explain_terms: false,
+    view: "checklist",
   };
 
   return (

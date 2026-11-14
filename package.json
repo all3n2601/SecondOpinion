@@ -13,7 +13,8 @@
     "start:api": ".venv/bin/python -m uvicorn apps.api.app.main:app --host 0.0.0.0 --root-path /api",
     "lint": "npm run lint --workspace apps/web",
     "typecheck": "npm run typecheck --workspace apps/web",
-    "test": ".venv/bin/python -m pytest"
+    "test": ".venv/bin/python -m pytest",
+    "test:web": "npm run test --workspace apps/web"
   },
   "engines": {
     "node": ">=22"

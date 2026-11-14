@@ -10,6 +10,7 @@ import type {
   ExportResponse,
   ExtractResult,
   Role,
+  RoleView,
 } from "./types";
 
 /** FastAPI sends `detail` as a string for our own errors and as a list for request validation errors. */
@@ -108,7 +109,8 @@ export function getRoles(): Promise<Role[]> {
   return request("/roles");
 }
 
-export function saveRole(role: Role): Promise<Role[]> {
+/** `view` is optional: the server picks it from `detail` when it is left out. */
+export function saveRole(role: Omit<Role, "view"> & { view?: RoleView }): Promise<Role[]> {
   return request("/roles", { method: "POST", body: role });
 }
 

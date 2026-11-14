@@ -258,9 +258,21 @@ export interface ExportResponse {
   decision_record_md: string;
 }
 
+export type RoleView = "story" | "checklist" | "evidence" | "raw";
+
 export interface Role {
   name: string;
   sections: string[];
   detail: "summary" | "standard" | "full";
   explain_terms: boolean;
+  view: RoleView;
+}
+
+/** Answer of POST /ai/narrate (mirror of apps/api/app/routes/ai.py). Text is slotted: `{blanks}` the browser fills. */
+export interface NarrateResponse {
+  source: "ai" | "template";
+  headline: string | null;
+  caption: string | null;
+  claims: Record<string, string> | null;
+  reason: string | null;
 }

@@ -101,8 +101,8 @@ check the terminal from step 7 for an error.
 
 ### Step 9. Run the practice audit
 
-1. Paste the data folder path from step 6 into the release folder box (it is already filled in if
-   you saved it).
+1. You can leave the data folder box empty: the practice run fills it in with release A (the copy
+   from step 6, or a temporary download of about 70 MB if there is none).
 2. Click **Run the practice audit**. It reads the organizers' practice report and checks its three
    claims.
 3. Click **Open the audit board** to see each claim's verdict. Click **Open evidence** on a claim to see
@@ -242,10 +242,11 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
 
 ### Try it in one click
 
-1. On the Start page, enter the **absolute path** of the release folder (for example
-   `/Users/you/.../oncosys-hackathon-challenge/data/tcga-brca/raw`). To pre-fill it, copy
-   `apps/web/.env.example` to `apps/web/.env.local`, set `NEXT_PUBLIC_DEFAULT_RELEASE_DIR`, and
-   restart.
+1. On the Start page, leave the release folder empty or enter one. If it is empty, the practice run
+   fills it in with release A: `SO_RELEASE_DIR`, else `../oncosys-hackathon-challenge/data/tcga-brca/raw`,
+   else a temporary download (about 70 MB, checked against the frozen checksums, reused afterwards).
+   To pre-fill the box, copy `apps/web/.env.example` to `apps/web/.env.local`, set
+   `NEXT_PUBLIC_DEFAULT_RELEASE_DIR`, and restart.
 2. Click **Run the practice audit**. It loads the practice report, finds the three claims and
    audits them. Each step on the right fills in with what it found (claims, verdicts, how many hold
    under every way of counting, how many sentences were rewritten). Then **Open the audit board**.
@@ -417,6 +418,7 @@ and Decision Record. No database. The API keeps no session: the browser sends ba
 | --- | --- |
 | `POST /extract`, `POST /classify` | Report text → sentences and claims; type one ticked sentence |
 | `POST /audit` | Claims + release folder → audit result |
+| `POST /practice-release` | A release-A folder for the practice run (local copy or temporary download) |
 | `POST /decision`, `POST /export` | Suggested decision; `audit.json` and Decision Record (refused until every claim is reviewed) |
 | `GET /roles`, `POST /roles` | Role views |
 | `GET /health`, `GET /variants` | Status; the eight ways of counting |

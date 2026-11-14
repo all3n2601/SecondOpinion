@@ -4,9 +4,11 @@ import type { LadderSegment } from "@/lib/types";
  * The Claim Ladder: the report's sentence with over-strong words struck through (<del>) and the honest
  * replacement written in (<ins>). Redline styling comes from globals.css; screen readers get the markup in words.
  */
-export default function LadderText({ segments }: { segments: LadderSegment[] }) {
+export default function LadderText({ segments, inline = false }: { segments: LadderSegment[]; inline?: boolean }) {
+  // Inline, it sits inside a sentence of the report (the report shown after the decision), so no paragraph of its own.
+  const Tag = inline ? "span" : "p";
   return (
-    <p className="reported text-ink">
+    <Tag className={inline ? undefined : "reported text-ink"}>
       {segments.map((s, i) =>
         s.struck ? (
           <del key={i}>
@@ -24,7 +26,7 @@ export default function LadderText({ segments }: { segments: LadderSegment[] }) 
           <span key={i}>{s.text}</span>
         ),
       )}
-    </p>
+    </Tag>
   );
 }
 

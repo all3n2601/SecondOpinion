@@ -13,12 +13,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
+import MarkedReport from "@/components/MarkedReport";
 import VerdictBadge from "@/components/VerdictBadge";
 import { exportAudit, suggestDecision } from "@/lib/api";
 import { useAudit } from "@/lib/audit-context";
+import { actionSummary, DECISION_HEADLINE } from "@/lib/decision-report";
 import { DECISIONS, plural, unreviewedIds } from "@/lib/review";
 import { useRoles } from "@/lib/roles";
-import type { AuditResult, Decision, DecisionChoice, DecisionSuggestion, ExportResponse } from "@/lib/types";
+import type { AuditResult, Decision, DecisionChoice, DecisionSuggestion } from "@/lib/types";
 import { buttonPrimary, buttonSecondary, fieldHint, fieldInput, fieldLabel, focusRing, sectionTitle } from "@/lib/ui";
 import RoleSummary from "./RoleSummary";
 
@@ -49,7 +51,9 @@ interface Suggested {
 /** Suggested decision, the reviewer's choice, and the two downloads. */
 export default function DecisionPanel({ audit }: { audit: AuditResult }) {
   const id = useId();
-  const { role } = useAudit();
+  // The form (draft) and the recorded (exported) decision live in the audit context, so both survive a trip to a
+  // claim's evidence and a reload. A field nobody has touched falls back to the recorded decision.
+  const { role, decision: recorded, setDecision, draft, updateDraft, reportText } = useAudit();
   const { roles } = useRoles();
 
   const [suggested, setSuggested] = useState<Suggested | null>(null);
@@ -65,17 +69,24 @@ export default function DecisionPanel({ audit }: { audit: AuditResult }) {
   const current = suggested?.audit === audit ? suggested : null; // null while (re)loading
   const suggestion = current?.suggestion ?? null;
 
-  const [picked, setPicked] = useState<Decision | null>(null);
+  const picked = draft?.choice ?? recorded?.choice ?? null;
   const choice = picked ?? suggestion?.decision ?? null;
-  const [reason, setReason] = useState("");
-  const [pickedRole, setPickedRole] = useState<string | null>(null);
+  const reason = draft?.reason ?? recorded?.reason ?? "";
+  const pickedRole = draft?.reviewer_role ?? recorded?.reviewer_role ?? null;
+  const setPicked = (d: Decision) => updateDraft({ choice: d });
+  const setReason = (text: string) => updateDraft({ reason: text });
+  const setPickedRole = (name: string) => updateDraft({ reviewer_role: name });
   const reviewerRole = pickedRole ?? role;
 
-  const [exported, setExported] = useState<{ key: string; files: ExportResponse } | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
-  const exportKey = JSON.stringify([audit, choice, reason.trim(), reviewerRole]);
-  const files = exported?.key === exportKey ? exported.files : null; // stale once anything changes
+  // The downloads and the report after the decision belong to the decision as exported: change the choice, the
+  // reason or the role and they wait for the next export. (A change to the audit clears the recorded decision.)
+  const recordedNow =
+    recorded && recorded.choice === choice && recorded.reason === reason.trim() && recorded.reviewer_role === reviewerRole
+      ? recorded
+      : null;
+  const files = recordedNow?.files ?? null;
 
   const left = unreviewedIds(audit.claims);
   const overrides = audit.claims.filter((c) => c.review?.decision === "override");
@@ -93,7 +104,7 @@ export default function DecisionPanel({ audit }: { audit: AuditResult }) {
     setExporting(true);
     setExportError(null);
     try {
-      setExported({ key: exportKey, files: await exportAudit(audit, decision) });
+      setDecision({ ...decision, files: await exportAudit(audit, decision) });
     } catch (err) {
       setExportError((err as Error).message);
     } finally {
@@ -376,6 +387,35 @@ export default function DecisionPanel({ audit }: { audit: AuditResult }) {
               <Download aria-hidden="true" className="size-4" />
               Download decision_record.md
             </button>
+          </div>
+        </section>
+      )}
+
+      {/* The report under the chosen decision: a live preview while choosing, the record once exported. */}
+      {choice && reportText.trim() && (
+        <section aria-labelledby={`${id}-after`}>
+          <h2 id={`${id}-after`} className={sectionTitle}>
+            {recordedNow ? "The report after this decision" : "Preview: the report under this decision"}
+          </h2>
+          <p className="mt-1 max-w-prose text-ink">
+            <span className="font-semibold">{choice}.</span> {DECISION_HEADLINE[choice]}
+          </p>
+          <p className="mt-1 max-w-prose text-sm text-ink-soft">
+            {actionSummary(audit.claims, choice)}.{" "}
+            {recordedNow
+              ? "Recorded: this is the decision you exported."
+              : "Not recorded yet: it changes as you choose, and is recorded when you export."}{" "}
+            Each claim is marked with what this decision does to it and its final verdict. Click a marked sentence to open
+            its evidence; you come back to the same place.
+          </p>
+          <div className="mt-6">
+            <MarkedReport
+              audit={audit}
+              reportText={reportText}
+              from="decision"
+              decision={choice}
+              label={recordedNow ? "The report after this decision" : "Preview of the report under this decision"}
+            />
           </div>
         </section>
       )}

@@ -1,0 +1,96 @@
+{
+ "source": "tests/reports/report_11.md",
+ "reportText": "# Key findings\r\n\r\n- About half (50%) of subtyped primary tumours are Luminal A.\r\n- HER2-enriched tumours are the least common PAM50 subtype.\r\n- Two in five tumours carry a TP53 mutation.\r\n- TP53 and PIK3CA mutations co-occurred in only 57 tumours.\r\n- MYC is amplified (GISTIC +2) in roughly one fifth of tumours.\r\n- Copy-number gain or amplification of CCND1 (GISTIC 1 or 2) affects over a third of tumours.\r\n- Copy-number loss of TP53 (GISTIC -1 or -2) is seen in about 61% of tumours.\r\n- Patients older than 65 make up about 29% of the cohort.\r\n- Fewer than 70 patients were diagnosed under 40.\r\n- Every slide in the archive is a diagnostic FFPE slide.\r\n\r\n| Measure | Group | Value |\r\n|---|---|---|\r\n| PIK3CA mutation frequency | ER-positive tumours | 41.4% |\r\n| PIK3CA mutation frequency | ER-negative tumours | 21.4% |\r\n| ERBB2 high-level amplification | HER2-positive by IHC | 54% |\r\n| Median age at diagnosis | Basal tumours | 54 years |\r\n| Mean ER-alpha protein (RPPA) | ER-positive vs ER-negative | 2.18 vs -0.87 |\r\n",
+ "claims": [
+  {
+   "id": "C1",
+   "text": "About half (50%) of subtyped primary tumours are Luminal A.",
+   "original_text": "About half (50%) of subtyped primary tumours are Luminal A.",
+   "sentence_index": 0
+  },
+  {
+   "id": "C2",
+   "text": "HER2-enriched tumours are the least common PAM50 subtype.",
+   "original_text": "HER2-enriched tumours are the least common PAM50 subtype.",
+   "sentence_index": 1
+  },
+  {
+   "id": "C3",
+   "text": "Two in five tumours carry a TP53 mutation.",
+   "original_text": "Two in five tumours carry a TP53 mutation.",
+   "sentence_index": 2
+  },
+  {
+   "id": "C4",
+   "text": "TP53 and PIK3CA mutations co-occurred in only 57 tumours.",
+   "original_text": "TP53 and PIK3CA mutations co-occurred in only 57 tumours.",
+   "sentence_index": 3
+  },
+  {
+   "id": "C5",
+   "text": "MYC is amplified (GISTIC +2) in roughly one fifth of tumours.",
+   "original_text": "MYC is amplified (GISTIC +2) in roughly one fifth of tumours.",
+   "sentence_index": 4
+  },
+  {
+   "id": "C6",
+   "text": "Copy-number gain or amplification of CCND1 (GISTIC 1 or 2) affects over a third of tumours.",
+   "original_text": "Copy-number gain or amplification of CCND1 (GISTIC 1 or 2) affects over a third of tumours.",
+   "sentence_index": 5
+  },
+  {
+   "id": "C7",
+   "text": "Copy-number loss of TP53 (GISTIC -1 or -2) is seen in about 61% of tumours.",
+   "original_text": "Copy-number loss of TP53 (GISTIC -1 or -2) is seen in about 61% of tumours.",
+   "sentence_index": 6
+  },
+  {
+   "id": "C8",
+   "text": "Patients older than 65 make up about 29% of the cohort.",
+   "original_text": "Patients older than 65 make up about 29% of the cohort.",
+   "sentence_index": 7
+  },
+  {
+   "id": "C9",
+   "text": "Fewer than 70 patients were diagnosed under 40.",
+   "original_text": "Fewer than 70 patients were diagnosed under 40.",
+   "sentence_index": 8
+  },
+  {
+   "id": "C10",
+   "text": "Every slide in the archive is a diagnostic FFPE slide.",
+   "original_text": "Every slide in the archive is a diagnostic FFPE slide.",
+   "sentence_index": 9
+  },
+  {
+   "id": "C11",
+   "text": "PIK3CA mutation frequency | ER-positive tumours | 41.4%",
+   "original_text": "PIK3CA mutation frequency | ER-positive tumours | 41.4%",
+   "sentence_index": 11
+  },
+  {
+   "id": "C12",
+   "text": "PIK3CA mutation frequency | ER-negative tumours | 21.4%",
+   "original_text": "PIK3CA mutation frequency | ER-negative tumours | 21.4%",
+   "sentence_index": 12
+  },
+  {
+   "id": "C13",
+   "text": "ERBB2 high-level amplification | HER2-positive by IHC | 54%",
+   "original_text": "ERBB2 high-level amplification | HER2-positive by IHC | 54%",
+   "sentence_index": 13
+  },
+  {
+   "id": "C14",
+   "text": "Median age at diagnosis | Basal tumours | 54 years",
+   "original_text": "Median age at diagnosis | Basal tumours | 54 years",
+   "sentence_index": 14
+  },
+  {
+   "id": "C15",
+   "text": "Mean ER-alpha protein (RPPA) | ER-positive vs ER-negative | 2.18 vs -0.87",
+   "original_text": "Mean ER-alpha protein (RPPA) | ER-positive vs ER-negative | 2.18 vs -0.87",
+   "sentence_index": 15
+  }
+ ]
+}

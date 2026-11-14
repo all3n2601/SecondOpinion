@@ -1,0 +1,102 @@
+{
+ "source": "tests/ai_hard/blindB1_report.md",
+ "reportText": "# Receptor status and RNA subtypes in TCGA breast cancer\r\n\r\n*A fictional research report written for testing. It describes the TCGA-BRCA files of release A.*\r\n\r\n## Results\r\n\r\nRelease A holds 1,247 samples from 1,101 patients: 1,101 primary tumors, 139 normal tissue samples and 7 metastases. All figures below are for primary tumors.\r\n\r\n**Table 1.** PAM50 RNA subtype of primary tumors with an RNA-seq subtype call (n = 844).\r\n\r\n| Group | n | % |\r\n|---|---|---|\r\n| Luminal A | 421 | 49.9 |\r\n| Luminal B | 192 | 22.7 |\r\n| Basal-like | 141 | 12.8 |\r\n| HER2-enriched | 67 | 7.9 |\r\n| Normal-like | 32 | 3.8 |\r\n\r\nThe RNA-seq calls agree well with the labels from the 2012 TCGA study: of the 508 tumors that carry both labels, 456 (89.8%) receive the same subtype. The largest single disagreement is a group of 31 tumors that the 2012 study placed in LumB and that RNA-seq calls LumA.\r\n\r\n**Table 2.** Clinical receptor status of primary tumors. Percentages count positive tumors among those with a positive or negative result.\r\n\r\n| Group | Positive n | Tested n | % positive |\r\n|---|---|---|---|\r\n| ER-positive | 808 | 1,046 | 77.2 |\r\n| PR-positive | 699 | 1,043 | 67.0 |\r\n| HER2-positive (IHC) | 164 | 728 | 22.5 |\r\n| Triple-negative | 141 | 722 | 19.5 |\r\n\r\nProtein levels follow the clinical calls. Mean ERALPHA protein (RPPA) is 2.18 in the 529 ER+ tumors with protein data against -0.87 in the 169 ER- tumors, a gap of about 3.1 units. At the DNA level, nearly all HER2 IHC-positive tumors (87 of 162 with copy-number data) carry an ERBB2 amplification.\r\n\r\nPatients with TNBC benefited most from platinum chemotherapy, which supports platinum as the backbone of TNBC treatment.\r\n",
+ "claims": [
+  {
+   "id": "C1",
+   "text": "Release A holds 1,247 samples from 1,101 patients: 1,101 primary tumors, 139 normal tissue samples and 7 metastases.",
+   "original_text": "Release A holds 1,247 samples from 1,101 patients: 1,101 primary tumors, 139 normal tissue samples and 7 metastases.",
+   "sentence_index": 2
+  },
+  {
+   "id": "C2",
+   "text": "PAM50 RNA subtype of primary tumors with an RNA-seq subtype call (n = 844).",
+   "original_text": "PAM50 RNA subtype of primary tumors with an RNA-seq subtype call (n = 844).",
+   "sentence_index": 5
+  },
+  {
+   "id": "C3",
+   "text": "Luminal A | 421 | 49.9%",
+   "original_text": "Luminal A | 421 | 49.9%",
+   "sentence_index": 7
+  },
+  {
+   "id": "C4",
+   "text": "Luminal B | 192 | 22.7%",
+   "original_text": "Luminal B | 192 | 22.7%",
+   "sentence_index": 8
+  },
+  {
+   "id": "C5",
+   "text": "Basal-like | 141 | 12.8%",
+   "original_text": "Basal-like | 141 | 12.8%",
+   "sentence_index": 9
+  },
+  {
+   "id": "C6",
+   "text": "HER2-enriched | 67 | 7.9%",
+   "original_text": "HER2-enriched | 67 | 7.9%",
+   "sentence_index": 10
+  },
+  {
+   "id": "C7",
+   "text": "Normal-like | 32 | 3.8%",
+   "original_text": "Normal-like | 32 | 3.8%",
+   "sentence_index": 11
+  },
+  {
+   "id": "C8",
+   "text": "The RNA-seq calls agree well with the labels from the 2012 TCGA study: of the 508 tumors that carry both labels, 456 (89.8%) receive the same subtype.",
+   "original_text": "The RNA-seq calls agree well with the labels from the 2012 TCGA study: of the 508 tumors that carry both labels, 456 (89.8%) receive the same subtype.",
+   "sentence_index": 12
+  },
+  {
+   "id": "C9",
+   "text": "The largest single disagreement is a group of 31 tumors that the 2012 study placed in LumB and that RNA-seq calls LumA.",
+   "original_text": "The largest single disagreement is a group of 31 tumors that the 2012 study placed in LumB and that RNA-seq calls LumA.",
+   "sentence_index": 13
+  },
+  {
+   "id": "C10",
+   "text": "ER-positive | 808 | 1,046 | 77.2%",
+   "original_text": "ER-positive | 808 | 1,046 | 77.2%",
+   "sentence_index": 18
+  },
+  {
+   "id": "C11",
+   "text": "PR-positive | 699 | 1,043 | 67.0%",
+   "original_text": "PR-positive | 699 | 1,043 | 67.0%",
+   "sentence_index": 19
+  },
+  {
+   "id": "C12",
+   "text": "HER2-positive (IHC) | 164 | 728 | 22.5%",
+   "original_text": "HER2-positive (IHC) | 164 | 728 | 22.5%",
+   "sentence_index": 20
+  },
+  {
+   "id": "C13",
+   "text": "Triple-negative | 141 | 722 | 19.5%",
+   "original_text": "Triple-negative | 141 | 722 | 19.5%",
+   "sentence_index": 21
+  },
+  {
+   "id": "C14",
+   "text": "Mean ERALPHA protein (RPPA) is 2.18 in the 529 ER+ tumors with protein data against -0.87 in the 169 ER- tumors, a gap of about 3.1 units.",
+   "original_text": "Mean ERALPHA protein (RPPA) is 2.18 in the 529 ER+ tumors with protein data against -0.87 in the 169 ER- tumors, a gap of about 3.1 units.",
+   "sentence_index": 23
+  },
+  {
+   "id": "C15",
+   "text": "At the DNA level, nearly all HER2 IHC-positive tumors (87 of 162 with copy-number data) carry an ERBB2 amplification.",
+   "original_text": "At the DNA level, nearly all HER2 IHC-positive tumors (87 of 162 with copy-number data) carry an ERBB2 amplification.",
+   "sentence_index": 24
+  },
+  {
+   "id": "C16",
+   "text": "Patients with TNBC benefited most from platinum chemotherapy, which supports platinum as the backbone of TNBC treatment.",
+   "original_text": "Patients with TNBC benefited most from platinum chemotherapy, which supports platinum as the backbone of TNBC treatment.",
+   "sentence_index": 25
+  }
+ ]
+}

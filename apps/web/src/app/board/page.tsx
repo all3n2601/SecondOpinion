@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CircleCheck, CircleHelp, CircleX, Info } from "lucide-react";
+import BoardViewSwitch from "@/components/BoardViewSwitch";
 import ClaimCard from "@/components/ClaimCard";
 import NoAuditNotice from "@/components/NoAuditNotice";
 import RolePicker from "@/components/RolePicker";
@@ -52,6 +53,10 @@ export default function BoardPage() {
         Each claim from the report, checked against release {audit.release.name} ({fileCount} files). Open a claim to
         see the calculation, the samples and the code behind it.
       </p>
+
+      <div className="mt-5">
+        <BoardViewSwitch current="list" />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-end gap-x-6 gap-y-2">
         <RolePicker allowAdd={false} />

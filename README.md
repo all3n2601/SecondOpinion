@@ -337,7 +337,12 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
 3. **Audit board:** one entry per claim with the verdict, how solid it is and the Claim Ladder.
    **Open evidence** shows the calculation, the "report vs data" gauge, the files and checksums, the
    code that reproduces the number, the sample IDs (CSV download), the eight ways of counting and the
-   skeptic tests.
+   skeptic tests. Switch the board to **Report** (`/board/report`) to read the report as written with
+   each claim marked where it sits by its verdict icon and word (the final verdict, after any review).
+   Click a marked sentence to open its evidence; **Back to the report**, the browser's Back button and a
+   reload all return you to the same sentence (its place is in the address, `#mark-C2`). **Show in
+   report** on a board entry jumps the other way. Claims that can't be found in the text (the report was
+   edited after the audit) are listed under the report so none is hidden.
 4. **Review:** accept or override each verdict (an override needs a reason and your role). The page is a list
    of claims beside one open entry: it opens on the role's **Overview**, **Start reviewing** opens the first
    claim not yet reviewed, and **Save and next** moves on until every claim is done. The open claim is in the
@@ -345,7 +350,14 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
    **Continue to decision** unlocks when every claim is reviewed. The page layout follows the role
    (see below).
 5. **Decision:** read the suggested decision and who must sign off, choose one, give a reason,
-   **Export**, then download `audit.json` and `decision_record.md`.
+   **Export**, then download `audit.json` and `decision_record.md`. Below the form, the report is shown under
+   the chosen decision: a **preview** that changes as you pick a decision (the suggested one at first), and
+   **the report after this decision** once you export. Each claim is marked with its final verdict and what
+   the decision does to it. *Fix a problem* and *Narrow the question* write in the Claim Ladder's wording (struck and
+   inserted) where a claim does not hold, or say it must be reworded by hand; *Stop* marks those claims *Hold*;
+   *Proceed* keeps the report as written. Click a claim for its evidence; **Back to the decision**, Back and
+   reload return to it (`/decision#mark-C2`). The choice and reason (exported or not) are kept in the tab with
+   the audit and cleared as soon as the audit or any review changes.
 
 **Role views.** Each role in `second_opinion/roles.yaml` has a `view` that sets how the Review page
 looks. Every view keeps Accept / Override and the "all reviewed" gate, and every number comes from

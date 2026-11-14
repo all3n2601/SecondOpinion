@@ -1,5 +1,6 @@
 // Shared wording for reviews and decisions (Meghana: review queue, decision screen, role views).
 
+import { NOT_FULLY_READ, notFullyRead } from "./coverage";
 import type { ClaimResult, Decision, Fact, Solidity, Verdict } from "./types";
 
 export const VERDICTS: Verdict[] = ["supported", "contradicted", "insufficient_evidence"];
@@ -52,6 +53,10 @@ export function countText(fact: Fact | null): string | null {
 /** The one number a reviewer needs to judge the tool's verdict. */
 export function keyNumber(result: ClaimResult): string {
   if (result.verdict === "contradicted" && result.correct_value) return `The data shows ${result.correct_value}`;
+  if (result.verdict === "insufficient_evidence" && notFullyRead(result.claim)) {
+    const why = result.missing_evidence ?? result.claim.needed_data;
+    return why ? `${NOT_FULLY_READ}: ${why}` : NOT_FULLY_READ;
+  }
   if (result.verdict === "insufficient_evidence") {
     return `Would need ${result.missing_evidence ?? result.claim.needed_data ?? "data this release does not have"}`;
   }

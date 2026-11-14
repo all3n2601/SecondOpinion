@@ -420,12 +420,21 @@ def _agrees(amount: Piece, percent: float) -> bool:
     }.get(amount.bound or "", abs(percent - v) <= float(PERCENT_TOLERANCE_POINTS) * 2)
 
 
+_PERCENT_AFTER = re.compile(r"\s*(?:%|percent\b|per\s+cent\b)", re.IGNORECASE)
+
+
+def _is_percent(figure: Piece, text: str) -> bool:
+    """The figure itself is a percent ("46%", "46 per cent"), not a count with a percent after it ("512 (46%)")."""
+    return bool(re.search(r"(?:%|percent|per\s+cent)\s*$", figure.words, re.IGNORECASE)) or bool(
+        _PERCENT_AFTER.match(text, figure.end))
+
+
 def _restated(amount: Piece, figures: list[Piece], text: str, uses: Uses) -> bool:
     """An amount word followed, in the same statement, by a used percent that agrees with it is used through that
     percent: "a majority (59%)", "Just over a quarter of patients, 27%", "almost all ER-negative: 124 of 136 (91.2%)".
     """
     for f in figures:
-        if f.start < amount.end or not re.search(r"%|percent", text[f.start:f.end + 9], re.IGNORECASE):
+        if f.start < amount.end or not _is_percent(f, text):
             continue
         between = text[amount.end:f.start]
         if _NOT_A_RESTATEMENT.search(between):

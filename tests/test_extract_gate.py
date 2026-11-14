@@ -129,3 +129,38 @@ def test_audit_json_export_does_not_carry_coverage_gaps(release_dir) -> None:
 def test_claim_round_trips_coverage_gaps() -> None:
     claim = Claim(id="C1", text="x", sentence_index=0, type=ClaimType.UNMAPPED, coverage_gaps=["N0"])
     assert dataclasses.asdict(claim)["coverage_gaps"] == ["N0"]
+
+
+GATED_SENTENCE, GATED_WORD = INCOMPLETE[1]  # "... 44 of 516 N0 patients died, against 15 of 77 N3 patients."
+
+
+def _gated_audit(mini_release):
+    return audit_claims(extract_claims(GATED_SENTENCE).claims, mini_release, ai_client=None)
+
+
+def test_export_summary_of_a_gated_claim_says_not_checked_not_missing_data(mini_release) -> None:
+    from second_opinion.export import build_audit_json, validate_audit_json
+
+    doc = build_audit_json(_gated_audit(mini_release))
+    assert validate_audit_json(doc) == []
+    summary = doc["findings"][0]["summary"]
+    assert summary.startswith("Not checked: the rules could not read every part of this sentence; ")
+    assert GATED_WORD in summary
+    assert "cannot answer" not in summary and "would need" not in summary
+
+
+def test_export_summary_without_coverage_gaps_keeps_its_wording(mini_release) -> None:
+    from second_opinion.export import build_audit_json
+
+    claim = Claim(id="C1", text="Of 12 tumors, 3 were odd.", sentence_index=0, type=ClaimType.UNMAPPED)
+    doc = build_audit_json(audit_claims([claim], mini_release, ai_client=None))
+    assert doc["findings"][0]["summary"].startswith("The data cannot answer this; would need: ")
+
+
+def test_decision_reasons_for_a_gated_claim_do_not_ask_for_more_data(mini_release) -> None:
+    from second_opinion.decision import suggest_decision
+
+    suggestion = suggest_decision(_gated_audit(mini_release))
+    text = " ".join(suggestion.reasons + suggestion.would_change)
+    assert "C1: not checked; the rules could not read every part of the sentence" in text
+    assert "would need" not in text and "were added" not in text

@@ -298,6 +298,9 @@ def test_a_fraction_written_in_words_is_one_figure() -> None:
     ("A third of tumors are ER-negative, against 35% of lobular tumors.", {35.0}, ["A third"]),  # another statement
     ("A third of tumors are ER-negative and 35% are lobular.", {35.0}, ["A third"]),
     ("A majority (59%) of lobular tumors carry a CDH1 mutation.", set(), ["majority", "59%"]),  # percent unused too
+    # a count with its percent after it is not the restatement: "majority" against 46%, not 512
+    ("A majority of lobular tumors, 512 (46%), carry a CDH1 mutation.", {512.0, 46.0}, ["majority"]),
+    ("A majority of lobular tumors, 512 (56 per cent), carry a CDH1 mutation.", {512.0, 56.0}, []),
 ])
 def test_an_amount_word_is_used_only_through_an_agreeing_restatement(sentence: str, used: set, unused: list) -> None:
     uses = Uses(figures=used, groups={"histology:lobular", "mutation:CDH1", "er_status:negative"},

@@ -8,6 +8,7 @@
 
 import { describeStated } from "./ai-plan";
 import { formatResultFact } from "./claim-format";
+import { notFullyRead } from "./coverage";
 import { finalVerdict, formatCount } from "./review";
 import type { ClaimParams, ClaimResult, RoleView, Verdict } from "./types";
 
@@ -142,9 +143,18 @@ export const STORY_VERDICT_WORDS: Record<Verdict, string> = {
   insufficient_evidence: "Couldn't be checked",
 };
 
+/** A claim the rules did not read in full: the data could answer it, so it is never "the data is missing". */
+const NOT_FULLY_READ_WORDS: Record<RoleView, string> = {
+  story: "The rules couldn't read every part of this sentence, so it wasn't checked. A person should check it.",
+  checklist: "Not fully read by the rules, so not checked. Check it by hand, then accept or override with a reason.",
+  evidence: "The rules did not read every part of the sentence, so no verdict was given; the data itself could answer it.",
+  raw: "not fully read",
+};
+
 function claimSentence(view: RoleView, result: ClaimResult): string {
   const final = finalVerdict(result);
   const kind: Kind = final === result.verdict ? final : "overridden";
+  if (kind === "insufficient_evidence" && notFullyRead(result.claim)) return NOT_FULLY_READ_WORDS[view];
   const values = { ...auditSlots([result]), ...claimSlots(result) };
 
   switch (view) {

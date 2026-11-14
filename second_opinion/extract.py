@@ -2627,6 +2627,8 @@ _STUDY_SOURCE = re.compile(
 
 
 GATED = "this sentence also states {words}, which the rules could not check; a person should check it"
+# How a gated claim is summed up: the data could answer it, the rules did not read all of it.
+NOT_FULLY_READ = "the rules could not read every part of this sentence"
 
 
 def _quoted_list(words: list[str]) -> str:

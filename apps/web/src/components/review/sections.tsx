@@ -81,21 +81,29 @@ export function SampleIds({ result, limit }: { result: ClaimResult; limit: numbe
   );
 }
 
-export function CodeFor({ result }: { result: ClaimResult }) {
+/** The code behind a claim's check, as a scrollable block; null when there is none. */
+export function CodeBlock({ result }: { result: ClaimResult }) {
   const c = result;
   if (!c.fact?.code) return null;
   return (
+    <pre
+      tabIndex={0}
+      aria-label={`Code for ${c.claim.id}`}
+      className={`mt-1 overflow-x-auto rounded-control bg-ink p-3 font-mono text-xs leading-5 text-paper ${focusRing}`}
+    >
+      <code>{c.fact.code}</code>
+    </pre>
+  );
+}
+
+export function CodeFor({ result }: { result: ClaimResult }) {
+  if (!result.fact?.code) return null;
+  return (
     <details>
       <summary className={`min-h-11 cursor-pointer rounded-control py-2 text-sm font-medium text-pen underline-offset-4 hover:underline ${focusRing}`}>
-        Code for {c.claim.id}
+        Code for {result.claim.id}
       </summary>
-      <pre
-        tabIndex={0}
-        aria-label={`Code for ${c.claim.id}`}
-        className={`mt-1 overflow-x-auto rounded-control bg-ink p-3 font-mono text-xs leading-5 text-paper ${focusRing}`}
-      >
-        <code>{c.fact.code}</code>
-      </pre>
+      <CodeBlock result={result} />
     </details>
   );
 }

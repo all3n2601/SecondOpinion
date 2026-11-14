@@ -1,12 +1,9 @@
 import { Circle, CircleCheck } from "lucide-react";
 import { Counts } from "@/components/review/sections";
+import { claimAnchor } from "@/lib/review-nav";
 import type { ClaimResult } from "@/lib/types";
 import { focusRing } from "@/lib/ui";
 
-/** The anchor each claim row carries on the Review page, so the checklist can jump to it. */
-export function claimAnchor(id: string): string {
-  return `review-${id}`;
-}
 
 /** Data-use reviewer view: counts by verdict, then every claim as a tick box that jumps to its row. */
 export default function ChecklistOverview({ claims, headline, caption }: {

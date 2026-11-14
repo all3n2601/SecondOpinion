@@ -7,7 +7,7 @@ practice envelope). Before you start, run `npm run dev`, open http://localhost:3
 | Time | Screen | Say |
 | --- | --- | --- |
 | 0:00 | Start | "Reviewers get reports like this and must decide: can we publish it?" |
-| 0:20 | Start → **Use the practice report** → **Check the files** → **Find claims** → Claims → Audit board | "Three claims: one supported, one wrong, one the data can't answer." |
+| 0:20 | Start → **Run the practice audit** (fills in the data folder) → **Open the audit board** | "Three claims: one supported, one wrong, one the data can't answer." |
 | 0:50 | Open C2 (≈62% Luminal A) → evidence panel | "The report says 62%. The data says 49.9%, 421 of 844, and never 62% however you count it. Here are the code and the sample IDs." |
 | 1:40 | Open C3 (hormone therapy) | "This release has no treatment data, so we don't guess. Here's the data that would be needed." |
 | 2:00 | **Review** → accept all three | "A person confirms or overrides every verdict before anything is exported." |

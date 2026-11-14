@@ -10,12 +10,13 @@ import PipelineSteps, { seconds, type PipelineStep, type StepState } from "@/com
 import ReleasePicker from "@/components/ReleasePicker";
 import ReportUpload from "@/components/ReportUpload";
 import VerdictBadge from "@/components/VerdictBadge";
-import { extractClaims, runAudit } from "@/lib/api";
+import { extractClaims, getPracticeRelease, runAudit } from "@/lib/api";
 import { useAudit } from "@/lib/audit-context";
 import type { AuditResult, Claim, Verdict } from "@/lib/types";
 import { buttonPrimary, buttonQuiet, buttonSecondary, pageTitle, sectionTitle } from "@/lib/ui";
 
-type Stage = "read" | "audit";
+/** "data" only happens on a practice run with no data folder: finding or fetching release A. */
+type Stage = "data" | "read" | "audit";
 type Run =
   | { state: "idle" }
   | { state: "running"; stage: Stage }
@@ -31,6 +32,7 @@ function failureText(error: Error, stage: Stage): string {
     return `${message.replace(/\s*Is the backend running\?$/, "")} ${BACKEND_DOWN_HINT}`;
   }
   const sentence = /[.!?]$/.test(message) ? message : `${message}.`;
+  if (stage === "data") return sentence;
   return stage === "audit" ? `${sentence} Check the data folder path, then try again.` : `${sentence} Try again.`;
 }
 
@@ -110,15 +112,15 @@ export default function StartPage() {
     useAudit();
   const [run, setRun] = useState<Run>({ state: "idle" });
   const [timing, setTiming] = useState<Partial<Record<Stage, number>>>({});
+  const [dataNote, setDataNote] = useState<string | null>(null);
 
   const running = run.state === "running";
   const hasReport = reportText.trim().length > 0;
   const hasFolder = releaseDir.trim().length > 0;
   const missing = [!hasReport && "a report", !hasFolder && "the data folder"].filter(Boolean).join(" and ");
 
-  /** Run the pipeline on `text`. `stopAfterRead` sends the user to Claims to adjust the list before checking. */
-  async function start(text: string, stopAfterRead = false) {
-    if (running) return;
+  /** Run the pipeline on `text` against `dir`. `stopAfterRead` sends the user to Claims to adjust the list first. */
+  async function start(text: string, dir: string, stopAfterRead = false) {
     let stage: Stage = "read";
     setTiming({});
     try {
@@ -138,7 +140,7 @@ export default function StartPage() {
       stage = "audit";
       setRun({ state: "running", stage });
       t0 = performance.now();
-      setAudit(await runAudit(releaseDir.trim(), extracted.claims));
+      setAudit(await runAudit(dir.trim(), extracted.claims));
       setTiming((prev) => ({ ...prev, audit: performance.now() - t0 }));
       setRun({ state: "idle" });
     } catch (error) {
@@ -146,16 +148,31 @@ export default function StartPage() {
     }
   }
 
+  /** Load the practice report; with no data folder entered, fill it in with release A (local or a temporary download). */
   async function startPractice() {
     if (running) return;
+    let stage: Stage = "read";
     try {
       const response = await fetch("/practice_brief.md");
       if (!response.ok) throw new Error("Could not load the practice report");
       const text = await response.text();
       setReportText(text);
-      await start(text);
+      let dir = releaseDir;
+      if (!hasFolder) {
+        stage = "data";
+        setRun({ state: "running", stage });
+        const practice = await getPracticeRelease();
+        dir = practice.release_dir;
+        setReleaseDir(dir);
+        setDataNote(
+          practice.source === "temporary"
+            ? `Practice data (release A) ${practice.downloaded.length > 0 ? "downloaded" : "reused"} in a temporary folder.`
+            : "Practice data (release A) found on this computer.",
+        );
+      }
+      await start(text, dir);
     } catch (error) {
-      setRun({ state: "error", stage: "read", message: failureText(error as Error, "read") });
+      setRun({ state: "error", stage, message: failureText(error as Error, stage) });
     }
   }
 
@@ -163,6 +180,7 @@ export default function StartPage() {
     if (run.state === "running" && run.stage === stage) return "running";
     if (run.state === "error" && run.stage === stage) return "failed";
     // A step after the running or failed one has not run in this attempt.
+    if (run.state !== "idle" && run.stage === "data") return "waiting";
     if (run.state !== "idle" && stage === "audit" && run.stage === "read") return "waiting";
     return done ? "done" : "waiting";
   }
@@ -236,12 +254,18 @@ export default function StartPage() {
         <button
           type="button"
           onClick={startPractice}
-          disabled={running || !hasFolder}
+          disabled={running || !hydrated}
           className={`${buttonQuiet} -my-1`}
         >
-          Run the practice audit
+          {running && run.stage === "data" ? "Getting the practice data…" : "Run the practice audit"}
         </button>
-        {!hasFolder && <p className="text-sm text-ink-faint">Add the data folder below first.</p>}
+        {!hasFolder && !running && (
+          <p className="text-sm text-ink-faint">With no data folder, it fills one in with the practice data.</p>
+        )}
+        {running && run.stage === "data" && (
+          <p className="text-sm text-ink-faint">The first time, this downloads about 70 MB.</p>
+        )}
+        {dataNote && !running && <p className="text-sm text-ink-faint">{dataNote}</p>}
       </div>
 
       <div className="mt-8 grid gap-x-10 gap-y-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,25rem)] xl:items-start">
@@ -250,7 +274,13 @@ export default function StartPage() {
             <ReportUpload value={reportText} onChange={setReportText} />
           </div>
           <div className="p-5 sm:p-6">
-            <ReleasePicker value={releaseDir} onChange={setReleaseDir} />
+            <ReleasePicker
+              value={releaseDir}
+              onChange={(dir) => {
+                setReleaseDir(dir);
+                setDataNote(null);
+              }}
+            />
           </div>
         </div>
 
@@ -277,19 +307,19 @@ export default function StartPage() {
                     <LayoutList aria-hidden="true" size={18} strokeWidth={1.75} />
                     Open the audit board
                   </Link>
-                  <button type="button" onClick={() => start(reportText)} disabled={!canRun} className={buttonSecondary}>
+                  <button type="button" onClick={() => start(reportText, releaseDir)} disabled={!canRun} className={buttonSecondary}>
                     Run it again
                   </button>
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={() => start(reportText)} disabled={!canRun} className={buttonPrimary}>
+                  <button type="button" onClick={() => start(reportText, releaseDir)} disabled={!canRun} className={buttonPrimary}>
                     <ClipboardCheck aria-hidden="true" size={18} strokeWidth={1.75} />
                     {running ? "Running the audit…" : "Run the audit"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => start(reportText, true)}
+                    onClick={() => start(reportText, releaseDir, true)}
                     disabled={!canRun}
                     className={buttonSecondary}
                   >
@@ -306,7 +336,13 @@ export default function StartPage() {
             )}
             <div aria-live="polite" className="mt-2 text-[0.9375rem]">
               {running && (
-                <p className="sr-only">{run.stage === "read" ? "Reading the report…" : "Checking the claims…"}</p>
+                <p className="sr-only">
+                  {run.stage === "data"
+                    ? "Getting the practice data…"
+                    : run.stage === "read"
+                      ? "Reading the report…"
+                      : "Checking the claims…"}
+                </p>
               )}
               {auditDone && !running && <p className="sr-only">Audit finished. Open the audit board to see it.</p>}
               {message && (

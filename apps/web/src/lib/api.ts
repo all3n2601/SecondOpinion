@@ -64,6 +64,18 @@ export function runAudit(releaseDir: string, claims: Claim[]): Promise<AuditResu
   return request("/audit", { method: "POST", body: { release_dir: releaseDir, claims } });
 }
 
+export interface PracticeRelease {
+  release_dir: string;
+  /** Where it came from: SO_RELEASE_DIR, the challenge repo next to this one, or a temporary download. */
+  source: "environment" | "challenge_repo" | "temporary";
+  downloaded: string[];
+}
+
+/** A release-A folder for the practice run. The first call may download about 70 MB. */
+export function getPracticeRelease(): Promise<PracticeRelease> {
+  return request("/practice-release", { method: "POST" });
+}
+
 export function suggestDecision(audit: AuditResult): Promise<DecisionSuggestion> {
   return request("/decision", { method: "POST", body: { audit } });
 }

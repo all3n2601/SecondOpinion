@@ -1,8 +1,8 @@
 "use client";
 
-import { CircleAlert, CircleCheck, FileText } from "lucide-react";
+import { CircleAlert, CircleCheck } from "lucide-react";
 import { useId, useState } from "react";
-import { buttonQuiet, fieldHint, fieldInput, fieldLabel, focusRing, sectionTitle } from "@/lib/ui";
+import { fieldHint, fieldInput, fieldLabel, focusRing, sectionTitle } from "@/lib/ui";
 
 const ACCEPTED = [".md", ".txt"];
 
@@ -11,7 +11,7 @@ interface Props {
   onChange: (text: string) => void;
 }
 
-/** Three ways in: upload a .md/.txt file, load the practice report, or paste text. */
+/** Two ways in: upload a .md/.txt file or paste text. The practice report has its own button at the top of Start. */
 export default function ReportUpload({ value, onChange }: Props) {
   const fileId = useId();
   const pasteId = useId();
@@ -33,18 +33,6 @@ export default function ReportUpload({ value, onChange }: Props) {
     reader.readAsText(file);
   }
 
-  async function loadPractice() {
-    try {
-      const response = await fetch("/practice_brief.md");
-      if (!response.ok) throw new Error();
-      onChange(await response.text());
-      setSource("practice_brief.md");
-      setMessage({ kind: "ok", text: "Loaded the practice report." });
-    } catch {
-      setMessage({ kind: "error", text: "Could not load the practice report." });
-    }
-  }
-
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
 
   return (
@@ -52,7 +40,7 @@ export default function ReportUpload({ value, onChange }: Props) {
       <h2 id="report-heading" className={sectionTitle}>
         1. Report
       </h2>
-      <p className={fieldHint}>Upload a Markdown or text file, paste the text, or try the practice report.</p>
+      <p className={fieldHint}>Upload a Markdown or text file, or paste the text.</p>
 
       <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-2">
         <div className="min-w-0 max-w-full">
@@ -71,10 +59,6 @@ export default function ReportUpload({ value, onChange }: Props) {
             className={`mt-2 block max-w-full text-sm text-ink-soft file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-control file:border file:border-rule-strong file:bg-sheet file:px-4 file:py-2 file:text-[0.9375rem] file:font-semibold file:text-ink file:transition-colors file:duration-150 hover:file:bg-wash ${focusRing}`}
           />
         </div>
-        <button type="button" onClick={loadPractice} className={buttonQuiet}>
-          <FileText aria-hidden="true" size={16} strokeWidth={1.75} />
-          Use the practice report
-        </button>
       </div>
 
       <div className="mt-4">

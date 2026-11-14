@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { countingRange, diagnose, matchesStated, measureOf, restsOn, statedFigure, statedWords } from "./insights";
+import {
+  causeTeaser,
+  countingRange,
+  diagnose,
+  matchesStated,
+  measureOf,
+  restsOn,
+  restsTeaser,
+  robustnessTeaser,
+  statedFigure,
+  statedWords,
+} from "./insights";
 import type { ClaimParams, ClaimResult, ClaimType, Fact, VariantResult, Verdict } from "./types";
 
 const PARAMS: ClaimParams = {
@@ -197,5 +208,34 @@ describe("statedWords", () => {
     expect(statedWords({ value: 62, high: null, approximate: true, decimals: 0 }, "percent")).toBe("about 62%");
     expect(statedWords({ value: 40, high: 45, approximate: false, decimals: 0 }, "percent")).toBe("40 to 45%");
     expect(statedWords({ value: 535, high: null, approximate: false, decimals: 0 }, "count")).toBe("535");
+  });
+});
+
+describe("teasers", () => {
+  it("says how many have a value, and none missing when none are", () => {
+    expect(restsTeaser(restsOn(result())!)).toBe("844 of 1,101 have a value");
+    expect(restsTeaser(restsOn(result({ type: "COUNT", params: { unit: null }, fact: fact(535, 1101) }))!)).toBe(
+      "535 of 1,101 counted, none missing",
+    );
+  });
+  it("says whether any reading gives the stated figure", () => {
+    expect(causeTeaser(diagnose(result({ variants: C2_VARIANTS }))!)).toBe("1 reading gives about 62%");
+    expect(causeTeaser(diagnose(result({ params: { stated_value: 90 }, variants: C2_VARIANTS }))!)).toBe(
+      "No reading we tried gives about 90%",
+    );
+  });
+  it("counts several matching readings", () => {
+    const d = diagnose(result({ params: { stated_value: 45, approximate: true }, fact: fact(421, 844), variants: C2_VARIANTS }))!;
+    expect(d.matches.length).toBeGreaterThan(1);
+    expect(causeTeaser(d)).toBe(`${d.matches.length} readings give about 45%`);
+  });
+  it("counts agreeing ways, or is null with none", () => {
+    expect(robustnessTeaser(result({ variants: C2_VARIANTS }))).toBe("5 of 5 ways agree");
+    expect(robustnessTeaser(result())).toBeNull();
+  });
+  it("mentions skeptic tests when they ran", () => {
+    const r = result({ variants: C2_VARIANTS });
+    r.skeptic = { shuffle_p: 0.01, n_sites: 3, site_flips: [] };
+    expect(robustnessTeaser(r)).toBe("5 of 5 ways agree; skeptic tests apply");
   });
 });

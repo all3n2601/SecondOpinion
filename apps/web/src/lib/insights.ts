@@ -252,3 +252,27 @@ export function statedWords(stated: Stated, measure: Measure): string {
   if (stated.high !== null) return `${n.format(stated.value)} to ${n.format(stated.high)}${unit}`;
   return `${stated.approximate ? "about " : ""}${n.format(stated.value)}${unit}`;
 }
+
+// ---- One-line teasers for a closed fold ----
+
+/** "844 of 1,101 have a value", or "535 of 1,101 counted, none missing". */
+export function restsTeaser(rests: RestsOn): string {
+  if (rests.leftOut > 0) return `${formatCount(rests.inGroup + rests.otherValue)} of ${formatCount(rests.total)} have a value`;
+  return `${formatCount(rests.inGroup)} of ${formatCount(rests.total)} counted, none missing`;
+}
+
+/** "1 reading gives about 62%", "2 readings give …", or "No reading we tried gives …". */
+export function causeTeaser(d: Diagnosis): string {
+  const said = statedWords(d.stated, d.measure);
+  const n = d.matches.length;
+  if (n === 0) return `No reading we tried gives ${said}`;
+  return n === 1 ? `1 reading gives ${said}` : `${formatCount(n)} readings give ${said}`;
+}
+
+/** "8 of 8 ways agree", plus "; skeptic tests apply" when they ran; null with no other ways of counting. */
+export function robustnessTeaser(result: ClaimResult): string | null {
+  if (!result.variants.length) return null;
+  const agree = result.variants.filter((v) => v.verdict === result.verdict).length;
+  const text = `${formatCount(agree)} of ${formatCount(result.variants.length)} ways agree`;
+  return result.skeptic ? `${text}; skeptic tests apply` : text;
+}

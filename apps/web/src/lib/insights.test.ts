@@ -10,6 +10,7 @@ import {
   robustnessTeaser,
   statedFigure,
   statedWords,
+  storyLines,
 } from "./insights";
 import type { ClaimParams, ClaimResult, ClaimType, Fact, VariantResult, Verdict } from "./types";
 
@@ -237,5 +238,65 @@ describe("teasers", () => {
     const r = result({ variants: C2_VARIANTS });
     r.skeptic = { shuffle_p: 0.01, n_sites: 3, site_flips: [] };
     expect(robustnessTeaser(r)).toBe("5 of 5 ways agree; skeptic tests apply");
+  });
+});
+
+describe("diagnose: final review fixes", () => {
+  it("does not call a reading a match when it barely moves the data's own value", () => {
+    // 49.0% against "about 52%": the share outside the group (51.0%) is within "about" of 52 but explains nothing.
+    const near = diagnose(result({ params: { stated_value: 52 }, fact: fact(490, 1000) }))!;
+    expect(near.matches).toEqual([]);
+    // 59.9% with 5 missing against "about 62%": counting the 5 inside gives 60.1%, a hair from the data.
+    const tiny = diagnose(result({ fact: fact(599, 1000, 5) }))!;
+    expect(tiny.matches).toEqual([]);
+  });
+  it("still finds a match that is far from the data's own value", () => {
+    expect(diagnose(result({ variants: C2_VARIANTS }))!.matches.map((m) => m.value.toFixed(1))).toEqual(["61.6"]);
+  });
+  it("is null when there is nothing to try", () => {
+    const r = result({ type: "COUNT", params: { unit: null, stated_value: 400 }, fact: { ...fact(421, 844), denominator: null } });
+    expect(diagnose(r)).toBeNull();
+  });
+  it("is null for a claim checked through the AI helper's plan", () => {
+    const r = result({ variants: C2_VARIANTS });
+    r.ai_plan = {
+      answerable: true,
+      needed_data: null,
+      plan: { op: "share", where: [], numerator: [] },
+      stated: { kind: "percent", span: "about 62%", value: 62, high: null, total: null, approximate: true, relation: null },
+      rationale: "",
+    };
+    expect(diagnose(r)).toBeNull();
+  });
+  it("reads an AI-plan share that states a count as a count", () => {
+    const r = result({ params: { stated_value: null, unit: null } });
+    r.ai_plan = {
+      answerable: true,
+      needed_data: null,
+      plan: { op: "share", where: [], numerator: [] },
+      stated: { kind: "count", span: "421", value: 421, high: null, total: null, approximate: false, relation: null },
+      rationale: "",
+    };
+    expect(measureOf(r)).toBe("count");
+  });
+  it("gives every way of counting plain words for the story view", () => {
+    const d = diagnose(result({ params: { stated_value: 44.3, approximate: false }, fact: fact(421, 844), variants: C2_VARIANTS }))!;
+    expect(d.matches[0].plain).toBeTruthy();
+    expect(d.matches[0].plain).not.toMatch(/RNA|2012|primary tumors/);
+  });
+});
+
+describe("storyLines", () => {
+  it("tells the story of a wrong figure in plain words", () => {
+    const lines = storyLines(result({ variants: C2_VARIANTS }));
+    expect(lines[0]).toBe("However we counted it, the data gave between 44.3% and 49.9%, never close to the report's about 62%.");
+    expect(lines.join(" ")).toContain("count every record missing this detail as part of the group");
+  });
+  it("drops the wrong-figure lines once a reviewer has overridden the verdict", () => {
+    const r = result({ variants: C2_VARIANTS });
+    r.review = { decision: "override", final_verdict: "supported", reason: "rounding", reviewer_role: "Researcher" };
+    const lines = storyLines(r);
+    expect(lines[0]).toBe("However we counted it, the data gave between 44.3% and 49.9%.");
+    expect(lines.join(" ")).not.toMatch(/never close|worked out|none gives/);
   });
 });

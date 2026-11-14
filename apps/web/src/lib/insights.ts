@@ -5,7 +5,7 @@
 
 import { paramsFromAiPlan } from "./ai-plan";
 import { flipWords, PRIMARY_VARIANT_ID, variantChanges, variantWords } from "./claim-format";
-import { formatCount } from "./review";
+import { finalVerdict, formatCount } from "./review";
 import type { ClaimParams, ClaimResult, Fact, Verdict } from "./types";
 
 export type Measure = "percent" | "count";
@@ -20,7 +20,14 @@ function paramsOf(result: ClaimResult): ClaimParams {
 export function measureOf(result: ClaimResult): Measure | null {
   if (result.parts?.length) return null;
   const op = result.ai_plan?.plan?.op;
-  if (op) return op === "share" ? "percent" : op === "count" ? "count" : null;
+  if (op) {
+    // Python judges an AI-plan claim by what the sentence states, not by the plan's op: a share plan may state a count.
+    if (op !== "share" && op !== "count") return null;
+    const kind = result.ai_plan?.stated?.kind;
+    if (kind === "percent") return "percent";
+    if (kind === "count" || kind === "number") return "count";
+    return op === "share" ? "percent" : "count";
+  }
   const { type } = result.claim;
   const unit = result.claim.params.unit;
   if (unit === "percent" || (unit === null && (type === "SHARE" || type === "AGREEMENT"))) return "percent";
@@ -183,9 +190,29 @@ const SCOPE_WORDS: Record<string, string> = {
   "subtype_source=study_2012_label": "use the 2012 study subtype label instead of the RNA-seq one",
 };
 
-function wayHow(variantId: string): string {
-  const changes = variantChanges(variantId).map((c) => SCOPE_WORDS[c] ?? flipWords(c));
+/** The same changes for readers with little data background (story view). */
+const PLAIN_WORDS: Record<string, string> = {
+  "sample_scope=all_samples": "count every sample, not just the main tumor samples",
+  "sex_filter=women_only": "count women only",
+  "subtype_source=study_2012_label": "use an older way of grouping the tumors",
+};
+
+function joinChanges(changes: string[]): string {
   return changes.length > 1 ? `${changes.slice(0, -1).join(", ")} and ${changes[changes.length - 1]}` : (changes[0] ?? "count it the standard way");
+}
+
+function wayHow(variantId: string): string {
+  return joinChanges(variantChanges(variantId).map((c) => SCOPE_WORDS[c] ?? flipWords(c)));
+}
+
+function wayPlain(variantId: string): string {
+  return joinChanges(variantChanges(variantId).map((c) => PLAIN_WORDS[c] ?? "count it a different way"));
+}
+
+/** How far a figure may move and still read as the same figure: the claim's own tolerance around `base`. */
+function tolerance(stated: Stated, measure: Measure, base: number): number {
+  if (measure === "percent") return stated.approximate ? 2 : 0.5 * 10 ** -stated.decimals;
+  return stated.approximate ? 0.02 * Math.abs(base) : 0.5;
 }
 
 /**
@@ -194,6 +221,8 @@ function wayHow(variantId: string): string {
  */
 export function diagnose(result: ClaimResult): Diagnosis | null {
   if (result.verdict !== "contradicted") return null;
+  // Python reads an AI-plan claim's precision and "about" from the sentence itself; we cannot mirror that here.
+  if (result.ai_plan?.plan) return null;
   const measure = measureOf(result);
   const stated = statedFigure(result);
   if (!measure || !stated) return null;
@@ -202,7 +231,7 @@ export function diagnose(result: ClaimResult): Diagnosis | null {
   for (const v of result.variants) {
     if (v.variant_id === PRIMARY_VARIANT_ID) continue;
     const value = factValue(v.fact, measure);
-    if (value !== null && Number.isFinite(value)) tried.push({ how: wayHow(v.variant_id), value, way: true });
+    if (value !== null && Number.isFinite(value)) tried.push({ how: wayHow(v.variant_id), plain: wayPlain(v.variant_id), value, way: true });
   }
 
   const f = result.fact;
@@ -240,9 +269,13 @@ export function diagnose(result: ClaimResult): Diagnosis | null {
     seen.add(key);
     return true;
   });
+  if (!unique.length) return null;
   const target = stated.high !== null ? (stated.value + stated.high) / 2 : stated.value;
   unique.sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target));
-  return { measure, stated, tried: unique, matches: unique.filter((t) => matchesStated(t.value, stated, measure)) };
+  // A reading that hardly moves the data's own value explains nothing, even when it lands on the stated figure.
+  const own = factValue(result.fact, measure);
+  const moves = (t: Alternative) => own === null || Math.abs(t.value - own) > tolerance(stated, measure, own);
+  return { measure, stated, tried: unique, matches: unique.filter((t) => matchesStated(t.value, stated, measure) && moves(t)) };
 }
 
 /** "about 62%", "55 to 62%", "421". */
@@ -275,4 +308,41 @@ export function robustnessTeaser(result: ClaimResult): string | null {
   const agree = result.variants.filter((v) => v.verdict === result.verdict).length;
   const text = `${formatCount(agree)} of ${formatCount(result.variants.length)} ways agree`;
   return result.skeptic ? `${text}; skeptic tests apply` : text;
+}
+
+// ---- The story view's sentences ----
+
+/**
+ * Plain sentences for readers with little data background: the spread across ways of counting, the range the
+ * missing records allow, and the clue to where a wrong figure came from. Once a reviewer has overridden the
+ * tool's verdict, the lines that call the figure wrong are dropped: they would contradict the reviewer.
+ */
+export function storyLines(result: ClaimResult): string[] {
+  const range = countingRange(result);
+  const rests = restsOn(result);
+  const stated = statedFigure(result);
+  const overridden = finalVerdict(result) !== result.verdict;
+  const diagnosis = overridden ? null : diagnose(result);
+  const lines: string[] = [];
+  if (range) {
+    const lo = formatMeasure(range.low.value, range.measure);
+    const hi = formatMeasure(range.high.value, range.measure);
+    const gave = range.distinct === 1 ? `the data gave ${lo}` : `the data gave between ${lo} and ${hi}`;
+    const allWrong = stated && !overridden && range.ways.every((w) => w.verdict === "contradicted");
+    const never = allWrong ? `, never close to the report's ${statedWords(stated, range.measure)}` : "";
+    lines.push(`However we counted it, ${gave}${never}.`);
+  }
+  if (rests?.bounds) {
+    const [lo, hi] = rests.bounds.map((b) => formatMeasure(b, "percent"));
+    lines.push(
+      `Some records are missing this detail (${formatCount(rests.leftOut)} of ${formatCount(rests.total)}). Whatever they are, the true figure lies between ${lo} and ${hi}.`,
+    );
+  }
+  if (diagnosis) {
+    const said = statedWords(diagnosis.stated, diagnosis.measure);
+    const match = diagnosis.matches[0];
+    if (match) lines.push(`The report's figure, ${said}, is what you get if you ${match.plain ?? match.how}. That may be how it was worked out.`);
+    else lines.push(`We tried ${formatCount(diagnosis.tried.length)} other ways of reading the data and none gives ${said}.`);
+  }
+  return lines;
 }

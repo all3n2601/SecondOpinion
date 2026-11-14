@@ -4,8 +4,8 @@ import {
   diagnose,
   formatMeasure,
   restsOn,
-  statedFigure,
   statedWords,
+  storyLines,
   type CountingRange,
   type Diagnosis,
   type Measure,
@@ -241,34 +241,6 @@ export function TriedList({ diagnosis, mono = false }: { diagnosis: Diagnosis; m
       })}
     </ul>
   );
-}
-
-function storyLines(result: ClaimResult): string[] {
-  const range = countingRange(result);
-  const rests = restsOn(result);
-  const diagnosis = diagnose(result);
-  const stated = statedFigure(result);
-  const lines: string[] = [];
-  if (range) {
-    const lo = formatMeasure(range.low.value, range.measure);
-    const hi = formatMeasure(range.high.value, range.measure);
-    const gave = range.distinct === 1 ? `the data gave ${lo}` : `the data gave between ${lo} and ${hi}`;
-    const never = stated && range.ways.every((w) => w.verdict === "contradicted") ? `, never close to the report's ${statedWords(stated, range.measure)}` : "";
-    lines.push(`However we counted it, ${gave}${never}.`);
-  }
-  if (rests?.bounds) {
-    const [lo, hi] = rests.bounds.map((b) => formatMeasure(b, "percent"));
-    lines.push(
-      `Some records are missing this detail (${formatCount(rests.leftOut)} of ${formatCount(rests.total)}). Whatever they are, the true figure lies between ${lo} and ${hi}.`,
-    );
-  }
-  if (diagnosis) {
-    const said = statedWords(diagnosis.stated, diagnosis.measure);
-    const match = diagnosis.matches[0];
-    if (match) lines.push(`The report's figure, ${said}, is what you get if you ${match.plain ?? match.how}. That may be how it was worked out.`);
-    else if (diagnosis.tried.length) lines.push(`We tried ${formatCount(diagnosis.tried.length)} other ways of reading the data and none gives ${said}.`);
-  }
-  return lines;
 }
 
 /** Plain sentences for the story view, one block per claim or part: no legend, no jargon, the same figures. */

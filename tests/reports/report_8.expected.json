@@ -59,14 +59,14 @@
     "type": "RATIO",
     "verdict": "contradicted",
     "why": "1,133 diagnostic vs 1,978 frozen slides",
-    "verdict_no_rna": "insufficient_evidence"
+    "verdict_no_slides": "insufficient_evidence"
   },
   {
     "claim_contains": "at least one diagnostic slide",
     "type": "COUNT",
     "verdict": "supported",
     "why": "patients with a diagnostic slide > 1,000",
-    "verdict_no_rna": "insufficient_evidence"
+    "verdict_no_slides": "insufficient_evidence"
   },
   {
     "claim_contains": "body-mass index",

@@ -44,10 +44,12 @@ def test_practice_claims_on_real_release(release_dir):
     assert audit.claims[2].fact is None
     assert audit.claims[0].fact.numerator == 535
     assert "844 of 1,101" in audit.claims[1].limitation
-    assert "RNA" in audit.claims[0].limitation
+    has_rna = (release_dir / "rna_hiseq.tsv.gz").is_file()  # fetch.py downloads it unless run with --no-rna
+    if not has_rna:
+        assert "RNA" in audit.claims[0].limitation  # all five layers counted over the four present
     assert audit.release.name == "A" or audit.release.name == release_dir.name
     if audit.release.name == release_dir.name or release_dir.name == "raw":
-        assert len(audit.release.files) == 5
+        assert len(audit.release.files) == (6 if has_rna else 5)
 
 
 def test_empty_claims_returns_checksums(mini_release):

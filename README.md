@@ -218,10 +218,11 @@ comparisons (ER-alpha by ER status), median / mean age, and "the data can't answ
 
 ## Quick start
 
-Needs **Node.js 22+**, **Python 3.11-3.14** (3.13 recommended) and **git**. From the repository root:
+Needs **Node.js 22+**, **Python 3.11-3.14** and **git**. From the repository root (if `python3 --version`
+is older than 3.11, use the name of a newer one, such as `python3.13`):
 
 ```bash
-python3.13 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 npm ci
 git clone https://github.com/disleveK/oncosys-hackathon-challenge.git ../oncosys-hackathon-challenge && .venv/bin/python ../oncosys-hackathon-challenge/data/tcga-brca/fetch.py
 ```

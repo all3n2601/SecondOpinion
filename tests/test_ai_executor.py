@@ -719,9 +719,14 @@ def test_real_sample_type_and_sex_counts(real, real_clin):
 
 
 @pytest.mark.realdata
-def test_real_release_has_no_rna_file(real):
-    with pytest.raises(PlanRejected, match="no RNA file in this release"):
-        validate_plan(qp(count_plan([f("has_layer", "rna")]), NUM), "There are 10 samples.", real)
+def test_real_release_rna_plan_matches_the_rna_file(real):
+    """`fetch.py --no-rna` leaves the RNA file out: an RNA plan is then rejected, never run on missing data."""
+    plan = qp(count_plan([f("has_layer", "rna")]), NUM)
+    if real.rna_ids is None:
+        with pytest.raises(PlanRejected, match="no RNA file in this release"):
+            validate_plan(plan, "There are 10 samples.", real)
+    else:
+        validate_plan(plan, "There are 10 samples.", real)
 
 
 @pytest.mark.realdata

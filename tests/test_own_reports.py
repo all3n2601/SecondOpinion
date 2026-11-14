@@ -50,15 +50,19 @@ def test_report_claims_are_found_and_typed(report):
 @pytest.mark.parametrize("report", REPORT_FILES, ids=lambda p: p.stem)
 def test_report_verdicts(report, release_dir):
     from second_opinion.audit import NO_RNA_NOTE, audit_claims
+    from second_opinion.release import load_release
 
     claims = extract_claims(report.read_text(encoding="utf-8")).claims
     result = audit_claims(claims, release_dir)
     no_rna = NO_RNA_NOTE in result.notes
+    no_slides = load_release(release_dir).slides is None  # envelope releases ship without the slide manifest
     by_id = {r.claim.id: r for r in result.claims}
 
     mismatches = []
     for row, claim in _match(claims, _expected(report)):
         want = row["verdict"]
+        if no_slides and "verdict_no_slides" in row:
+            want = row["verdict_no_slides"]
         if no_rna and "verdict_no_rna" in row:
             want = row["verdict_no_rna"]
             if want is None:

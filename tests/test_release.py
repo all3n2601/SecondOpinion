@@ -80,7 +80,8 @@ def test_real_release_headline_numbers(release_dir):
     assert len(r.primary_ids()) == 1101
     full = set(r.primary_ids()) & r.survival_ids & r.mutation_ids & r.copy_number_ids & r.protein_ids
     assert len(full) == 535
-    assert r.rna_ids is None
+    if r.rna_ids is not None:  # fetch.py's default download includes the RNA file; --no-rna leaves it out
+        assert len(full & r.rna_ids) == 535
 
 
 def test_release_error_is_not_a_file_not_found():

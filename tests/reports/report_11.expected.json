@@ -58,7 +58,7 @@
     "type": "SHARE",
     "verdict": "contradicted",
     "why": "1,133 of 3,111 diagnostic (blind test written and answered with pandas by an independent agent)",
-    "verdict_no_rna": "insufficient_evidence"
+    "verdict_no_slides": "insufficient_evidence"
   },
   {
     "claim_contains": "ER-positive tumours | 41.4%",

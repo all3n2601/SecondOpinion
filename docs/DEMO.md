@@ -35,6 +35,14 @@ not clicked through in the browser: do that once before the judges arrive.
 ## Before the judges arrive
 
 - [ ] `npm run dev`; the Start page says **API connected**.
+- [ ] **Unsealing works on this laptop.** `envelopes/unseal.py` needs `cryptography` and `pandas`,
+      and `.venv` does not have them (it also has no `pip`). From the challenge repo, either
+      `uv pip install --python ../SecondOpinion/.venv/bin/python -r requirements.txt`, or make a
+      throwaway venv (`uv venv v && uv pip install --python v/bin/python -r requirements.txt`) and run
+      `v/bin/python envelopes/unseal.py ...`. Then rehearse with the public code:
+      `python envelopes/unseal.py practice orange meadow pilot lantern` (about 10 to 20 seconds) and
+      point **Release folder** at `envelopes/opened/practice/release/`. Do this before Saturday, not
+      during the Q&A; `git pull` first so `envelopes/sealed/` is current.
 - [ ] **AI helper chip.** Either it says *off*, or one test sentence it handles comes back with a
       plan. If a claim's reason reads "The AI service did not accept the request (HTTP 308)", the
       `SO_AI_BASE_URL` in `.env` is `http://` and the host redirects to `https://`. Use the `https://`

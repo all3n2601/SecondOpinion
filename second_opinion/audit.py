@@ -109,6 +109,63 @@ def _checksum_notes(folder: Path, checksums: dict[str, str]) -> list[str]:
     return []
 
 
+def _source(fact: Fact) -> str:
+    """"... (read from mutation_gene_level.tsv.gz (CDH1))" -> "mutation_gene_level.tsv.gz (CDH1)"."""
+    if "(read from " not in fact.label:
+        return "the release"
+    source = fact.label.rsplit("(read from ", 1)[-1]
+    return source[:-1] if source.endswith(")") else source  # only the bracket that closes "(read from"
+
+
+def _minimal_flips(flips: list[str]) -> list[str]:
+    try:
+        from second_opinion.robustness import minimal_flips
+    except ImportError:  # the robustness module is optional, like the other hooks
+        return list(dict.fromkeys(flips))
+    return minimal_flips(flips)
+
+
+def _part_caveats(parts: list[ClaimResult]) -> str | None:
+    """One caveat for a sentence with several parts: each general caveat once, the sources merged, and how many
+    samples each part left out for a missing value, instead of every part's full caveat one after another."""
+    from second_opinion.checks.attributes import ATTRIBUTE_NOUNS
+
+    left_out: list[tuple[str, int, str]] = []  # (what was missing, how many, which part)
+    sources: dict[str, list[str]] = {}
+    general: list[str] = []
+    for r in parts:
+        p, fact = r.claim.params, r.fact
+        if r.limitation is None:
+            continue
+        attribute_caveat = fact is not None and p.attribute and r.claim.type in (
+            ClaimType.SHARE, ClaimType.COUNT, ClaimType.RANK, ClaimType.RATIO)
+        if not attribute_caveat:
+            general.append(r.limitation)
+            continue
+        if fact.unknown_count:
+            noun = ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)
+            left_out.append((noun, fact.unknown_count, r.claim.part_label or r.claim.text))
+        file, _, detail = _source(fact).partition(" (")
+        names = sources.setdefault(file, [])
+        if detail and detail.rstrip(")") not in names:
+            names.append(detail.rstrip(")"))
+        if p.attribute in ("er_status", "pr_status", "her2_status", "hr_status", "triple_negative"):
+            general.append("Equivocal and indeterminate results count as unknown.")
+        if p.attribute == "mutation":
+            general.append("A gene counts as mutated when the gene-level call is 1; the file does not say which variant.")
+    lines = []
+    if left_out:
+        nouns = list(dict.fromkeys(noun for noun, _, _ in left_out))
+        if len(nouns) == 1:  # "Left out for having no mutation call: 59 (59% of lobular), 224 (1.6% of ductal)."
+            lines.append(f"Left out for having no {nouns[0]}: " + ", ".join(f"{n:,} ({label})" for _, n, label in left_out) + ".")
+        else:
+            lines.append("Left out for a missing value: " + ", ".join(f"{n:,} with no {noun} ({label})" for noun, n, label in left_out) + ".")
+    if sources:
+        lines.append("Read from " + " and ".join(f"{f} ({', '.join(n)})" if n else f for f, n in sources.items()) + ".")
+    lines.extend(dict.fromkeys(general))
+    return " ".join(lines) or None
+
+
 def _limitation(claim: Claim, fact: Fact) -> str | None:
     if claim.type == ClaimType.SHARE and fact.denominator is not None and not claim.params.attribute:
         total = fact.denominator + fact.unknown_count
@@ -121,7 +178,7 @@ def _limitation(claim: Claim, fact: Fact) -> str | None:
         from second_opinion.checks.attributes import ATTRIBUTE_NOUNS
 
         noun = ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)
-        source = fact.label.rsplit("(read from ", 1)[-1].rstrip(")") if "(read from " in fact.label else "the release"
+        source = _source(fact)
         known = fact.extra.get("known", fact.denominator if claim.type == ClaimType.SHARE else None)
         text = f"Read from {source}."
         if known is not None and fact.unknown_count:
@@ -232,7 +289,8 @@ def _close_call_notes(claim: Claim, fact: Fact, verdict: Verdict) -> list[str]:
                 f"Close call: the data is {gap:.1f} points from the stated {p.stated_value:g}%, and 'about' allows "
                 f"{tolerance:g}; a reviewer should confirm the verdict."
             )
-    if p.bound and fact.value is not None and p.stated_value and verdict != Verdict.INSUFFICIENT_EVIDENCE:
+    all_or_none = p.unit == "percent" and float(p.stated_value or 0) in (0.0, 100.0)  # "all of them": 100% is the only answer
+    if p.bound and fact.value is not None and p.stated_value and verdict != Verdict.INSUFFICIENT_EVIDENCE and not all_or_none:
         ours = (100 * fact.numerator / fact.denominator) if (p.unit == "percent" and fact.denominator) else float(fact.value)
         if abs(ours - float(p.stated_value)) <= max(1.0, 0.02 * abs(float(p.stated_value))):
             notes.append(f"Close call: the data ({ours:,.1f}) is right at the stated bound ({p.stated_value:g}).")
@@ -270,8 +328,8 @@ def _combine_parts(claim: Claim, parts: list[ClaimResult]) -> ClaimResult:
     return ClaimResult(
         claim=claim, verdict=verdict, solidity=solidity, fact=worst.fact, correct_value=correct_value,
         missing_evidence=missing, variants=worst.variants,
-        flips_on=list(dict.fromkeys(f for r in parts for f in r.flips_on)), skeptic=None,
-        ladder=worst.ladder, limitation=" ".join(dict.fromkeys(limitations)) or None, parts=parts,
+        flips_on=_minimal_flips([f for r in parts for f in r.flips_on]), skeptic=None,
+        ladder=worst.ladder, limitation=_part_caveats(parts) if labelled else (" ".join(limitations) or None), parts=parts,
         notes=list(dict.fromkeys(n for r in parts for n in r.notes)),
     )
 

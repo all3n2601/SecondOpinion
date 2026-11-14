@@ -90,6 +90,8 @@ const CHOICE_ORDER = ["subtype_source", "sex_filter", "sample_scope"] as const;
 
 /** "subtype_source=study_2012_label" -> "using the 2012 study subtype label". */
 export function flipWords(flip: string): string {
+  // "subtype_source=study_2012_label + sex_filter=women_only": several choices at once
+  if (flip.includes("+")) return flip.split("+").map((part) => flipWords(part.trim())).join(" and ");
   const [choice, option] = flip.split("=");
   const words = CHOICE_WORDS[choice]?.[option] ?? flip.replaceAll("_", " ");
   if (choice === "subtype_source") return `using the ${words}`;
@@ -205,9 +207,12 @@ export function solidityText(result: ClaimResult): SolidityText {
     };
   }
   if (result.solidity === "holds_under_some_variants") {
-    const when = result.flips_on.length ? result.flips_on.map(flipWords).join(" or ") : "counting differently";
+    const reasons = result.flips_on.map(flipWords);
+    const when = reasons.length ? reasons.join(" or ") : "counting differently";
+    // The card shows the first two reasons in one line; the tooltip and the evidence page list them all.
+    const shown = reasons.length > 2 ? `${reasons.slice(0, 2).join(" or ")}, and ${reasons.length - 2} more` : when;
     return {
-      short: `Fragile: flips when ${when}`,
+      short: `Fragile: flips when ${shown}`,
       long: `The verdict holds in ${same} of ${checked.length} ways of counting; it flips when ${when}.`,
     };
   }

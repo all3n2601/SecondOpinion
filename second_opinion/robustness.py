@@ -39,6 +39,20 @@ def _differing_choices(variant_id: str) -> list[str]:
     ]
 
 
+def minimal_flips(flips: list[str]) -> list[str]:
+    """Drop a flip that contains one already listed: once "subtype_source=study_2012_label" flips the verdict,
+    "subtype_source=study_2012_label + sex_filter=women_only" adds nothing. Shortest first, order kept."""
+    kept: list[set[str]] = []
+    out: list[str] = []
+    for flip in sorted(dict.fromkeys(flips), key=lambda f: len(f.split(" + "))):
+        choices = {c.strip() for c in flip.split("+")}
+        if any(k <= choices for k in kept):
+            continue
+        kept.append(choices)
+        out.append(flip)
+    return out
+
+
 def solidity_of(variants: list[VariantResult], primary: Verdict) -> tuple[Solidity, list[str]]:
     """HOLDS_EVERYWHERE if every variant that gave a verdict agrees with `primary`, else FRAGILE.
 
@@ -56,4 +70,4 @@ def solidity_of(variants: list[VariantResult], primary: Verdict) -> tuple[Solidi
         text = " + ".join(choices)
         if text not in flips:
             flips.append(text)
-    return Solidity.FRAGILE, flips
+    return Solidity.FRAGILE, minimal_flips(flips)

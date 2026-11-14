@@ -3,6 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import VerdictBadge from "@/components/VerdictBadge";
 import { useAudit } from "@/lib/audit-context";
+import { flipWords } from "@/lib/claim-format";
 import { GLOSSARY as GLOSSARY_TERMS } from "@/lib/glossary";
 import {
   countText,
@@ -126,7 +127,7 @@ function Section({ id, audit, suggestion, role }: {
           {claims.map((c) => (
             <li key={c.claim.id}>
               <strong className={ID}>{c.claim.id}</strong> {SOLIDITY_LABEL[c.solidity]}
-              {c.flips_on.length > 0 && ` (changes on ${c.flips_on.join(", ")})`}
+              {c.flips_on.length > 0 && ` (changes when ${c.flips_on.map(flipWords).join(" or ")})`}
               {role.detail === "full" && c.variants.length > 0 &&
                 `; ${c.variants.filter((v) => v.verdict === c.verdict).length} of ${c.variants.length} ways of counting agree`}
             </li>

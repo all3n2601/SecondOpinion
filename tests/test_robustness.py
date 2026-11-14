@@ -65,13 +65,10 @@ def test_45_percent_claim_is_fragile(release_dir):
                ("rna_call|everyone|primary_tumors", "rna_call|women_only|primary_tumors"))
     solidity, flips = solidity_of(results, C)
     assert solidity == Solidity.FRAGILE
+    # Every other flipping variant includes one of these two choices, so it adds nothing to say.
     assert flips == [
-        "sample_scope=all_samples",                                   # rna|everyone|all_samples
-        "subtype_source=study_2012_label",                            # study|everyone|primary_tumors
-        "sex_filter=women_only + sample_scope=all_samples",           # rna|women_only|all_samples
-        "subtype_source=study_2012_label + sample_scope=all_samples",  # study|everyone|all_samples
-        "subtype_source=study_2012_label + sex_filter=women_only",    # study|women_only|primary_tumors
-        "subtype_source=study_2012_label + sex_filter=women_only + sample_scope=all_samples",
+        "sample_scope=all_samples",         # rna|everyone|all_samples
+        "subtype_source=study_2012_label",  # study|everyone|primary_tumors
     ]
 
 
@@ -112,9 +109,15 @@ def test_single_choice_flips_listed_first():
     vs[3] = vr(IDS[3], S)  # rna|women_only|all_samples: two choices, earlier in variant order
     vs[2] = vr(IDS[2], S)  # rna|women_only|primary_tumors: sex_filter only
     vs[1] = vr(IDS[1], S)  # rna|everyone|all_samples: sample_scope only
-    assert solidity_of(vs, C) == (Solidity.FRAGILE, [
-        "sample_scope=all_samples", "sex_filter=women_only",
-        "sex_filter=women_only + sample_scope=all_samples"])
+    # the two-choice flip is already explained by either choice alone, so it is not listed
+    assert solidity_of(vs, C) == (Solidity.FRAGILE, ["sample_scope=all_samples", "sex_filter=women_only"])
+
+
+def test_a_combination_is_listed_only_when_no_part_flips_alone():
+    from second_opinion.robustness import minimal_flips
+
+    assert minimal_flips(["a=1 + b=2", "c=3", "a=1 + c=3", "b=2 + d=4"]) == ["c=3", "a=1 + b=2", "b=2 + d=4"]
+    assert minimal_flips(["a=1", "a=1"]) == ["a=1"]
 
 
 def test_missing_variants_are_ignored_but_none_at_all_is_not_applicable():
@@ -149,3 +152,20 @@ def test_missing_check_for_type_gives_all_none(mini_release):
     claim = Claim("N1", "x", 0, ClaimType.NOT_ANSWERABLE, needed_data="y")
     results = run_variants(claim, load_release(mini_release))
     assert len(results) == 8 and all(r.verdict is None and r.fact is None for r in results)
+
+
+@pytest.mark.realdata
+def test_multi_part_caveat_lists_each_thing_once(release_dir):
+    """A four-part sentence gets one short caveat, not four full caveats one after another."""
+    from second_opinion.audit import audit_claims
+    from second_opinion.extract import extract_claims
+
+    text = ("CDH1 was mutated in 59% of lobular carcinomas but only 1.6% of ductal carcinomas, and PIK3CA mutations "
+            "occurred in 48.5% of Luminal A tumors versus 6.6% of Basal-like tumors.")
+    result = audit_claims(extract_claims(text).claims, release_dir).claims[0]
+    assert len(result.parts) == 4
+    caveat = result.limitation
+    assert caveat.count("A gene counts as mutated") == 1
+    assert caveat.count("Read from") == 1 and "mutation_gene_level.tsv.gz (CDH1, PIK3CA)." in caveat
+    assert "Left out for having no mutation call: 59 (59% of lobular), 224 (1.6% of ductal)" in caveat
+    assert len(result.flips_on) <= 2

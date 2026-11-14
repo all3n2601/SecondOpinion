@@ -44,7 +44,7 @@ def test_fragile_claim_suggests_narrow():
     audit.claims[0].flips_on = ["subtype_source=study_2012_label"]
     s = suggest_decision(audit)
     assert s.decision == Decision.NARROW
-    assert any("subtype_source=study_2012_label" in w for w in s.would_change)
+    assert any("reading the 2012 study's columns instead" in w for w in s.would_change)  # plain words, not the id
 
 
 def test_only_supported_robust_claims_proceed():

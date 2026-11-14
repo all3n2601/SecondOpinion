@@ -57,7 +57,9 @@ def _claim_reason(result: ClaimResult) -> str:
 
 
 def _flips(result: ClaimResult) -> str:
-    return ", ".join(result.flips_on) or "some ways of counting"
+    from second_opinion.export import plain_flip  # export imports this module
+
+    return " or ".join(plain_flip(f) for f in result.flips_on) or "some ways of counting"
 
 
 def _would_change(audit: AuditResult) -> list[str]:

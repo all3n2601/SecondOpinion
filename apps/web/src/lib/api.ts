@@ -32,10 +32,12 @@ function detailText(detail: unknown): string | null {
 async function request<T>(path: string, init?: { method?: "GET" | "POST"; body?: unknown }): Promise<T> {
   let response: Response;
   try {
+    const body = init?.body;
+    const form = body instanceof FormData; // the browser sets the multipart Content-Type itself
     response = await fetch(`/api${path}`, {
       method: init?.method ?? "GET",
-      headers: init?.body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: init?.body === undefined ? undefined : JSON.stringify(init.body),
+      headers: body === undefined || form ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     });
   } catch {
     throw new Error("Could not reach the SecondOpinion API. Is the backend running?");
@@ -59,6 +61,21 @@ async function request<T>(path: string, init?: { method?: "GET" | "POST"; body?:
 
 export function extractClaims(reportText: string): Promise<ExtractResult> {
   return request("/extract", { method: "POST", body: { report_text: reportText } });
+}
+
+export interface ReportFile {
+  filename: string;
+  kind: "markdown" | "text" | "pdf";
+  text: string;
+  /** Page count, for PDFs only. */
+  pages: number | null;
+}
+
+/** A report file read to text on the server; used for PDFs, whose text the browser cannot read itself. */
+export function readReportFile(file: File): Promise<ReportFile> {
+  const form = new FormData();
+  form.append("file", file);
+  return request("/report-file", { method: "POST", body: form });
 }
 
 export function classifySentence(text: string, sentenceIndex: number): Promise<Claim> {

@@ -1,23 +1,29 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import VerdictBadge from "@/components/VerdictBadge";
+import {
+  CodeFor,
+  Counts,
+  CorrectedWording,
+  FileChecksums,
+  ID,
+  LIST,
+  RobustnessLine,
+  SampleIds,
+  SkepticLine,
+} from "@/components/review/sections";
 import { useAudit } from "@/lib/audit-context";
 import { GLOSSARY as GLOSSARY_TERMS } from "@/lib/glossary";
 import {
-  countText,
   DECISION_NEXT_STEP,
   finalVerdict,
-  formatCount,
   plural,
-  SOLIDITY_LABEL,
   unreviewedIds,
   VERDICT_LABEL,
-  VERDICTS,
 } from "@/lib/review";
 import { focusRing, sectionTitle } from "@/lib/ui";
 import { ROLE_SECTIONS, useRoles } from "@/lib/roles";
-import type { AuditResult, ClaimResult, DecisionSuggestion, Role } from "@/lib/types";
+import type { AuditResult, DecisionSuggestion, Role } from "@/lib/types";
 
 const GLOSSARY: { term: string; meaning: string }[] = [
   { term: "Supported", meaning: "We recounted it from the data and got the number the report states." },
@@ -42,31 +48,6 @@ function mainRisk(audit: AuditResult): string {
   return "no problems found in the checked claims";
 }
 
-function Counts({ audit }: { audit: AuditResult }) {
-  return (
-    <ul className="flex flex-wrap gap-x-5 gap-y-2">
-      {VERDICTS.map((v) => (
-        <li key={v} className="flex items-center gap-2">
-          <VerdictBadge verdict={v} size="sm" />
-          <span className="num font-mono text-sm">
-            {audit.claims.filter((c) => finalVerdict(c) === v).length} of {audit.claims.length}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const LIST = "list-disc space-y-2 pl-5 marker:text-ink-faint";
-const ID = "num font-mono text-sm font-semibold";
-
-function corrected(result: ClaimResult) {
-  if (!result.ladder.length) return result.claim.text;
-  return result.ladder
-    .filter((s) => !s.struck)
-    .map((s, i) => (s.inserted ? <ins key={i}>{s.text}</ins> : <span key={i}>{s.text}</span>));
-}
-
 function Section({ id, audit, suggestion, role }: {
   id: string;
   audit: AuditResult;
@@ -84,7 +65,7 @@ function Section({ id, audit, suggestion, role }: {
         <p>Working out the suggested decision…</p>
       );
     case "counts":
-      return <Counts audit={audit} />;
+      return <Counts claims={claims} />;
     case "sign_off":
       return suggestion ? <p>{suggestion.sign_off.join(" and ")} must sign off.</p> : null;
     case "claims":
@@ -115,7 +96,7 @@ function Section({ id, audit, suggestion, role }: {
         <ul className={LIST}>
           {claims.map((c) => (
             <li key={c.claim.id}>
-              <strong className={ID}>{c.claim.id}</strong> {corrected(c)}
+              <strong className={ID}>{c.claim.id}</strong> <CorrectedWording result={c} />
             </li>
           ))}
         </ul>
@@ -125,10 +106,7 @@ function Section({ id, audit, suggestion, role }: {
         <ul className={LIST}>
           {claims.map((c) => (
             <li key={c.claim.id}>
-              <strong className={ID}>{c.claim.id}</strong> {SOLIDITY_LABEL[c.solidity]}
-              {c.flips_on.length > 0 && ` (changes on ${c.flips_on.join(", ")})`}
-              {role.detail === "full" && c.variants.length > 0 &&
-                `; ${c.variants.filter((v) => v.verdict === c.verdict).length} of ${c.variants.length} ways of counting agree`}
+              <strong className={ID}>{c.claim.id}</strong> <RobustnessLine result={c} full={role.detail === "full"} />
             </li>
           ))}
         </ul>
@@ -138,11 +116,7 @@ function Section({ id, audit, suggestion, role }: {
         <ul className={LIST}>
           {claims.map((c) => (
             <li key={c.claim.id}>
-              <strong className={ID}>{c.claim.id}</strong>{" "}
-              {c.skeptic
-                ? `shuffled-label p = ${c.skeptic.shuffle_p ?? "unknown"}; leaving out one of ${c.skeptic.n_sites} sites ` +
-                  (c.skeptic.site_flips.length ? `flips it (${c.skeptic.site_flips.join(", ")})` : "never flips it")
-                : "skeptic tests do not apply"}
+              <strong className={ID}>{c.claim.id}</strong> <SkepticLine result={c} />
             </li>
           ))}
         </ul>
@@ -150,52 +124,21 @@ function Section({ id, audit, suggestion, role }: {
     case "sample_ids":
       return (
         <ul className={LIST}>
-          {claims.map((c) => {
-            const ids = c.fact?.sample_ids ?? [];
-            const shown = ids.slice(0, SAMPLE_PREVIEW[role.detail]);
-            return (
-              <li key={c.claim.id}>
-                <strong className={ID}>{c.claim.id}</strong> {countText(c.fact) ?? "no samples"}
-                {shown.length > 0 && (
-                  <>
-                    : <code className="num break-all font-mono text-sm">{shown.join(", ")}</code>
-                    {ids.length > shown.length && ` and ${formatCount(ids.length - shown.length)} more`}
-                  </>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      );
-    case "files":
-      return (
-        <ul className={LIST}>
-          {audit.release.files.map((f) => (
-            <li key={f.file}>
-              {f.file}: <code className="num break-all font-mono text-sm">{f.sha256 || "checksum missing"}</code>
+          {claims.map((c) => (
+            <li key={c.claim.id}>
+              <strong className={ID}>{c.claim.id}</strong> <SampleIds result={c} limit={SAMPLE_PREVIEW[role.detail]} />
             </li>
           ))}
         </ul>
       );
+    case "files":
+      return <FileChecksums files={audit.release.files} />;
     case "code":
       return (
         <div className="space-y-1">
-          {claims
-            .filter((c) => c.fact?.code)
-            .map((c) => (
-              <details key={c.claim.id}>
-                <summary className={`min-h-11 cursor-pointer rounded-control py-2 text-sm font-medium text-pen underline-offset-4 hover:underline ${focusRing}`}>
-                  Code for {c.claim.id}
-                </summary>
-                <pre
-                  tabIndex={0}
-                  aria-label={`Code for ${c.claim.id}`}
-                  className={`mt-1 overflow-x-auto rounded-control bg-ink p-3 font-mono text-xs leading-5 text-paper ${focusRing}`}
-                >
-                  <code>{c.fact?.code}</code>
-                </pre>
-              </details>
-            ))}
+          {claims.map((c) => (
+            <CodeFor key={c.claim.id} result={c} />
+          ))}
         </div>
       );
     default:

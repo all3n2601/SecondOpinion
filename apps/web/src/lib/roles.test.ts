@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ROLE_VIEWS, viewFor } from "./roles";
+import { ROLE_VIEWS, rolesSettled, viewFor } from "./roles";
 import type { Role } from "./types";
 
 const roles: Role[] = [
@@ -32,5 +32,14 @@ describe("ROLE_VIEWS", () => {
     expect(ROLE_VIEWS.map((v) => v.id)).toEqual(["story", "checklist", "evidence", "raw"]);
     expect(ROLE_VIEWS.map((v) => v.label)).toEqual(["Story", "Checklist", "Evidence", "Raw data"]);
     for (const view of ROLE_VIEWS) expect(view.description.length).toBeGreaterThan(0);
+  });
+});
+
+describe("rolesSettled", () => {
+  it("is false while the roles load, true once they load or fail", () => {
+    expect(rolesSettled(null, null)).toBe(false);
+    expect(rolesSettled(roles, null)).toBe(true);
+    expect(rolesSettled(null, "API down")).toBe(true);
+    expect(rolesSettled([], null)).toBe(true);
   });
 });

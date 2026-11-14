@@ -12,7 +12,7 @@ import { useAudit } from "@/lib/audit-context";
 import { plural, unreviewedIds } from "@/lib/review";
 import { useRoleView } from "@/lib/roles";
 import type { RoleView } from "@/lib/types";
-import { useNarration } from "@/lib/use-narration";
+import { narrationClaims, useNarration } from "@/lib/use-narration";
 import { buttonPrimary, pageTitle, pageWidth } from "@/lib/ui";
 
 const INTRO: Record<RoleView, string> = {
@@ -26,9 +26,9 @@ const INTRO: Record<RoleView, string> = {
 
 export default function ReviewPage() {
   const { audit, hydrated } = useAudit();
-  const view = useRoleView();
-  // The hook reads sessionStorage while rendering, so it only gets the claims once saved state has loaded.
-  const narration = useNarration(view, hydrated && audit ? audit.claims : null);
+  const { view, ready } = useRoleView();
+  // No AI request until saved state has loaded and the role's real view is known; the layout renders meanwhile.
+  const narration = useNarration(view, narrationClaims(hydrated, ready, audit?.claims ?? null));
   const total = audit?.claims.length ?? 0;
   const left = audit ? unreviewedIds(audit.claims).length : 0;
   const done = total - left;
@@ -49,7 +49,8 @@ export default function ReviewPage() {
         </div>
       ) : (
         <>
-          {hydrated && (
+          {/* Shown once the narrated text is real: before that it would read as an empty audit. */}
+          {hydrated && ready && (
             <div className="mt-8">
               <ReviewOverview view={view} audit={audit} narration={narration} />
             </div>

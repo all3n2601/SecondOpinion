@@ -100,6 +100,15 @@ function fetchNarration(key: string, view: RoleView, claims: ClaimResult[]): Pro
 }
 
 /**
+ * The claims to narrate, or null to ask for nothing yet: until saved state has loaded (the hook reads
+ * sessionStorage while rendering) and the role's view is settled (otherwise the "checklist" placeholder would
+ * cost a model call, then a second one for the real view).
+ */
+export function narrationClaims(hydrated: boolean, rolesReady: boolean, claims: ClaimResult[] | null): ClaimResult[] | null {
+  return hydrated && rolesReady ? claims : null;
+}
+
+/**
  * Narration for the Review page. Renders template text immediately (or the cached AI text), fetches AI wording
  * once per key when the helper has not answered yet, and never throws. `pending` is true while that request is open.
  */

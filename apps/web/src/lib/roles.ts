@@ -33,7 +33,7 @@ export const ROLE_VIEWS: { id: RoleView; label: string; description: string }[] 
   { id: "story", label: "Story", description: "A short written summary of what held up and what did not." },
   { id: "checklist", label: "Checklist", description: "Claims in a list to accept or override, one by one." },
   { id: "evidence", label: "Evidence", description: "Each claim next to the numbers and checks behind it." },
-  { id: "raw", label: "Raw data", description: "Plain tables and files with no written summary." },
+  { id: "raw", label: "Raw data", description: "Plain tables and files, with only a terse one-line summary." },
 ];
 
 const VIEW_IDS = new Set<string>(ROLE_VIEWS.map((v) => v.id));
@@ -87,9 +87,17 @@ export function useRoles() {
   };
 }
 
-/** The view of the role currently chosen on the Review page. */
-export function useRoleView(): RoleView {
+/** True once the roles have loaded or failed to load: the view will not change on its own after that. */
+export function rolesSettled(roles: Role[] | null, error: string | null): boolean {
+  return roles !== null || error !== null;
+}
+
+/**
+ * The view of the role currently chosen on the Review page. `view` reads "checklist" while the roles load, so the
+ * layout can render at once; `ready` turns true when that answer is final (roles loaded, or failed to load).
+ */
+export function useRoleView(): { view: RoleView; ready: boolean } {
   const { role } = useAudit();
-  const { roles } = useRoles();
-  return viewFor(roles, role);
+  const { roles, error } = useRoles();
+  return { view: viewFor(roles, role), ready: rolesSettled(roles, error) };
 }

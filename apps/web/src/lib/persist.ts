@@ -2,13 +2,22 @@
 // No React imports, so it can be checked on its own with node. The audit is derived from
 // patient-derived research data, so it goes in sessionStorage (cleared when the tab closes), never localStorage.
 
-import type { AuditResult, Claim, SentenceInfo } from "./types";
+import { DECISIONS } from "./review";
+import type { AuditResult, Claim, Decision, ExportResponse, SentenceInfo } from "./types";
 
 export const STORAGE_KEY = "secondopinion:v1";
 export const STORAGE_VERSION = 1;
 export const DEFAULT_ROLE = "Data-use reviewer";
 /** Above this many characters we skip persisting (sessionStorage is about 5 MB and a failed write is wasted work). */
 export const MAX_PERSIST_CHARS = 4_000_000;
+
+/** The decision a person recorded by exporting, with the files it produced. Only ever about the current audit. */
+export interface RecordedDecision {
+  choice: Decision;
+  reason: string;
+  reviewer_role: string;
+  files: ExportResponse;
+}
 
 /** The part of the audit context that survives a reload. Transient UI state is not in here. */
 export interface PersistedState {
@@ -18,10 +27,12 @@ export interface PersistedState {
   claims: Claim[];
   audit: AuditResult | null;
   role: string;
+  /** Null until the decision is exported; cleared whenever the audit or a review changes. */
+  decision: RecordedDecision | null;
 }
 
 export function emptyState(releaseDir = ""): PersistedState {
-  return { reportText: "", releaseDir, sentences: [], claims: [], audit: null, role: DEFAULT_ROLE };
+  return { reportText: "", releaseDir, sentences: [], claims: [], audit: null, role: DEFAULT_ROLE, decision: null };
 }
 
 /** Nothing worth keeping: no report, no extraction, no audit. */
@@ -59,6 +70,18 @@ function isAudit(v: unknown): v is AuditResult {
   return v.claims.every((c) => isRecord(c) && isClaim(c.claim) && typeof c.verdict === "string");
 }
 
+function isDecision(v: unknown): v is RecordedDecision {
+  return (
+    isRecord(v) &&
+    DECISIONS.includes(v.choice as Decision) &&
+    typeof v.reason === "string" &&
+    typeof v.reviewer_role === "string" &&
+    isRecord(v.files) &&
+    isRecord(v.files.audit_json) &&
+    typeof v.files.decision_record_md === "string"
+  );
+}
+
 /**
  * Turn the raw stored string into state, or null when there is nothing usable (missing, not JSON,
  * wrong version, wrong shape). Missing or malformed individual fields fall back to their defaults;
@@ -77,13 +100,16 @@ export function parsePersisted(raw: string | null | undefined, releaseDirDefault
   const s = data.state;
   const sentences = Array.isArray(s.sentences) ? s.sentences.filter(isSentence) : [];
   const claims = Array.isArray(s.claims) ? s.claims.filter(isClaim) : [];
+  const audit = isAudit(s.audit) ? s.audit : null;
   const state: PersistedState = {
     reportText: typeof s.reportText === "string" ? s.reportText : "",
     releaseDir: typeof s.releaseDir === "string" ? s.releaseDir : releaseDirDefault,
     sentences,
     claims,
-    audit: isAudit(s.audit) ? s.audit : null,
+    audit,
     role: typeof s.role === "string" && s.role.trim() !== "" ? s.role : DEFAULT_ROLE,
+    // A decision without the audit it was about means nothing, so it is dropped with it.
+    decision: audit && isDecision(s.decision) ? s.decision : null,
   };
   return isEmptyState(state) ? null : state;
 }

@@ -206,12 +206,17 @@ function placeClaims(text: string, lines: Line[], claims: ReadonlyArray<Markable
 
 // ---- Display ----
 
-/** Markdown we strip for display: links and images keep their words; bold, `__` and code ticks go. */
+/**
+ * Markdown we strip for display: links and images keep their words; bold, `__` and code ticks go, and so does a
+ * `*` pair around words (`*fictional*`) but not a lone `*` or one inside a word or number (`2*3*4`). Single `_` is
+ * left alone: it is common in column names like protein_rppa.
+ */
 function cleanInline(text: string): string {
   return text
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/\*\*|__|`/g, "");
+    .replace(/\*\*|__|`/g, "")
+    .replace(/(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])/g, "$1");
 }
 
 /** Builds segments one character at a time, each tagged with the claim covering it (or null). */

@@ -52,7 +52,10 @@ describe("markReport: real extractor output", () => {
       it("marks exactly the claim's words", () => {
         for (const seg of marked) {
           const claim = given.find((c) => c.id === seg.claimId)!;
-          const want = (claim.original_text || claim.text).replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\*\*|__|`/g, "");
+          const want = (claim.original_text || claim.text)
+            .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+            .replace(/\*\*|__|`/g, "")
+            .replace(/(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])/g, "$1");
           // A table row's claim drops empty cells and may add a "%" from the header.
           const loose = (s: string) => squash(s).replace(/[|%]/g, "");
           expect(loose(seg.text)).toBe(loose(want));
@@ -65,7 +68,8 @@ describe("markReport: real extractor output", () => {
           .filter((line) => !/^\s{0,3}#{1,6}(\s|$)/.test(line) && !/^\s*\|?[\s:|]*-{2,}[\s:|-]*$/.test(line))
           .join(" ")
           .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-          .replace(/\*\*|__|`/g, "");
+          .replace(/\*\*|__|`/g, "")
+          .replace(/(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])/g, "$1");
         const shown = report.blocks
           .flatMap(segmentsOf)
           .map((s) => s.text)
@@ -200,6 +204,13 @@ describe("markReport: blocks", () => {
         { kind: "claim", text: "Luminal A is the largest subtype_rna group (table).", claimId: "C1" },
         { kind: "text", text: " chart" },
       ],
+    ]);
+  });
+
+  it("strips a * pair around words but leaves a lone * and arithmetic alone", () => {
+    const report = markReport("*A short fictional summary.* Ratio 2*3*4 and a lone * star.", []);
+    expect(paragraphs(report)).toEqual([
+      [{ kind: "text", text: "A short fictional summary. Ratio 2*3*4 and a lone * star." }],
     ]);
   });
 

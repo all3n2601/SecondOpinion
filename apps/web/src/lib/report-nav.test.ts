@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cameFromReport, evidenceHref, markAnchor, markIdFromHash, reportHref } from "./report-nav";
+import { evidenceHref, markAnchor, markIdFromHash, reportHref, returnHref, returnView } from "./report-nav";
 
 describe("report navigation", () => {
   it("names a claim's mark", () => {
@@ -29,13 +29,21 @@ describe("report navigation", () => {
 
   it("builds evidence links that remember they came from the report", () => {
     expect(evidenceHref("C2")).toBe("/board/C2");
-    expect(evidenceHref("C2", true)).toBe("/board/C2?from=report");
+    expect(evidenceHref("C2", "report")).toBe("/board/C2?from=report");
+    expect(evidenceHref("C2", "decision")).toBe("/board/C2?from=decision");
+  });
+
+  it("builds the way back to the decision", () => {
+    expect(returnHref("decision")).toBe("/decision");
+    expect(returnHref("decision", "C2")).toBe("/decision#mark-C2");
+    expect(returnHref("report", "C2")).toBe(reportHref("C2"));
   });
 
   it("reads the from search param", () => {
-    expect(cameFromReport("report")).toBe(true);
-    expect(cameFromReport(["report", "x"])).toBe(true);
-    expect(cameFromReport(undefined)).toBe(false);
-    expect(cameFromReport("board")).toBe(false);
+    expect(returnView("report")).toBe("report");
+    expect(returnView("decision")).toBe("decision");
+    expect(returnView(["decision", "x"])).toBe("decision");
+    expect(returnView(undefined)).toBeNull();
+    expect(returnView("board")).toBeNull();
   });
 });

@@ -90,7 +90,9 @@ def test_a_supported_plan_that_leaves_a_stated_number_unchecked_is_not_supported
     sentence = LUMA_SENTENCE[:-1] + ", and 10 samples have no call."
     result = audit_claims([unmapped(sentence)], mini_release, ai_client=ScriptedClient([LUMA_OK])).claims[0]
     assert result.verdict == Verdict.INSUFFICIENT_EVIDENCE
-    assert "Not checked: 10" in result.missing_evidence and '"About 43%"' in result.missing_evidence
+    assert 'Not checked: "10" and "samples"' in result.missing_evidence and '"About 43%"' in result.missing_evidence
+    assert "agrees" not in result.missing_evidence  # the plan's span is named, never judged
+    assert result.claim.coverage_gaps == ["10", "samples"]  # export, decision and the web say "not fully read"
     assert result.ai_plan is not None  # the reviewer can still see what the plan tested
 
 
@@ -100,7 +102,8 @@ def test_a_contradicted_plan_that_leaves_a_stated_number_unchecked_is_not_contra
     sentence = LUMA_WRONG[:-1] + ", and 10 samples have no call."
     result = audit_claims([unmapped(sentence)], mini_release, ai_client=ScriptedClient([share_answer("42%", 42)])).claims[0]
     assert result.verdict == Verdict.INSUFFICIENT_EVIDENCE and result.correct_value is None
-    assert "Not checked: 10" in result.missing_evidence and result.ai_plan is not None
+    assert 'Not checked: "10"' in result.missing_evidence and "agrees" not in result.missing_evidence
+    assert result.claim.coverage_gaps and result.ai_plan is not None
 
 
 def test_the_ai_judges_the_sentence_not_the_claim_params(mini_release):

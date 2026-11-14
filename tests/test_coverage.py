@@ -306,3 +306,24 @@ def test_an_amount_word_is_used_only_through_an_agreeing_restatement(sentence: s
     uses = Uses(figures=used, groups={"histology:lobular", "mutation:CDH1", "er_status:negative"},
                 counted={"tumors", "patients"})
     assert missing(sentence, uses) == unused
+
+
+def _mutated(gene: str) -> Filter:
+    return Filter(field="attribute", attribute="mutation", value=gene)
+
+
+@pytest.mark.parametrize(("sentence", "plan", "stated", "unused"), [
+    ("CBFB was mutated in 18 tumors, the same number as SF3B1.",
+     CountPlan(where=[_mutated("CBFB")], of="patients"), Stated(kind="count", span="18 tumors", value=18), ["SF3B1"]),
+    ("In all, 432 tumors carry a high-level amplification of at least one of ERBB2, MYC or CCND1, about a third of "
+     "the cohort.",
+     CountPlan(where=[Filter(field="attribute", attribute="amplification", value=["ERBB2", "MYC", "CCND1"])],
+               of="patients"),
+     Stated(kind="count", span="432 tumors", value=432), ["a third"]),
+    ("PIK3CA is the most frequently mutated gene, altered in 273 of 791 tumors.",
+     SharePlan(where=[], numerator=[_mutated("PIK3CA")]),
+     Stated(kind="count", span="273 of 791", value=273, total=791), []),
+])
+def test_an_ai_plan_that_skips_part_of_the_sentence(sentence, plan, stated, unused) -> None:
+    claim = Claim(id="C1", text=sentence, sentence_index=0, type=ClaimType.UNMAPPED, source="ai")
+    assert missing(sentence, reading_uses(claim, QueryPlan(answerable=True, plan=plan, stated=stated))) == unused

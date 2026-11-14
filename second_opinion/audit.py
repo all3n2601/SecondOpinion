@@ -15,6 +15,7 @@ from second_opinion.ai.executor import PlanRejected, run_plan
 from second_opinion.ai.planner import plan_claim
 from second_opinion.checks import CHECKS, CannotCheck
 from second_opinion.coverage import missing, reading_uses
+from second_opinion.extract import _quoted_list
 from second_opinion.model import (
     AuditResult,
     Claim,
@@ -34,9 +35,10 @@ UNMAPPED_MISSING = "No check exists yet for this kind of claim"
 CHECK_FAILED = "The check could not be completed on this release; a person should check this claim by hand"
 AI_LIMITATION = "Checked by a query plan the AI helper proposed; our code ran it on the release."
 AI_COULD_NOT = "The AI helper could not turn this into a check we can run: {why}"
+# A plan that left part of the sentence unused: say what it covered, never whether that part agrees.
 AI_PARTLY_CHECKED = (
-    'Only part of this sentence was checked: "{span}" agrees with the data. Not checked: {numbers}. '
-    "A sentence counts as supported only when every part of it is checked."
+    "The AI helper's check covered only {span}. Not checked: {words}. "
+    "A sentence gets a verdict only when every part of it is checked; a person should check the rest."
 )
 STANDARD_RELEASE_FOLDER = "raw"  # where fetch.py puts the organizers' release; it is "release A"
 STANDARD_RELEASE_NAME = "A"
@@ -387,8 +389,10 @@ def _ai_checked(claim: Claim, release: Release, client: ChatClient) -> ClaimResu
             # included (the unused part could change what the sentence says).
             gaps = missing(claim.text, reading_uses(claim, plan=qp))
             if gaps:
+                # The unused words go on the result's claim, so export, decision and the web say "not fully read".
+                span = f'"{qp.stated.span}"' if qp.stated is not None and qp.stated.span else "part of the sentence"
                 result = _insufficient(
-                    claim, AI_PARTLY_CHECKED.format(span=qp.stated.span, numbers=", ".join(gaps))
+                    replace(claim, coverage_gaps=gaps), AI_PARTLY_CHECKED.format(span=span, words=_quoted_list(gaps))
                 )
                 result.ai_plan = qp.model_dump(mode="json")
                 return result

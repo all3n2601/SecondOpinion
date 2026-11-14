@@ -7,9 +7,13 @@
  */
 @theme {
   /* surfaces */
-  --color-paper: #f3f4f6; /* page */
+  --color-paper: #faf5f7; /* page: a faint blush behind the white panels */
   --color-sheet: #ffffff; /* panels and fields */
-  --color-wash: #eceef2; /* quiet inset areas, table stripes */
+  --color-wash: #f6edf1; /* quiet inset areas, table stripes */
+
+  /* blush: the breast-cancer pink, decorative only (never a verdict, never the only signal) */
+  --color-blush: #f2c9d6;
+  --color-blush-tint: #fbe8ee;
 
   /* ink */
   --color-ink: #10151f; /* body and headings (16:1 on sheet) */
@@ -20,10 +24,10 @@
   --color-rule: #d7dbe2; /* hairlines */
   --color-rule-strong: #aeb5c1; /* field borders, emphasised dividers */
 
-  /* primary action: fountain-pen blue */
-  --color-pen: #23398f;
-  --color-pen-deep: #19296b;
-  --color-pen-tint: #e8ecf8;
+  /* primary action: deep berry-rose (kept toward purple so it never reads as the red "contradicted") */
+  --color-pen: #9e2a5e; /* white text on it about 7:1 */
+  --color-pen-deep: #7c1f49;
+  --color-pen-tint: #fbe8ef;
 
   /* verdicts: each has ink (text/edge) and tint (background); always paired with an icon and a word */
   --color-supported: #0b6b5e;
@@ -54,6 +58,7 @@ html {
 
 body {
   background: var(--color-paper);
+  border-top: 3px solid var(--color-blush);
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-size: 1rem;
@@ -101,7 +106,7 @@ ins {
 }
 
 ::selection {
-  background: var(--color-pen-tint);
+  background: var(--color-blush-tint);
 }
 
 @media (prefers-reduced-motion: reduce) {

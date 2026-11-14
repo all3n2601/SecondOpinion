@@ -21,12 +21,13 @@ INCOMPLETE = [  # (sentence, a word that must be reported missing)
     # Replaces the brief's "PAM50 call" row: "PAM50 call" is neither a group, a counted thing nor a qualifier in the
     # design, and the rules' reading of that sentence uses all its figures. This row skips a qualifier (40x) instead.
     ("Of the 1,133 diagnostic slides, 714 were scanned at 40x.", "40x"),
+    # Moved from COMPLETE (controller ruling B): the rules record 273 but not 791 as its total.
+    ("PIK3CA is the most frequently mutated gene, altered in 273 of 791 tumors.", "791"),
 ]
 COMPLETE = [
     "Of the 1,101 primary tumors in the release, 535 have survival, mutation, copy number, RNA and protein data.",
     "The release contains 1,247 samples from 1,101 patients.",
     "About 77% of tumors with a known ER status are ER-positive (808 of 1,046).",
-    "PIK3CA is the most frequently mutated gene, altered in 273 of 791 tumors.",
     "Gene-level GISTIC2 calls were used, with a value of 2 treated as high-level amplification.",  # no figure demanded
 ]
 
@@ -141,8 +142,10 @@ def test_reading_uses_collects_params_from_claim_and_parts() -> None:
     assert {"mutation:TP53", "subtype:Luminal A"} <= uses.groups
     assert "subtype:Basal-like" not in uses.groups
     assert {"tumors", "patients"} <= uses.counted
-    # each part adds the span where its label occurs in the sentence
-    assert (sentence.index("10% in Luminal A"), sentence.index("10% in Luminal A") + len("10% in Luminal A")) in uses.spans
+    # each part adds where its label occurs in the sentence, for the join only: no figure is used by it
+    label = sentence.index("10% in Luminal A")
+    assert (label, label + len("10% in Luminal A")) in uses.part_spans
+    assert uses.spans == []
 
 
 def test_figure_inside_a_used_span_is_used() -> None:
@@ -207,3 +210,59 @@ def test_ai_plan_counts_samples_and_age_cut_offs() -> None:
 ])
 def test_more_complete_rules_readings(sentence: str) -> None:
     assert missing(sentence, _rules_uses(sentence)) == []
+
+
+@pytest.mark.parametrize(("sentence", "unused"), [
+    ("Mean ER-alpha protein was 2.18 in ER-positive tumors (n = 529) and -0.87 in ER-negative tumors (n = 169), "
+     "a gap of about 3.1 units.", ["529", "169", "3.1"]),
+    ("CDH1 mutations are concentrated in lobular carcinomas, where 85 of 144 tumors are affected, "
+     "against only 9 of 560 ductal tumors.", ["560"]),
+    ("Of the 844 primary tumors with a PAM50 call, Luminal A was the most common subtype at 421, roughly half.", ["half"]),
+    ("CCND1 amplification was largely confined to ER-positive disease: 158 of 796 ER-positive tumors "
+     "versus 12 of 233 ER-negative tumors.", ["233"]),
+])
+def test_a_part_label_does_not_use_the_figures_inside_it(sentence: str, unused: list[str]) -> None:
+    uses = reading_uses(extract_claims(sentence).claims[0])
+    assert uses.part_spans  # the parts' labels cover these figures ...
+    gaps = missing(sentence, uses)
+    assert all(word in gaps for word in unused), gaps  # ... but the reading never recorded them
+
+
+def test_a_generated_part_label_falls_back_to_the_parts_figures() -> None:
+    sentence = "Patients were diagnosed between the ages of 26 and 89."
+    claim = extract_claims(sentence).claims[0]
+    assert [p.part_label for p in claim.parts] == ["youngest 26", "oldest 89"]  # not the sentence's words
+    a, b = sentence.index("26"), sentence.index("89")
+    assert reading_uses(claim).part_spans == [(a, a + 2), (b, b + 2)]
+
+
+def test_a_recorded_total_is_used_and_an_unrecorded_one_is_not() -> None:
+    sentence = "Of 1,101 tumors, 12 are male."
+    base = {"groups": {"sex:male"}, "counted": {"tumors"}}
+    assert missing(sentence, Uses(figures={12.0}, **base)) == ["1,101"]
+    assert missing(sentence, Uses(figures={12.0, 1101.0}, **base)) == []
+
+
+def test_subtype_source_qualifies_the_subtype_group() -> None:
+    sentence = "Under the 2012 consortium labels, Luminal A accounts for 40% of primary tumors."
+    assert [q.key for q in sentence_demands(sentence).qualifiers] == ["subtype_source:study_2012_label"]
+    claim = extract_claims(sentence).claims[0]
+    assert claim.params.subtype_source == "study_2012_label"
+    assert "subtype_source:study_2012_label" in reading_uses(claim).groups
+    assert missing(sentence, reading_uses(claim)) == []
+    # a reading of the RNA calls instead leaves the source unused
+    claim.params.subtype_source = None
+    assert missing(sentence, reading_uses(claim)) == ["Under the 2012 consortium labels"]
+    # an AI plan reads the source through a subtype_2012 filter
+    plan = QueryPlan(answerable=True, plan=SharePlan(where=[], numerator=[Filter(field="subtype_2012", value="Luminal A")]),
+                     stated=Stated(kind="percent", span="40%", value=40))
+    assert missing(sentence, reading_uses(claim, plan)) == []
+
+
+@pytest.mark.parametrize(("sentence", "figures"), [
+    ("By IHC 25 of 40 tumors were HER2-positive.", ["25", "40"]),
+    ("HER2 1,101 tumors were tested.", ["1,101"]),
+    ("HER2 3+ tumors are common, IHC score of 2 is equivocal.", []),
+])
+def test_ihc_score_pattern_stops_at_the_digit(sentence: str, figures: list[str]) -> None:
+    assert [f.words for f in sentence_demands(sentence).figures] == figures

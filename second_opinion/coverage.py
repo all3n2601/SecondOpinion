@@ -19,6 +19,7 @@ from second_opinion.extract import (
     _NUMBER,
     AGE_RANGE,
     STAGE_ENTITY,
+    _STUDY_SOURCE,
     age_of,
     age_thresholds,
     find_amounts,
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
 # and ratios; these are the rest: "Stage 2", "HER2 3+", "chromosome 17".
 NAME_LIKE_NUMBERS = (
     STAGE_ENTITY,
-    re.compile(r"\b(?:HER-?2|IHC)\s+(?:score\s+(?:of\s+)?)?[0-3]\s*\+?|(?<![\w.,])[0-3]\+", re.IGNORECASE),
+    re.compile(r"\b(?:HER-?2|IHC)\s+(?:score\s+(?:of\s+)?)?[0-3](?![\d,.])\s*\+?|(?<![\w.,])[0-3]\+", re.IGNORECASE),
     re.compile(r"\bchromosomes?\s+\d+", re.IGNORECASE),
 )
 # Entities that find_entities reports but that name a method, not a group: "GISTIC2 calls".
@@ -59,7 +60,11 @@ QUALIFIERS = (
     re.compile(r"(?<![\w.,])\d+(?:\.\d+)?\s?[x×](?!\w)", re.IGNORECASE),  # magnifications: 40x, 20 ×
     re.compile(r"\b(?:frozen|diagnostic|FFPE)\b", re.IGNORECASE),  # slide kinds, when no slide is named
     re.compile(r"\bequivocal\b", re.IGNORECASE),
+    # the 2012 consortium subtype labels ("Under the 2012 labels, ..."): a source the subtype group is read from
+    _STUDY_SOURCE,
 )
+# The group key a qualifier demands, when it is not "qualifier:<its words>".
+SUBTYPE_SOURCE_KEY = "subtype_source:study_2012_label"
 # A sentence that opens by pointing at the previous sentence's group: "Their ages ...", "Of these, 12 ...".
 # "It is notable that ..." is not a reference.
 BACK_REFERENCE = re.compile(
@@ -110,8 +115,11 @@ class Uses:
     figures: set[float] = field(default_factory=set)
     groups: set[str] = field(default_factory=set)
     counted: set[str] = field(default_factory=set)
-    spans: list[tuple[int, int]] = field(default_factory=list)
+    spans: list[tuple[int, int]] = field(default_factory=list)  # quoted by an AI plan: figures inside are used
     resolves_back_reference: bool = False
+    # Where each part of a compound reading sits in the sentence: for the join (Task 6) only; never marks a
+    # figure as used.
+    part_spans: list[tuple[int, int]] = field(default_factory=list)
 
 
 def _inside(start: int, spans: list[tuple[int, int]]) -> bool:
@@ -181,7 +189,8 @@ def sentence_demands(text: str) -> Demands:
         for m in pattern.finditer(text):
             if not _overlaps(m.start(), m.end(), taken):
                 taken.append(m.span())
-                qualifiers.append(_piece(text, m.start(), m.end(), key=f"qualifier:{m.group(0).lower()}"))
+                key = SUBTYPE_SOURCE_KEY if pattern is _STUDY_SOURCE else f"qualifier:{m.group(0).lower()}"
+                qualifiers.append(_piece(text, m.start(), m.end(), key=key))
     qualifiers.sort(key=lambda p: p.start)
     figures = [f for f in figures if not any(q.start <= f.start < q.end for q in qualifiers)]  # "40 x"
 
@@ -214,15 +223,35 @@ def _add_words(uses: Uses, words: str | None) -> None:
             _add_group(uses, e.attribute, e.category)
 
 
-def _add_span(uses: Uses, text: str, words: str | None) -> None:
+def _span(text: str, words: str | None) -> tuple[int, int] | None:
     if words and words in text:
         start = text.index(words)
-        uses.spans.append((start, start + len(words)))
+        return start, start + len(words)
+    return None
+
+
+def _recorded(p: ClaimParams) -> list[float]:
+    """The figures a reading records: its stated value, the upper end of a range, its total, a top-N."""
+    return [float(v) for v in (p.stated_value, p.stated_high, p.stated_total, p.top_n) if v is not None]
+
+
+def _part_span(text: str, part: Claim, figures: list[Piece]) -> tuple[int, int] | None:
+    """Where a part sits in the sentence: its label's words, or, for a generated label ("youngest 44"), the stretch
+    from the first to the last of the sentence's figures the part records."""
+    span = _span(text, part.part_label)
+    if span is not None:
+        return span
+    own = [f for f in figures if any(_same_figure(f, v) for v in _recorded(part.params))]
+    return (min(f.start for f in own), max(f.end for f in own)) if own else None
 
 
 def _add_params(uses: Uses, claim: Claim) -> None:
     p: ClaimParams = claim.params
-    uses.figures.update(float(v) for v in (p.stated_value, p.stated_high, p.stated_total, p.top_n) if v is not None)
+    uses.figures.update(_recorded(p))
+    if p.subtype_source:  # "Under the 2012 consortium labels": the subtype group is read from that source
+        uses.groups.add(f"subtype_source:{p.subtype_source}")
+    if (p.subject or "").startswith(("label_pair", "subtype_sources")):  # compares the two label sources
+        uses.groups.add(SUBTYPE_SOURCE_KEY)
     if p.subtype:
         uses.groups.add(f"subtype:{p.subtype}")
     _add_group(uses, p.attribute, p.category)
@@ -256,6 +285,8 @@ def _add_filters(uses: Uses, filters: list) -> None:
                 continue
             if f.field in ("subtype_rna", "subtype_2012"):
                 uses.groups.add(f"subtype:{value}")
+                if f.field == "subtype_2012":
+                    uses.groups.add(SUBTYPE_SOURCE_KEY)
             elif f.field in ("sex", "er_status", "her2_status"):
                 uses.groups.add(f"{f.field}:{value}")
             elif f.field == "attribute":
@@ -287,6 +318,8 @@ def _add_plan(uses: Uses, text: str, query: QueryPlan) -> None:
         for category in (getattr(plan, n, None) for n in ("category", "category_a", "category_b")):
             if not category or not field_name:
                 continue
+            if field_name == "subtype_2012":
+                uses.groups.add(SUBTYPE_SOURCE_KEY)
             if field_name == "mutated_gene":
                 uses.groups.add(f"mutation:{category}")
                 uses.counted.add("genes")
@@ -295,22 +328,28 @@ def _add_plan(uses: Uses, text: str, query: QueryPlan) -> None:
     stated = query.stated
     if stated is not None:
         uses.figures.update(float(v) for v in (stated.value, stated.high, stated.total) if v is not None)
-        _add_span(uses, text, stated.span)
+        span = _span(text, stated.span)
+        if span is not None:
+            uses.spans.append(span)
 
 
 def reading_uses(claim: Claim, plan: QueryPlan | None = None) -> Uses:
     """What a reading used: the AI plan when one is given, else the claim's params and its parts' params.
 
-    Each part also adds the span of the sentence its label quotes, when the label is the sentence's own words.
+    A figure counts as used only when the reading records it (a stated value, range end, total or threshold) or an
+    AI plan quotes it. Each part also adds where it sits in the sentence to `part_spans`, for the join.
     """
     uses = Uses()
     if plan is not None:
         _add_plan(uses, claim.text, plan)
         return uses
     _add_params(uses, claim)
+    figures = _figures(claim.text, find_entities(claim.text)) if claim.parts else []
     for part in claim.parts:
         _add_params(uses, part)
-        _add_span(uses, claim.text, part.part_label)
+        span = _part_span(claim.text, part, figures)
+        if span is not None:
+            uses.part_spans.append(span)
     return uses
 
 
@@ -327,13 +366,17 @@ def _decimals(words: str) -> int:
     return 0 if re.search(r"\d", words) else 1
 
 
-def _figure_used(piece: Piece, uses: Uses) -> bool:
-    if _inside(piece.start, uses.spans):
-        return True
+def _same_figure(piece: Piece, value: float) -> bool:
+    """The written figure and a recorded value agree to the precision written; the sign is not a figure of its own
+    ("-0.87" is found as 0.87)."""
     if piece.value is None:
         return False
     d = _decimals(piece.words)
-    return any(round(used, d) == round(piece.value, d) for used in uses.figures)
+    return round(abs(value), d) == round(abs(piece.value), d)
+
+
+def _figure_used(piece: Piece, uses: Uses) -> bool:
+    return _inside(piece.start, uses.spans) or any(_same_figure(piece, used) for used in uses.figures)
 
 
 def missing(text: str, uses: Uses) -> list[str]:

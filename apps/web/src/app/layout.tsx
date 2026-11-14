@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
-import Wordmark from "@/components/Wordmark";
+import AppShell from "@/components/AppShell";
 import ResearchBanner from "@/components/ResearchBanner";
-import StartOver from "@/components/StartOver";
-import StepNav from "@/components/StepNav";
 import { AuditProvider } from "@/lib/audit-context";
 import "./globals.css";
 
@@ -29,20 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <ResearchBanner />
         <AuditProvider>
-          <div className="mx-auto grid max-w-[88rem] lg:grid-cols-[17.5rem_minmax(0,1fr)]">
-            <header className="border-b border-rule bg-sheet/60 px-5 py-4 sm:px-8 lg:sticky lg:top-0 lg:h-dvh lg:self-start lg:border-r lg:border-b-0 lg:py-8 lg:pr-6 lg:pl-8">
-              <Wordmark />
-              <div className="mt-4 lg:mt-10">
-                <StepNav />
-                <div className="mt-3 lg:mt-6">
-                  <StartOver />
-                </div>
-              </div>
-            </header>
-            <div id="content" tabIndex={-1} className="min-w-0 focus:outline-none">
-              {children}
-            </div>
-          </div>
+          <AppShell>{children}</AppShell>
         </AuditProvider>
       </body>
     </html>

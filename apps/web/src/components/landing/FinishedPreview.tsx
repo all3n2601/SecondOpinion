@@ -1,5 +1,6 @@
 import VerdictBadge from "@/components/VerdictBadge";
 import type { Verdict } from "@/lib/types";
+import { Stagger, StaggerItem } from "./motion";
 import Section from "./Section";
 
 function N({ children }: { children: React.ReactNode }) {
@@ -47,9 +48,14 @@ export default function FinishedPreview() {
       intro="One verdict per claim, each with the reason in plain words. A person then reviews every one."
     >
       <figure>
-        <ol aria-label="Practice report, three claims" className="divide-y divide-rule rounded-panel border border-rule bg-sheet">
+        <Stagger
+          as="ol"
+          label="Practice report, three claims"
+          className="divide-y divide-rule overflow-hidden rounded-panel border border-rule bg-sheet shadow-[0_24px_60px_-40px_rgb(158_42_94/0.35)]"
+        >
           {ROWS.map((row) => (
-            <li
+            <StaggerItem
+              as="li"
               key={row.id}
               className="grid gap-x-5 gap-y-2 p-4 sm:grid-cols-[2.5rem_13rem_minmax(0,1fr)] sm:items-start sm:p-5"
             >
@@ -58,9 +64,9 @@ export default function FinishedPreview() {
                 <VerdictBadge verdict={row.verdict} />
               </div>
               <p className="max-w-prose">{row.finding}</p>
-            </li>
+            </StaggerItem>
           ))}
-        </ol>
+        </Stagger>
         <figcaption className="mt-3 text-sm text-ink-soft">
           Example: the practice report, audited against the TCGA-BRCA release. Your own report gets the same
           treatment.

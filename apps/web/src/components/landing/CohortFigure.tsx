@@ -1,66 +1,31 @@
 "use client";
 
 import { Pause, Play, RotateCcw } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { focusRing } from "@/lib/ui";
 import CohortCanvas from "./CohortCanvas";
 import { STAGES } from "./cohort";
-
-const FIRST_STEP_MS = 1800;
-const STEP_MS = 2800;
-const LAST = STAGES.length - 1;
-
-function subscribeMotion(onChange: () => void) {
-  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+import { LAST } from "./useDemoStage";
 
 /**
- * The hero's one moving piece: the release's samples, counted down to the denominator of the practice
- * report's Luminal A claim. It plays once and stops; the stage list is the text version and lets you step
- * through it by hand. With reduced motion it opens on the last stage and never animates.
+ * The hero's counting figure: the release's samples, counted down to the denominator of the practice
+ * report's Luminal A claim. It follows the stage handed to it (the hero's shared clock), so the report's sentence
+ * beside it stays in step; the stage list is the text version and lets you step through it by hand.
  */
-export default function CohortFigure() {
-  const calm = useSyncExternalStore(subscribeMotion, prefersReducedMotion, () => false);
-  const [chosen, setChosen] = useState<number | null>(null);
-  const [autoStage, setAutoStage] = useState(0);
-  const [playing, setPlaying] = useState(true);
+export default function CohortFigure({
+  stage,
+  calm,
+  autoplay,
+  onChoose,
+  onToggle,
+}: {
+  stage: number;
+  calm: boolean;
+  autoplay: boolean;
+  onChoose: (index: number) => void;
+  onToggle: () => void;
+}) {
   const [webgl, setWebgl] = useState(true);
-
-  const stage = chosen ?? (calm ? LAST : autoStage);
-  const autoplay = playing && !calm && chosen === null;
-
-  useEffect(() => {
-    if (!autoplay || autoStage >= LAST) return;
-    const timer = setTimeout(
-      () => {
-        const next = autoStage + 1;
-        setAutoStage(next);
-        if (next >= LAST) setPlaying(false);
-      },
-      autoStage === 0 ? FIRST_STEP_MS : STEP_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [autoplay, autoStage]);
-
-  function choose(index: number) {
-    setChosen(index);
-    setPlaying(false);
-  }
-
-  function control() {
-    if (autoplay) {
-      setPlaying(false);
-      setChosen(stage);
-      return;
-    }
-    const restart = stage >= LAST;
-    setAutoStage(restart ? 0 : stage);
-    setChosen(null);
-    setPlaying(true);
-  }
 
   const ControlIcon = autoplay ? Pause : stage >= LAST ? RotateCcw : Play;
   const controlLabel = autoplay ? "Pause" : stage >= LAST ? "Play again" : "Play";
@@ -81,7 +46,7 @@ export default function CohortFigure() {
               <li key={s.figure}>
                 <button
                   type="button"
-                  onClick={() => choose(i)}
+                  onClick={() => onChoose(i)}
                   aria-current={current ? "step" : undefined}
                   className={`grid min-h-11 w-full cursor-pointer grid-cols-[4.25rem_minmax(0,1fr)] items-baseline gap-3 rounded-control border-l-2 py-1.5 pr-2 pl-3 text-left text-[0.9375rem] transition-colors duration-150 ${
                     current ? "border-pen bg-pen-tint text-ink" : "border-transparent text-ink-soft hover:bg-wash hover:text-ink"
@@ -108,7 +73,7 @@ export default function CohortFigure() {
           {!calm && (
             <button
               type="button"
-              onClick={control}
+              onClick={onToggle}
               className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-control px-3 text-sm font-medium text-pen transition-colors duration-150 hover:bg-pen-tint ${focusRing}`}
             >
               <ControlIcon aria-hidden="true" size={16} strokeWidth={1.75} />

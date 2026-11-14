@@ -1,3 +1,4 @@
+import { Stagger, StaggerItem } from "./motion";
 import Section from "./Section";
 
 const LIMITS = [
@@ -26,14 +27,14 @@ const LIMITS = [
 export default function Limits() {
   return (
     <Section id="limits" title="What this can’t tell you">
-      <ul className="max-w-prose divide-y divide-rule border-y border-rule">
+      <Stagger as="ul" className="max-w-prose divide-y divide-rule border-y border-rule">
         {LIMITS.map((item) => (
-          <li key={item.lead} className="py-4">
+          <StaggerItem as="li" key={item.lead} className="py-4">
             <span className="font-semibold text-ink">{item.lead}</span>{" "}
             <span className="text-ink-soft">{item.text}</span>
-          </li>
+          </StaggerItem>
         ))}
-      </ul>
+      </Stagger>
     </Section>
   );
 }

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from second_opinion.ai.client import make_client
 from second_opinion.ai.extract_ai import add_missed_claims
+from second_opinion.ai.split import split_gated
 from second_opinion.extract import classify_sentence, extract_claims, gate
 from second_opinion.model import Claim, ClaimType, ExtractResult, SentenceInfo
 from second_opinion.report_file import ReportFileError, ReportKind, read_report_file
@@ -30,12 +31,13 @@ class ClassifyRequest:
 
 
 def _with_ai_claims(result: ExtractResult) -> ExtractResult:
-    """Add claims the AI recovered from sentences the rules skipped; the rules-only result on any failure."""
+    """Add claims the AI recovered from sentences the rules skipped, then split every UNMAPPED claim into
+    statements; the rules-only result on any failure."""
     try:
         client = make_client()
+        return split_gated(add_missed_claims(result, client), client)
     except Exception:  # noqa: BLE001 - the AI layer is optional; /extract must still answer
         return result
-    return add_missed_claims(result, client)
 
 
 @router.post("/extract", response_model=ExtractResult)

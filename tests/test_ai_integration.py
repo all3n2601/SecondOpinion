@@ -257,7 +257,7 @@ def test_extract_recovers_claims_in_sentence_order(monkeypatch):
     by_index = {s["index"]: s["claim_id"] for s in body["sentences"]}
     assert by_index == {0: None, 1: "C1", 2: "C2", 3: "C3"}
     assert body["claims"][1]["params"]["stated_value"] == 535  # the rules claim is untouched, only renumbered
-    assert len(client.calls) == 1
+    assert len(client.calls) == 3  # the claim finder, then a split try for each recovered claim (none scripted)
     assert "Of the 1,101 primary tumors" not in client.calls[0][1]  # only unclaimed sentences are sent
 
 
@@ -274,6 +274,18 @@ def test_extract_ai_error_returns_the_rules_only_result(monkeypatch):
     assert response.status_code == 200
     assert response.json() == baseline
     assert [c["id"] for c in baseline["claims"]] == ["C1"]
+
+
+def test_extract_splits_a_sentence_the_rules_only_half_read(monkeypatch):
+    sentence = "TP53 mutations dominate basal-like tumors, at 85% compared with 10% in Luminal A."
+    split = {"parts": [
+        {"span": "basal-like tumors, at 85%", "statement": "TP53 is mutated in 85% of basal-like tumors."},
+        {"span": "10% in Luminal A", "statement": "TP53 is mutated in 10% of Luminal A tumors."},
+    ]}
+    client = ScriptedClient([{"claim_indices": []}, split])
+    monkeypatch.setattr("apps.api.app.routes.extract.make_client", lambda: client)
+    (claim,) = web.post("/extract", json={"report_text": sentence}).json()["claims"]
+    assert [(p["id"], p["type"], p["source"]) for p in claim["parts"]] == [("C1.1", "SHARE", "ai"), ("C1.2", "SHARE", "ai")]
 
 
 def test_classify_is_unchanged_by_the_ai(monkeypatch):

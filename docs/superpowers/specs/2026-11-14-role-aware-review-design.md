@@ -107,8 +107,10 @@ be pulled out and shared rather than duplicated.
 ### 3. AI prose with named blanks
 
 - New endpoint `POST /ai/narrate`. Request: `view` and, per claim, only `id`, final verdict (`finalVerdict`, so
-  overrides count), `solidity`, whether it was overridden, and the claim's report text (already sent to the model
-  during extraction). Counts and data values are **not** sent; the model only knows which slot names exist.
+  overrides count), `solidity`, whether it was overridden, the claim's report text (already sent to the model
+  during extraction) and `slots`, the names of the claim slots that claim has a value for (each must be a known
+  claim slot, else 422). Counts and data values are **not** sent; the model only knows which slot names exist.
+  The model sees `solidity` as plain words, never the internal value.
 - The model returns JSON: `headline`, `caption`, and `claims: {id: sentence}`. Every quantity, count and
   direction goes through a named slot that code fills:
   - audit level: `{supported}`, `{contradicted}`, `{insufficient}`, `{total}`, `{reviewed}`, `{fragile}`
@@ -121,8 +123,10 @@ be pulled out and shared rather than duplicated.
   - contains a number word or quantity word (`one`…`twenty`, `half`, `dozen`, `none`, `all`, `every`, `most`,
     `majority`, `few`, `several`, `many`) or a comparison word (`higher`, `lower`, `more`, `fewer`, `less`, `above`,
     `below`, `over`, `under`, `exceeds`). Counts and directions must come from slots.
-  - uses an unknown slot, uses a per-claim slot in the headline/caption, misses a claim, or exceeds a length cap
-    (headline ≤ 160 chars, caption ≤ 200, claim sentence ≤ 220).
+  - uses an unknown slot, uses a per-claim slot in the headline/caption, uses a claim slot that claim has no
+    value for, misses a claim, or exceeds a length cap (headline ≤ 160 chars, caption ≤ 200, claim sentence ≤ 220).
+  - in the `story` view only: uses jargon (`fragile`, `robust`, `robustness`, `variant(s)`, `solidity`, `skeptic`,
+    `verdict`, `p-value`, `PAM50`; whole words, plurals too, any case).
   - One correction retry naming the problems, as the planner does; then the endpoint reports the AI as unavailable.
 - **Templates live in the web client only** (`lib/narrate.ts`), one per view, in the same slotted shape. The page
   renders template text immediately with no network wait. The endpoint returns

@@ -13,6 +13,7 @@ from second_opinion.ai.narrate import (
     BANNED_WORDS,
     CLAIM_SLOTS,
     NarrateClaim,
+    STORY_JARGON,
     NarrateError,
     Narration,
     build_prompt,
@@ -314,7 +315,14 @@ def payload(view: str = "story") -> dict:
     return {
         "view": view,
         "claims": [
-            {"id": c.id, "verdict": c.verdict, "solidity": c.solidity, "overridden": c.overridden, "text": c.text}
+            {
+                "id": c.id,
+                "verdict": c.verdict,
+                "solidity": c.solidity,
+                "overridden": c.overridden,
+                "text": c.text,
+                "slots": sorted(c.slots),
+            }
             for c in claims()
         ],
     }
@@ -386,3 +394,146 @@ def test_narrate_endpoint_rejects_bad_requests(monkeypatch):
     long_text = payload()
     long_text["claims"][0]["text"] = "a" * 2001
     assert web.post("/ai/narrate", json=long_text).status_code == 422
+
+
+# ---- Story view: no jargon ----
+
+
+@pytest.mark.parametrize("word", ["fragile", "Variant", "variants", "verdict", "Verdicts", "robustness", "p-value", "skeptic"])
+def test_story_view_rejects_jargon(word):
+    sentence = f"The {word} is plain enough: {{stated}}."
+    for data, field in ((with_(c_c1=sentence), "claims.C1"), (with_(headline=f"The {word} held up."), "headline"),
+                        (with_(caption=f"A {word} line."), "caption")):
+        narration, problems = check_narration(data, claims(), "story")
+        assert narration is None
+        assert any(p.startswith(field) and "jargon" in p for p in problems), problems
+
+
+def test_story_view_rejects_pam50_even_when_the_claim_names_it():
+    named = claims()
+    named[0] = NarrateClaim("C1", "supported", "holds_under_every_variant", False, "PAM50 Luminal A was most common.")
+    assert check_narration(with_(c_c1="PAM50 looks fine."), named, "checklist")[1] == []
+    narration, problems = check_narration(with_(c_c1="PAM50 looks fine."), named, "story")
+    assert narration is None and any("jargon" in p for p in problems)
+
+
+def test_other_views_still_accept_jargon_words():
+    for view in ("checklist", "evidence", "raw"):
+        data = with_(c_c1="Verdict: supported; not fragile across variants.", caption="Each verdict is checked.")
+        assert check_narration(data, claims(), view)[1] == [], view
+
+
+def test_story_jargon_is_whole_word_and_slots_do_not_count():
+    # {fragile} is a slot (a number), not the word; "verdictive" is not the word "verdict".
+    data = with_(caption="Could change if counted another way: {fragile}.", c_c1="Unverdicted, robustly put: {stated}.")
+    assert check_narration(data, claims(), "story")[1] == []
+
+
+def test_narrate_retries_story_jargon():
+    jargon = with_(caption="{fragile} claims are fragile.")
+    client = ScriptedClient([jargon, good()])
+    narration = narrate("story", claims(), client)
+    assert narration.caption == good()["caption"]
+    assert len(client.calls) == 2
+    assert "jargon" in client.calls[1][1]
+    # the same text is fine outside the story view
+    assert narrate("checklist", claims(), ScriptedClient([jargon])).caption == jargon["caption"]
+
+
+def test_story_prompt_names_the_jargon_and_other_views_do_not():
+    story, _ = build_prompt("story", claims())
+    for word in STORY_JARGON:
+        assert word in story
+    checklist, _ = build_prompt("checklist", claims())
+    assert "Never use these words" not in checklist
+
+
+# ---- Prompt: plain descriptions, plain solidity ----
+
+
+def test_prompt_sends_solidity_as_plain_words():
+    fragile = [NarrateClaim("C1", "supported", "holds_under_some_variants", False, "About 62% were female.")]
+    system, user = build_prompt("story", fragile)
+    for internal in ("holds_under_some_variants", "holds_under_every_variant", "not_applicable"):
+        assert internal not in system + user
+    assert "could change if counted another way" in user
+
+
+def test_prompt_describes_slots_in_plain_words():
+    system, _ = build_prompt("story", claims())
+    assert "{fragile}: how many claims could change if counted another way" in system
+    assert "how many ways of counting gave the same answer" in system
+    assert '"higher than", "lower than" or "the same as", so follow it with "the report"' in system
+    assert "how many are fragile" not in system
+
+
+def test_prompt_states_singular_counts_and_plain_characters():
+    system, _ = build_prompt("checklist", claims())
+    assert "Claims reviewed so far: {reviewed}" in system
+    assert "A count can be 1" in system
+    assert "ASCII letters" in system and "em dash" in system
+
+
+# ---- Per-claim slot names ----
+
+
+def test_prompt_lists_each_claims_slot_names_never_values():
+    some = [
+        NarrateClaim("C1", "supported", "holds_under_every_variant", False, "About 62% were female.", frozenset({"stated", "data_shows"})),
+        NarrateClaim("C2", "insufficient_evidence", "not_applicable", False, "Treatment worked.", frozenset()),
+    ]
+    _, user = build_prompt("evidence", some)
+    assert '"slots": ["data_shows", "stated"]' in user
+    assert '"slots": []' in user
+
+
+def test_claim_slot_without_a_value_for_that_claim_rejected():
+    limited = claims()
+    limited[0] = NarrateClaim(
+        "C1", "supported", "holds_under_every_variant", False, limited[0].text, frozenset({"stated", "data_shows"})
+    )
+    assert check_narration(with_(c_c1="The report says {stated}; the data shows {data_shows}."), limited)[1] == []
+    narration, problems = check_narration(with_(c_c1="The data is {direction} the report."), limited)
+    assert narration is None
+    assert any(p.startswith("claims.C1") and "{direction}" in p and "no value" in p for p in problems)
+    # audit-wide slots stay allowed in a claim with no claim slots at all
+    bare = [NarrateClaim("C1", "insufficient_evidence", "not_applicable", False, "Treatment worked.", frozenset())]
+    data = {"headline": "{total} claims.", "caption": "So far: {reviewed}.", "claims": {"C1": "Out of {total}: no data."}}
+    assert check_narration(data, bare)[1] == []
+    data["claims"]["C1"] = "The report says {stated}."
+    assert check_narration(data, bare)[0] is None
+
+
+def test_narrate_endpoint_passes_slot_names_through(monkeypatch):
+    body = payload()
+    body["claims"][1]["slots"] = ["stated"]
+    fits = with_(c_c2="The report says {stated}, and the data does not back it up.")
+    client = ScriptedClient([fits])
+    use_client(monkeypatch, client)
+    res = web.post("/ai/narrate", json=body)
+    assert res.status_code == 200 and res.json()["source"] == "ai"
+    assert '"slots": ["stated"]' in client.calls[0][1]
+    # good() gives C2 {data_shows} and {direction}, which C2 has no value for: rejected, then the template
+    use_client(monkeypatch, ScriptedClient([good(), good()]))
+    res = web.post("/ai/narrate", json=body)
+    assert res.json()["source"] == "template"
+    assert res.json()["reason"] == "The AI wording did not pass the checks"
+
+
+def test_narrate_endpoint_rejects_bad_slot_lists(monkeypatch):
+    use_client(monkeypatch, None)
+    unknown = payload()
+    unknown["claims"][0]["slots"] = ["stated", "total"]  # an audit slot is not a claim slot
+    assert web.post("/ai/narrate", json=unknown).status_code == 422
+    made_up = payload()
+    made_up["claims"][0]["slots"] = ["secret"]
+    assert web.post("/ai/narrate", json=made_up).status_code == 422
+    duplicate = payload()
+    duplicate["claims"][0]["slots"] = ["stated", "stated"]
+    assert web.post("/ai/narrate", json=duplicate).status_code == 422
+    missing = payload()
+    del missing["claims"][0]["slots"]
+    assert web.post("/ai/narrate", json=missing).status_code == 422
+    empty = payload()
+    empty["claims"][0]["slots"] = []
+    assert web.post("/ai/narrate", json=empty).status_code == 200

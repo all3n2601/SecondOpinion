@@ -1,10 +1,11 @@
 """Model-written prose for the Review page, with every number left to our own code.
 
-The model sees only the view name and, per claim, its id, final verdict, solidity, whether a person
-overrode it, and the report sentence. It writes sentences that carry numbers through named `{slots}`;
-the browser fills those in from the audit. `check_narration` is the gate: a digit, number word or
-comparison word outside a slot, an unknown or misplaced slot, a name that is not in the claim's own
-text, a wrong claim id or an over-long string all reject the answer.
+The model sees only the view name and, per claim, its id, final verdict, solidity (in plain words),
+whether a person overrode it, the report sentence and the names of the claim slots that claim has a value
+for. It writes sentences that carry numbers through named `{slots}`; the browser fills those in from the
+audit. `check_narration` is the gate: a digit, number word or comparison word outside a slot, an unknown
+or misplaced slot, a claim slot that claim has no value for, a name that is not in the claim's own text,
+jargon in the story view, a wrong claim id or an over-long string all reject the answer.
 """
 
 import json
@@ -24,6 +25,19 @@ BANNED_WORDS = frozenset(
     quarter third thirds both neither couple pair exceed exceeded exceeding greater larger smaller least
     highest lowest minority cent""".split()
 )
+
+# Words a story-view reader (no data background) should never meet. Whole words (plurals too), any case.
+STORY_JARGON = (
+    "fragile", "robust", "robustness", "variant", "variants", "solidity", "skeptic", "verdict", "p-value", "PAM50",
+)
+_STORY_JARGON = re.compile(r"\b(?:" + "|".join(re.escape(w) for w in STORY_JARGON) + r")s?\b", re.IGNORECASE)
+
+# Solidity as the model sees it: plain words, never the internal value.
+SOLIDITY_WORDS = {
+    "holds_under_every_variant": "gives the same answer every way it was counted",
+    "holds_under_some_variants": "could change if counted another way",
+    "not_applicable": "no other way of counting applies",
+}
 
 MAX_HEADLINE = 160
 MAX_CAPTION = 200
@@ -55,6 +69,9 @@ class NarrateClaim:
     solidity: str
     overridden: bool
     text: str
+    # Names (never values) of the claim slots this claim has a value for. The route always passes the list
+    # the browser sent; the default (every claim slot) only keeps direct callers short.
+    slots: frozenset[str] = CLAIM_SLOTS
 
 
 @dataclass(frozen=True)
@@ -106,7 +123,9 @@ def _foreign_words(text: str) -> set[str]:
     return {c for c in _chunks(text) if not c.isascii()}
 
 
-def _check_text(text: str, field: str, slots: frozenset[str], names: set[str], foreign: set[str], cap: int) -> list[str]:
+def _check_text(
+    text: str, field: str, slots: frozenset[str], names: set[str], foreign: set[str], cap: int, story: bool = False
+) -> list[str]:
     problems = []
     if not text.strip():
         return [f"{field}: must not be empty"]
@@ -116,7 +135,8 @@ def _check_text(text: str, field: str, slots: frozenset[str], names: set[str], f
         problems.append(f"{field}: invisible formatting characters are not allowed")
     unknown = sorted({s for s in _SLOT.findall(text) if s not in slots})
     if unknown:
-        problems.append(f"{field}: slot {{{unknown[0]}}} is not allowed here")
+        why = " (this claim has no value for it)" if unknown[0] in CLAIM_SLOTS and field.startswith("claims.") else ""
+        problems.append(f"{field}: slot {{{unknown[0]}}} is not allowed here{why}")
     bare = _SLOT.sub(" ", text)
     normal = unicodedata.normalize("NFKC", bare)
     if re.search(r"[{}]", normal):
@@ -144,11 +164,14 @@ def _check_text(text: str, field: str, slots: frozenset[str], names: set[str], f
                 problems.append(f"{field}: write numbers only through slots, not '{raw}'")
         elif token in BANNED_WORDS:
             problems.append(f"{field}: the word '{token}' is not allowed; use a slot or other wording")
+    if story:
+        for word in sorted({m.lower() for m in _STORY_JARGON.findall(normal)}):
+            problems.append(f"{field}: '{word}' is jargon for this reader; use plain words")
     return list(dict.fromkeys(problems))
 
 
-def check_narration(data: dict, claims: list[NarrateClaim]) -> tuple[Narration | None, list[str]]:
-    """The model's answer as a `Narration`, or the problems that stop it being one."""
+def check_narration(data: dict, claims: list[NarrateClaim], view: str = "checklist") -> tuple[Narration | None, list[str]]:
+    """The model's answer as a `Narration`, or the problems that stop it being one. The story view also bans jargon."""
     if not isinstance(data, dict):
         return None, ["answer: must be a JSON object"]
     problems: list[str] = []
@@ -163,10 +186,12 @@ def check_narration(data: dict, claims: list[NarrateClaim]) -> tuple[Narration |
         return None, problems
 
     texts = {c.id: c.text for c in claims}
+    claim_slots = {c.id: AUDIT_SLOTS | (c.slots & CLAIM_SLOTS) for c in claims}
+    story = view == "story"
     all_names = set().union(*(_names(t) for t in texts.values())) if texts else set()
     all_foreign = set().union(*(_foreign_words(t) for t in texts.values())) if texts else set()
-    problems += _check_text(headline, "headline", AUDIT_SLOTS, all_names, all_foreign, MAX_HEADLINE)
-    problems += _check_text(caption, "caption", AUDIT_SLOTS, all_names, all_foreign, MAX_CAPTION)
+    problems += _check_text(headline, "headline", AUDIT_SLOTS, all_names, all_foreign, MAX_HEADLINE, story)
+    problems += _check_text(caption, "caption", AUDIT_SLOTS, all_names, all_foreign, MAX_CAPTION, story)
     for cid in texts:
         if cid not in sentences:
             problems.append(f"claims.{cid}: missing")
@@ -174,8 +199,8 @@ def check_narration(data: dict, claims: list[NarrateClaim]) -> tuple[Narration |
             problems.append(f"claims.{cid}: must be a string")
         else:
             problems += _check_text(
-                sentences[cid], f"claims.{cid}", AUDIT_SLOTS | CLAIM_SLOTS,
-                _names(texts[cid]), _foreign_words(texts[cid]), MAX_SENTENCE
+                sentences[cid], f"claims.{cid}", claim_slots[cid],
+                _names(texts[cid]), _foreign_words(texts[cid]), MAX_SENTENCE, story
             )
     for cid in sentences:
         if cid not in texts:
@@ -199,13 +224,22 @@ Numbers come only from slots, written exactly like {{total}}. Never write a digi
 word or a comparison word yourself.
 - Allowed in the headline, caption and claim sentences: {audit_slots}.
 - Allowed only in claim sentences: {claim_slots}.
-Slots stand for: how many claims were supported, contradicted, had too little data, the total, how many are
-reviewed, how many are fragile; and per claim, what the report states, what the data shows, whether the
-data is above or below the report, how many checks agree, and how many ways it was checked.
+What each slot stands for (our code puts a number or short phrase there):
+{slot_meanings}
+Each claim lists, under "slots", the claim slots it has a value for. In that claim's sentence use only those
+claim slots (the audit-wide slots are always allowed). A claim with an empty list gets a sentence with no
+claim slot.
+
+A count can be 1 or 0, so word every sentence to read correctly whatever number fills the slot: a label then
+the slot, such as "Claims reviewed so far: {{reviewed}}", rather than "{{reviewed}} claims were reviewed".
 
 Rejected words (whole words, any case): {banned}.
 A name that mixes letters and digits (such as HER2) is allowed only if it appears in that claim's report
 sentence; in the headline or caption, only if it appears in some claim's sentence.
+{view_rules}
+Write plain English in ordinary characters: ASCII letters, spaces and ordinary punctuation. An em dash and
+curly quotes are fine. Digits appear only through slots or inside a name such as HER2. No other symbols,
+accents or invisible characters, except in a name copied exactly from a claim's report sentence.
 
 Length limits: headline at most {max_headline} characters, caption at most {max_caption}, each claim sentence
 at most {max_sentence}. Slots count as written.
@@ -216,20 +250,56 @@ Answer with one JSON object and nothing else, no prose, no markdown fences:
 Include every claim id given, and no others.
 """
 
+# Plain descriptions of the slots, for the prompt. Keep in step with AUDIT_SLOTS and CLAIM_SLOTS.
+SLOT_MEANINGS = {
+    "supported": "how many claims the data backed up",
+    "contradicted": "how many claims the data did not back up",
+    "insufficient": "how many claims could not be checked with this data",
+    "total": "how many claims there are in all",
+    "reviewed": "how many claims a person has reviewed so far",
+    "fragile": "how many claims could change if counted another way",
+    "stated": "what the report says, as a short phrase such as a figure",
+    "data_shows": "what the data shows, as a short phrase such as a figure",
+    "direction": (
+        'how the data compares with the report: code fills in "higher than", "lower than" or "the same as", '
+        'so follow it with "the report"'
+    ),
+    "agree": "how many ways of counting gave the same answer (use with {ways}: {agree} out of {ways})",
+    "ways": "how many ways of counting were tried",
+}
+
+_STORY_RULE = """
+This reader has no data background. Never use these words, or their plurals: {jargon}.
+Say "could change if counted another way" rather than fragile, and "ways of counting" rather than variants.
+"""
+
 
 def build_prompt(view: str, claims: list[NarrateClaim]) -> tuple[str, str]:
-    """(system, user) prompts for a view and its claims. No data value ever goes in."""
+    """(system, user) prompts for a view and its claims. No data value ever goes in: solidity goes as plain
+    words, and each claim's slots as names only."""
+    meanings = "\n".join(
+        f"- {{{name}}}: {SLOT_MEANINGS[name]}" for name in [*sorted(AUDIT_SLOTS), *sorted(CLAIM_SLOTS)]
+    )
     system = _SYSTEM.format(
         audience=_AUDIENCES.get(view, _AUDIENCES["checklist"]),
         audit_slots=", ".join("{" + s + "}" for s in sorted(AUDIT_SLOTS)),
         claim_slots=", ".join("{" + s + "}" for s in sorted(CLAIM_SLOTS)),
+        slot_meanings=meanings,
         banned=", ".join(sorted(BANNED_WORDS)),
+        view_rules=_STORY_RULE.format(jargon=", ".join(STORY_JARGON)) if view == "story" else "",
         max_headline=MAX_HEADLINE,
         max_caption=MAX_CAPTION,
         max_sentence=MAX_SENTENCE,
     )
     rows = [
-        {"id": c.id, "verdict": c.verdict, "solidity": c.solidity, "overridden": c.overridden, "text": c.text}
+        {
+            "id": c.id,
+            "verdict": c.verdict,
+            "solidity": SOLIDITY_WORDS.get(c.solidity, SOLIDITY_WORDS["not_applicable"]),
+            "overridden": c.overridden,
+            "text": c.text,
+            "slots": sorted(c.slots & CLAIM_SLOTS),
+        }
         for c in claims
     ]
     user = f"View: {view}\n\nClaims (JSON):\n{json.dumps(rows)}\n\nAnswer with the JSON object only."
@@ -242,7 +312,7 @@ def narrate(view: str, claims: list[NarrateClaim], client: ChatClient) -> Narrat
     Failures of the service itself (`AIError`) propagate untouched and are not retried here.
     """
     system, user = build_prompt(view, claims)
-    narration, problems = check_narration(client.complete_json(system, user), claims)
+    narration, problems = check_narration(client.complete_json(system, user), claims, view)
     if narration is not None:
         return narration
     retry_user = (
@@ -250,7 +320,7 @@ def narrate(view: str, claims: list[NarrateClaim], client: ChatClient) -> Narrat
         + "\n- ".join(problems[:10])
         + "\nReturn the corrected JSON object only."
     )
-    narration, _ = check_narration(client.complete_json(system, retry_user), claims)
+    narration, _ = check_narration(client.complete_json(system, retry_user), claims, view)
     if narration is None:
         raise NarrateError("The AI wording did not pass the checks")
     return narration

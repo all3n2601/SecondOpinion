@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from second_opinion.ai.client import AIError, make_client
 from second_opinion.ai.config import ai_status
-from second_opinion.ai.narrate import NarrateClaim, narrate
+from second_opinion.ai.narrate import CLAIM_SLOTS, NarrateClaim, narrate
 
 router = APIRouter(tags=["ai"])
 
@@ -30,6 +30,18 @@ class NarrateClaimIn(BaseModel):
     solidity: Literal["holds_under_every_variant", "holds_under_some_variants", "not_applicable"]
     overridden: bool
     text: str = Field(max_length=2000)
+    # Names of the claim slots the browser has a value for (never the values themselves).
+    slots: list[str] = Field(max_length=len(CLAIM_SLOTS))
+
+    @field_validator("slots")
+    @classmethod
+    def _known_slots(cls, slots: list[str]) -> list[str]:
+        unknown = [s for s in slots if s not in CLAIM_SLOTS]
+        if unknown:
+            raise ValueError(f"unknown claim slot: {unknown[0]}")
+        if len(set(slots)) != len(slots):
+            raise ValueError("claim slots must be unique")
+        return slots
 
 
 class NarrateRequest(BaseModel):
@@ -66,7 +78,9 @@ def narrate_view(body: NarrateRequest) -> NarrateResponse:
         client = None
     if client is None:
         return _template("The AI helper is off")
-    claims = [NarrateClaim(c.id, c.verdict, c.solidity, c.overridden, c.text) for c in body.claims]
+    claims = [
+        NarrateClaim(c.id, c.verdict, c.solidity, c.overridden, c.text, frozenset(c.slots)) for c in body.claims
+    ]
     try:
         result = narrate(body.view, claims, client)
     except AIError as err:

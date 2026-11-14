@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { narrate } from "./api";
-import { clearNarrationCache, readCachedNarration, writeCachedNarration } from "./use-narration";
+import { claimSlots } from "./narrate";
+import { clearNarrationCache, narrationClaims, readCachedNarration, writeCachedNarration } from "./use-narration";
 import type { ClaimResult } from "./types";
 
 const STORE_KEY = "secondopinion:narration:v1";
@@ -91,23 +92,78 @@ describe("narration cache", () => {
 });
 
 describe("narrate request", () => {
-  it("sends only id, final verdict, solidity, overridden and text per claim", async () => {
+  it("sends only id, final verdict, solidity, overridden, text and slot names per claim", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ source: "template", headline: null, caption: null, claims: null, reason: "x" })));
     vi.stubGlobal("fetch", fetchMock);
     const claim = {
-      claim: { id: "C1", text: "About 62% were female.", sentence_index: 0, type: "SHARE", params: { stated_value: 62 } },
-      verdict: "supported",
+      claim: {
+        id: "Cx",
+        text: "About 62% were female.",
+        sentence_index: 0,
+        type: "SHARE",
+        params: { stated_value: 62, stated_high: null, stated_total: null, unit: "percent", decimals: null, approximate: true },
+      },
+      verdict: "contradicted",
       solidity: "holds_under_some_variants",
-      fact: { value: 62, numerator: 62, denominator: 100, sample_ids: ["S1"] },
-      correct_value: 61,
-      review: { decision: "override", final_verdict: "contradicted", reason: "no", reviewer_role: "Researcher" },
+      fact: { label: "share", value: 48, numerator: 48, denominator: 100, sample_ids: ["S1"], files: [], code: "", unknown_count: 0, extra: {} },
+      correct_value: "48.0% (48 of 100)",
+      variants: [
+        { variant_id: "v1", fact: null, verdict: "contradicted" },
+        { variant_id: "v2", fact: null, verdict: "supported" },
+      ],
+      ladder: [],
+      review: { decision: "override", final_verdict: "supported", reason: "no", reviewer_role: "Researcher" },
     } as unknown as ClaimResult;
     await narrate("story", [claim]);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, { body: string }];
     expect(url).toBe("/api/ai/narrate");
     expect(JSON.parse(init.body)).toEqual({
       view: "story",
-      claims: [{ id: "C1", verdict: "contradicted", solidity: "holds_under_some_variants", overridden: true, text: "About 62% were female." }],
+      claims: [
+        {
+          id: "Cx",
+          verdict: "supported",
+          solidity: "holds_under_some_variants",
+          overridden: true,
+          text: "About 62% were female.",
+          slots: ["stated", "data_shows", "direction", "agree", "ways"],
+        },
+      ],
     });
+    // Names only: none of the slot values (counts, figures, direction) or sample ids appear outside the report sentence.
+    const rest = init.body.replace("About 62% were female.", "");
+    expect(Object.values(claimSlots(claim))).toEqual(["about 62%", "48.0% (48 of 100)", "lower than", "1", "2"]);
+    expect(rest).not.toMatch(/[0-9]|lower than|S1/);
+  });
+
+  it("sends an empty slot list for a claim with nothing to fill", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ source: "template", headline: null, caption: null, claims: null, reason: "x" })));
+    vi.stubGlobal("fetch", fetchMock);
+    const claim = {
+      claim: { id: "C2", text: "Treatment worked.", sentence_index: 1, type: "RANK", params: { stated_value: null, stated_high: null, stated_total: null, unit: null } },
+      verdict: "insufficient_evidence",
+      solidity: "not_applicable",
+      fact: null,
+      correct_value: null,
+      variants: [],
+      ladder: [],
+      review: null,
+    } as unknown as ClaimResult;
+    await narrate("checklist", [claim]);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, { body: string }];
+    expect(JSON.parse(init.body).claims[0].slots).toEqual([]);
+  });
+});
+
+describe("narrationClaims", () => {
+  const claims = [] as ClaimResult[];
+  it("asks for nothing until saved state has loaded and the role's view is settled", () => {
+    expect(narrationClaims(false, false, claims)).toBeNull();
+    expect(narrationClaims(true, false, claims)).toBeNull(); // roles still loading: the "checklist" placeholder
+    expect(narrationClaims(false, true, claims)).toBeNull();
+    expect(narrationClaims(true, true, claims)).toBe(claims);
+  });
+  it("stays null with no audit", () => {
+    expect(narrationClaims(true, true, null)).toBeNull();
   });
 });

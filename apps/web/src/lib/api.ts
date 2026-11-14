@@ -59,8 +59,9 @@ async function request<T>(path: string, init?: { method?: "GET" | "POST"; body?:
   return (await response.json()) as T;
 }
 
-export function extractClaims(reportText: string): Promise<ExtractResult> {
-  return request("/extract", { method: "POST", body: { report_text: reportText } });
+/** `split`: with the AI helper on, split sentences the rules only half read into parts (the API's default is on). */
+export function extractClaims(reportText: string, options: { split?: boolean } = {}): Promise<ExtractResult> {
+  return request("/extract", { method: "POST", body: { report_text: reportText, split: options.split ?? true } });
 }
 
 export interface ReportFile {

@@ -288,6 +288,34 @@ def test_extract_splits_a_sentence_the_rules_only_half_read(monkeypatch):
     assert [(p["id"], p["type"], p["source"]) for p in claim["parts"]] == [("C1.1", "SHARE", "ai"), ("C1.2", "SHARE", "ai")]
 
 
+def test_extract_with_split_off_keeps_the_half_read_sentence_whole(monkeypatch):
+    sentence = "TP53 mutations dominate basal-like tumors, at 85% compared with 10% in Luminal A."
+    client = ScriptedClient([{"parts": []}])  # a split reply, which must never be asked for
+    monkeypatch.setattr("apps.api.app.routes.extract.make_client", lambda: client)
+    (claim,) = web.post("/extract", json={"report_text": sentence, "split": False}).json()["claims"]
+    assert (claim["type"], claim["parts"]) == ("UNMAPPED", [])
+    assert claim["coverage_gaps"]  # still gated, so the audit says can't check
+    assert client.calls == []  # the sentence is a claim already, so no finder call; split off, so no split call
+
+
+@pytest.mark.parametrize("no_split, parts", [(False, ["C1.1", "C1.2"]), (True, [])])
+def test_cli_splits_as_the_app_does_unless_no_split(monkeypatch, tmp_path, no_split, parts):
+    import argparse
+
+    from second_opinion.cli import _load_claims
+
+    report = tmp_path / "r.md"
+    report.write_text("TP53 mutations dominate basal-like tumors, at 85% compared with 10% in Luminal A.", encoding="utf-8")
+    split = {"parts": [
+        {"span": "basal-like tumors, at 85%", "statement": "TP53 is mutated in 85% of basal-like tumors."},
+        {"span": "10% in Luminal A", "statement": "TP53 is mutated in 10% of Luminal A tumors."},
+    ]}
+    monkeypatch.setattr("second_opinion.ai.client.make_client", lambda: ScriptedClient([split]))
+    args = argparse.Namespace(claims_json=None, report=str(report), no_split=no_split)
+    (claim,) = _load_claims(args)
+    assert [p.id for p in claim.parts] == parts
+
+
 def test_classify_is_unchanged_by_the_ai(monkeypatch):
     monkeypatch.setattr("apps.api.app.routes.extract.make_client", lambda: ScriptedClient([]))
     body = web.post("/classify", json={"text": "A sentence.", "sentence_index": 2, "claim_id": "C7"}).json()

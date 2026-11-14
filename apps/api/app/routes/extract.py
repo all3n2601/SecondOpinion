@@ -21,6 +21,9 @@ MAX_REPORT_FILE_BYTES = 20 * 1024 * 1024  # PDFs with figures run to a few MB
 @dataclass
 class ExtractRequest:
     report_text: str
+    # With the AI helper on: split each sentence the rules only half read into statements (on by default). Off keeps
+    # those sentences whole, so they come back "can't check"; the blind scorer's --no-split measures the same thing.
+    split: bool = True
 
 
 @dataclass
@@ -30,12 +33,13 @@ class ClassifyRequest:
     claim_id: str = "C1"  # the browser holds the claim list, so it passes the next free id
 
 
-def _with_ai_claims(result: ExtractResult) -> ExtractResult:
-    """Add claims the AI recovered from sentences the rules skipped, then split every UNMAPPED claim into
-    statements; the rules-only result on any failure."""
+def _with_ai_claims(result: ExtractResult, split: bool = True) -> ExtractResult:
+    """Add claims the AI recovered from sentences the rules skipped, then (with `split`) split every UNMAPPED claim
+    into statements; the rules-only result on any failure."""
     try:
         client = make_client()
-        return split_gated(add_missed_claims(result, client), client)
+        recovered = add_missed_claims(result, client)
+        return split_gated(recovered, client) if split else recovered
     except Exception:  # noqa: BLE001 - the AI layer is optional; /extract must still answer
         return result
 
@@ -49,7 +53,7 @@ def extract(body: ExtractRequest) -> ExtractResult:
             status_code=422,
             detail=f"The report is too long ({len(body.report_text):,} characters; the limit is {MAX_REPORT_CHARS:,})",
         )
-    return _with_ai_claims(extract_claims(body.report_text))
+    return _with_ai_claims(extract_claims(body.report_text), split=body.split)
 
 
 class ReportFileResponse(BaseModel):

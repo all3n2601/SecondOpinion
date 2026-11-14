@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entryFromHash, hashFor, nextToReview, OVERVIEW, previousEntry, reviewStatus } from "./review-nav";
+import { entryFromHash, hashFor, isOwnHash, nextToReview, OVERVIEW, previousEntry, reviewStatus } from "./review-nav";
 import type { ClaimResult, Review, Verdict } from "./types";
 
 function claim(id: string, review: Review | null = null, verdict: Verdict = "contradicted"): ClaimResult {
@@ -53,6 +53,18 @@ describe("review navigation", () => {
     expect(entryFromHash("", ["C1"])).toBe(OVERVIEW);
     expect(entryFromHash("#review-C9", ["C1", "C2"])).toBe(OVERVIEW);
     expect(entryFromHash("#elsewhere", ["C1"])).toBe(OVERVIEW);
+  });
+
+  it("opens Overview for a garbled hash instead of throwing", () => {
+    expect(entryFromHash("#review-%", ["C1"])).toBe(OVERVIEW);
+    expect(entryFromHash("#review-%E0", ["C1"])).toBe(OVERVIEW);
+  });
+
+  it("tells its own hashes from other fragments, such as the skip link's", () => {
+    expect(isOwnHash("")).toBe(true);
+    expect(isOwnHash("#review-C2")).toBe(true);
+    expect(isOwnHash("#review-C9")).toBe(true);
+    expect(isOwnHash("#content")).toBe(false);
   });
 
   it("writes the hash back", () => {

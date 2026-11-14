@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Breadcrumb from "@/components/Breadcrumb";
 import NoAuditNotice from "@/components/NoAuditNotice";
 import ReviewForm from "@/components/ReviewForm";
@@ -46,18 +46,21 @@ export default function ReviewPage() {
   const current = claims.find((c) => c.claim.id === selected) ?? null;
   const firstToReview = nextToReview(claims, OVERVIEW);
 
-  /** Open an entry, start its pane at the top, and move focus there (on a narrow screen, scroll to it). */
-  function open(entry: Entry) {
-    select(entry);
-    requestAnimationFrame(() => {
-      const el = pane.current;
-      if (!el) return;
-      el.scrollTop = 0;
-      const wide = window.matchMedia(WIDE).matches;
-      el.focus({ preventScroll: wide });
-      if (!wide) el.scrollIntoView({ block: "start" });
-    });
-  }
+  const open = (entry: Entry) => select(entry);
+
+  // Whenever the open entry changes (list, buttons, a "#review-C2" link, back / forward), start its pane at the top
+  // and move focus there; on a narrow screen, scroll to it. Not on first load: the reader has not asked to move yet.
+  const shown = useRef<Entry | null>(null);
+  useEffect(() => {
+    const first = shown.current === null;
+    shown.current = selected;
+    const el = pane.current;
+    if (first || !el) return;
+    el.scrollTop = 0;
+    const wide = window.matchMedia(WIDE).matches;
+    el.focus({ preventScroll: wide });
+    if (!wide) el.scrollIntoView({ block: "start" });
+  }, [selected]);
 
   return (
     <main className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
@@ -127,35 +130,41 @@ export default function ReviewPage() {
             aria-label={current ? `Claim ${current.claim.id}` : "Overview"}
             className="min-w-0 scroll-mt-6 focus:outline-none lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:pr-1"
           >
-            {current ? (
-              <div className="rounded-panel border border-rule bg-sheet">
-                <ReviewForm
-                  key={current.claim.id}
-                  result={current}
-                  saveLabel="Save and next →"
-                  onSaved={() => open(nextToReview(claims, current.claim.id))}
-                  body={
-                    <ClaimBody
-                      view={view}
-                      result={current}
-                      sentence={narration.claims[current.claim.id] ?? { text: "", ai: false }}
-                    />
-                  }
-                />
-                <div className="border-t border-rule px-5 py-2 sm:px-6">
-                  <button type="button" onClick={() => open(previousEntry(ids, current.claim.id))} className={buttonQuiet}>
-                    <ArrowLeft aria-hidden="true" className="size-4" />
-                    {previousEntry(ids, current.claim.id) === OVERVIEW ? "Overview" : "Previous claim"}
-                  </button>
+            {/* Every claim's form stays mounted, hidden unless open, so a half-written review survives switching. */}
+            {claims.map((result) => {
+              const id = result.claim.id;
+              const previous = previousEntry(ids, id);
+              return (
+                <div key={id} hidden={id !== selected} className="rounded-panel border border-rule bg-sheet">
+                  <ReviewForm
+                    result={result}
+                    saveLabel="Save and next →"
+                    onSaved={() => open(nextToReview(claims, id))}
+                    body={<ClaimBody view={view} result={result} sentence={narration.claims[id] ?? { text: "", ai: false }} />}
+                  />
+                  <div className="border-t border-rule px-5 py-2 sm:px-6">
+                    <button type="button" onClick={() => open(previous)} className={buttonQuiet}>
+                      <ArrowLeft aria-hidden="true" className="size-4" />
+                      {previous === OVERVIEW ? "Overview" : "Previous claim"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
+              );
+            })}
+            {!current && (
               <>
                 <p className="mb-4 max-w-prose text-ink-soft">{INTRO[view]}</p>
                 {/* Shown once the narrated text is real: before that it would read as an empty audit. */}
                 {hydrated && ready && <ReviewOverview view={view} audit={audit} narration={narration} />}
                 {total === 0 ? (
                   <p className="mt-4 text-ink-soft">The report had no claims to review.</p>
+                ) : left === 0 ? (
+                  <div className="mt-5">
+                    <Link href="/decision" className={buttonPrimary}>
+                      Every claim is reviewed: continue to decision
+                      <ArrowRight aria-hidden="true" className="size-4" />
+                    </Link>
+                  </div>
                 ) : (
                   firstToReview !== OVERVIEW && (
                     <div className="mt-5">

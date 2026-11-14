@@ -14,16 +14,27 @@ export function claimAnchor(id: string): string {
   return `review-${id}`;
 }
 
-/** The entry a hash names; Overview for no hash, another fragment, or an id this audit does not have. */
+const PREFIX = `#${claimAnchor("")}`;
+
+/** Whether a hash is the Review page's own (none, or `#review-…`) rather than another fragment such as `#content`. */
+export function isOwnHash(hash: string): boolean {
+  return hash === "" || hash.startsWith(PREFIX);
+}
+
+/** The entry a hash names; Overview for no hash, another fragment, a garbled one, or an id this audit does not have. */
 export function entryFromHash(hash: string, ids: string[]): Entry {
-  const prefix = `#${claimAnchor("")}`;
-  if (!hash.startsWith(prefix)) return OVERVIEW;
-  const id = decodeURIComponent(hash.slice(prefix.length));
+  if (!hash.startsWith(PREFIX)) return OVERVIEW;
+  let id: string;
+  try {
+    id = decodeURIComponent(hash.slice(PREFIX.length));
+  } catch {
+    return OVERVIEW;
+  }
   return ids.includes(id) ? id : OVERVIEW;
 }
 
 export function hashFor(entry: Entry): string {
-  return entry === OVERVIEW ? "" : `#${claimAnchor(entry)}`;
+  return entry === OVERVIEW ? "" : `#${claimAnchor(encodeURIComponent(entry))}`;
 }
 
 /**

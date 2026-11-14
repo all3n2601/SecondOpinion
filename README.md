@@ -262,10 +262,53 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
    **Open evidence** shows the calculation, the "report vs data" gauge, the files and checksums, the
    code that reproduces the number, the sample IDs (CSV download), the eight ways of counting and the
    skeptic tests.
-4. **Review:** accept or override each verdict (an override needs a reason and your role).
-   **Continue to decision** unlocks when every claim is reviewed.
+4. **Review:** accept or override each verdict (an override needs a reason and your role). The page is a list
+   of claims beside one open entry: it opens on the role's **Overview**, **Start reviewing** opens the first
+   claim not yet reviewed, and **Save and next** moves on until every claim is done. The open claim is in the
+   address (`#review-C2`), so reload and the back button keep your place.
+   **Continue to decision** unlocks when every claim is reviewed. The page layout follows the role
+   (see below).
 5. **Decision:** read the suggested decision and who must sign off, choose one, give a reason,
    **Export**, then download `audit.json` and `decision_record.md`.
+
+**Role views.** Each role in `second_opinion/roles.yaml` has a `view` that sets how the Review page
+looks. Every view keeps Accept / Override and the "all reviewed" gate, and every number comes from
+code:
+
+| `view` | Shipped for | What it shows |
+| --- | --- | --- |
+| `story` | Program leader | A short written summary of what held up and what did not |
+| `checklist` | Data-use reviewer | Counts by verdict, then every claim as a tick box that jumps to its row |
+| `evidence` | Researcher | Each claim next to the numbers and checks behind it |
+| `raw` | Data engineer | Plain tables and files, with only a terse one-line headline, caption and per-claim summary |
+
+If a role has no `view`, it comes from `detail`: `summary` is `story`, `standard` is `checklist`,
+`full` is `evidence`. The **Add a role** form has a "How it looks" choice for it. The wording in all
+four views (headline, caption and one line per claim) is template text by default. If the optional AI
+helper is configured (`SO_AI_API_KEY` and `SO_AI_MODEL` in `.env`, see `.env.example`; `SO_AI=off`
+switches it off), `POST /ai/narrate` can reword it with named blanks that the browser fills from the
+audit, so the numbers still come from code. The model sees only the view, and per claim its id, final
+verdict, how solid it is (in plain words), whether a person overrode it, the report sentence and the
+names of the blanks that claim has a value for. Anything that fails the checker
+(`second_opinion/ai/narrate.py`) falls back to the template wording.
+
+Every claim row reads the same way in every view: the answer (verdict, how solid it is, the claim and one
+sentence), one chart, folded detail, then the Accept / Override form. Each closed fold still shows a
+one-line summary. The Program leader gets no folds, only a plain "What else we found" box; the Data-use
+reviewer's folds start closed; the Researcher's open on what the number rests on and where the figure
+might come from; the Data engineer's open on the numbers, sample IDs and code.
+
+Each checked share or count also gets three readings, worked out in the browser from numbers the audit
+already returns (`apps/web/src/lib/insights.ts`), at each view's level of detail:
+
+- **Every way of counting:** one dot per way the claim was recounted, on a number line beside the
+  report's figure and what "about" allows.
+- **What the number rests on:** counted, checked but not counted, and left out for a missing value.
+  For a share with values missing, the range the true share must lie in whatever the missing values are.
+- **Where the report's figure might come from** (contradicted claims): which other way of counting, or
+  common slip (missing values counted one way or the other, the share outside the group, everyone
+  checked instead of the group), gives the stated figure, or the nearest one when none does. A match is
+  a clue, not proof.
 
 The app keeps your work if you refresh the page. It is stored only in that browser tab
 (`sessionStorage`); closing the tab clears it, and **Start over** clears it on demand.
@@ -330,6 +373,8 @@ is not needed). The validator must print `valid`. A full run takes under 10 seco
 | `SO_RELEASE_DIR` | environment | Folder of the real release; turns on the real-data tests |
 | `SO_ENVELOPE_DIR` | environment | An unsealed envelope's `release/` folder; turns on the envelope rehearsal tests |
 | `SO_RELEASES_ROOT` | environment, for any shared or deployed instance | If set, `/audit` only accepts release folders inside this directory. Leave it unset for local use |
+| `SO_AI_API_KEY`, `SO_AI_MODEL` | `.env` (copy `.env.example`; git ignores `.env`) | Turn on the optional AI helper (claim plans and Review-page wording). With either unset it stays off. `SO_AI_BASE_URL` and `SO_AI_TIMEOUT` are optional |
+| `SO_AI` | `.env` or environment | `off`, `0` or `false` switches the AI helper off even when the key and model are set |
 
 If ports 3000 or 8000 are busy:
 
@@ -341,6 +386,7 @@ PORT=3001 UVICORN_PORT=8001 API_ORIGIN=http://127.0.0.1:8001 npm run dev
 
 ```bash
 npm test            # Python: engine, API, export, extraction (real-data tests are skipped by default)
+npm run test:web    # web unit tests (vitest)
 npm run lint
 npm run typecheck
 npm run build
@@ -431,6 +477,7 @@ and Decision Record. No database. The API keeps no session: the browser sends ba
 | `POST /practice-release` | A release-A folder for the practice run (local copy or temporary download) |
 | `POST /decision`, `POST /export` | Suggested decision; `audit.json` and Decision Record (refused until every claim is reviewed) |
 | `GET /roles`, `POST /roles` | Role views |
+| `POST /ai/narrate` | Optional AI wording for a role view, with blanks for the numbers; always answers 200 (AI text or `template`) |
 | `GET /health`, `GET /variants` | Status; the eight ways of counting |
 
 Interactive API docs while running: <http://localhost:3000/api/docs>. See [docs/PLAN.md](docs/PLAN.md)

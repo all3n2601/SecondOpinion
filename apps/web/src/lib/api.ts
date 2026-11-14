@@ -9,8 +9,13 @@ import type {
   DecisionSuggestion,
   ExportResponse,
   ExtractResult,
+  ClaimResult,
+  NarrateResponse,
   Role,
+  RoleView,
 } from "./types";
+import { claimSlots } from "./narrate";
+import { finalVerdict } from "./review";
 
 /** FastAPI sends `detail` as a string for our own errors and as a list for request validation errors. */
 function detailText(detail: unknown): string | null {
@@ -108,8 +113,31 @@ export function getRoles(): Promise<Role[]> {
   return request("/roles");
 }
 
-export function saveRole(role: Role): Promise<Role[]> {
+/** `view` is optional: the server picks it from `detail` when it is left out. */
+export function saveRole(role: Omit<Role, "view"> & { view?: RoleView }): Promise<Role[]> {
   return request("/roles", { method: "POST", body: role });
+}
+
+/**
+ * Ask the optional AI helper for slotted wording. Only these fields per claim leave the browser: id, final verdict,
+ * solidity, overridden, the report sentence and the NAMES of the claim slots that claim has a value for. Never a
+ * count, a value, a fact or a sample id. Throws like any other call; the caller falls back to templates.
+ */
+export function narrate(view: RoleView, claims: ClaimResult[]): Promise<NarrateResponse> {
+  return request("/ai/narrate", {
+    method: "POST",
+    body: {
+      view,
+      claims: claims.map((c) => ({
+        id: c.claim.id,
+        verdict: finalVerdict(c),
+        solidity: c.solidity,
+        overridden: c.review?.decision === "override",
+        text: c.claim.text,
+        slots: Object.keys(claimSlots(c)),
+      })),
+    },
+  });
 }
 
 /** Is the optional AI helper switched on? Never throws: an unreachable API reads as "off". */

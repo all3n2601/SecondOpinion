@@ -9,6 +9,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { classifySentence } from "./api";
+import { clearNarrationCache } from "./use-narration";
 import { clearPersisted, DEFAULT_ROLE, emptyState, loadPersisted, savePersisted, type PersistedState } from "./persist";
 import type { AuditResult, Claim, ExtractResult, Review, SentenceInfo } from "./types";
 
@@ -116,6 +117,7 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     const fresh = emptyState(defaultReleaseDir());
     latest.current = fresh;
     clearPersisted();
+    clearNarrationCache();
     setReportText(fresh.reportText);
     setReleaseDir(fresh.releaseDir);
     setSentences(fresh.sentences);

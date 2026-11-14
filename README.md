@@ -9,12 +9,15 @@
 
 ## How to run it, step by step
 
-These steps are for macOS or Linux, in a terminal. They take about 10 minutes the first time, most of
-it downloading.
+These steps work on macOS, Linux and Windows. Where the commands differ, both are given: **macOS /
+Linux** in a terminal, **Windows** in PowerShell (Windows Terminal or the VS Code terminal). They take
+about 10 minutes the first time, most of it downloading.
 
 ### Step 1. Check you have the tools
 
-Run each command and check the version it prints:
+Run each command and check the version it prints.
+
+macOS / Linux:
 
 ```bash
 node --version      # needs v22 or newer
@@ -22,8 +25,27 @@ python3 --version   # needs 3.11, 3.12, 3.13 or 3.14
 git --version       # any version
 ```
 
+Windows (PowerShell):
+
+```powershell
+node --version      # needs v22 or newer
+py --list           # the Python launcher lists installed versions; needs 3.11, 3.12, 3.13 or 3.14
+git --version       # any version
+```
+
 If Node is missing or older than 22, install it from <https://nodejs.org> (or `nvm install 22`). If
-Python is missing or too old, install it from <https://www.python.org/downloads/>.
+Python is missing or too old, install it from <https://www.python.org/downloads/>. If git is missing,
+install it from <https://git-scm.com/downloads>.
+
+On Windows you can install all three with winget instead, then open a **new** PowerShell window so
+they are on the `PATH`:
+
+```powershell
+winget install OpenJS.NodeJS.LTS Python.Python.3.13 Git.Git
+```
+
+If `py` is not found, use `python` instead in the Windows commands below (check `python --version`
+first; the Microsoft Store placeholder prints nothing useful, so install from python.org or winget).
 
 ### Step 2. Get the code
 
@@ -36,14 +58,24 @@ Run every remaining command from inside this `SecondOpinion` folder unless the s
 
 ### Step 3. Install the Python part
 
+macOS / Linux:
+
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
+Windows (PowerShell):
+
+```powershell
+py -3.13 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
 This creates a `.venv` folder inside `SecondOpinion`. The app expects it there, so don't put it anywhere
-else. If `python3` is older than 3.11, use the full name of a newer one instead, for example
-`python3.13 -m venv .venv`.
+else (the npm scripts find `.venv/bin/python` or `.venv\Scripts\python.exe` on their own). If
+`python3` is older than 3.11, use the full name of a newer one instead, for example
+`python3.13 -m venv .venv`; on Windows, change `-3.13` to any version `py --list` shows from 3.11 to 3.14.
 
 ### Step 4. Install the web part
 
@@ -51,14 +83,27 @@ else. If `python3` is older than 3.11, use the full name of a newer one instead,
 npm ci
 ```
 
+On Windows, if PowerShell says `npm.ps1 cannot be loaded because running scripts is disabled`, run
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once (or type `npm.cmd` instead of `npm`). Stop any
+running `npm run dev` first: Windows will not let `npm ci` replace files a running server has open.
+
 ### Step 5. Download the data
 
 The data is not stored in this repository. Get it from the organizers' repository, which goes in the
-folder **next to** `SecondOpinion`, not inside it:
+folder **next to** `SecondOpinion`, not inside it.
+
+macOS / Linux:
 
 ```bash
 git clone https://github.com/disleveK/oncosys-hackathon-challenge.git ../oncosys-hackathon-challenge
 .venv/bin/python ../oncosys-hackathon-challenge/data/tcga-brca/fetch.py
+```
+
+Windows (PowerShell):
+
+```powershell
+git clone https://github.com/disleveK/oncosys-hackathon-challenge.git ..\oncosys-hackathon-challenge
+.venv\Scripts\python.exe ..\oncosys-hackathon-challenge\data\tcga-brca\fetch.py
 ```
 
 This downloads the TCGA-BRCA release (about 70 MB) and checks every file. If it prints `CHANGED` for a
@@ -66,21 +111,32 @@ file, stop and tell the organizers.
 
 ### Step 6. Note the full path to the data folder
 
-The app asks for this path. Print it:
+The app asks for this path. Print it.
+
+macOS / Linux:
 
 ```bash
 (cd ../oncosys-hackathon-challenge/data/tcga-brca/raw && pwd)
 ```
 
-Copy the line it prints, for example `/Users/you/oncosys-hackathon-challenge/data/tcga-brca/raw`.
+Windows (PowerShell):
+
+```powershell
+(Resolve-Path ..\oncosys-hackathon-challenge\data\tcga-brca\raw).Path
+```
+
+Copy the line it prints, for example `/Users/you/oncosys-hackathon-challenge/data/tcga-brca/raw` or
+`C:\Users\you\oncosys-hackathon-challenge\data\tcga-brca\raw`.
 
 To skip pasting it every time, save it once. This is optional:
 
 ```bash
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web/.env.example apps/web/.env.local                 # macOS / Linux
+Copy-Item apps\web\.env.example apps\web\.env.local          # Windows (PowerShell)
 ```
 
-Then open `apps/web/.env.local` and paste the path after `NEXT_PUBLIC_DEFAULT_RELEASE_DIR=`.
+Then open `apps/web/.env.local` and paste the path after `NEXT_PUBLIC_DEFAULT_RELEASE_DIR=`. A Windows
+path with backslashes works as it is; don't add quotes.
 
 ### Step 7. Start the app
 
@@ -110,11 +166,13 @@ check the terminal from step 7 for an error.
 4. To finish: on **Review**, accept or override each verdict. Then on **Decision**, choose a decision,
    give a reason and click **Export** to download `audit.json` and the Decision Record.
 
-To audit your own report instead, upload it or paste its text on the Start page in step 9.
+To audit your own report instead, upload it (Markdown, text or PDF) or paste its text on the Start
+page.
 
 ### Step 10. Stop the app
 
-Go back to the terminal from step 7 and press **Ctrl+C**.
+Go back to the terminal from step 7 and press **Ctrl+C**. On Windows, if it asks
+`Terminate batch job (Y/N)?`, type `Y`.
 
 ### Running it again later
 
@@ -127,11 +185,18 @@ npm run dev
 
 ### Without the browser (optional)
 
-To check a report from the terminal instead:
+To check a report (`.md`, `.txt` or `.pdf`) from the terminal instead:
 
 ```bash
 .venv/bin/second-opinion --release ../oncosys-hackathon-challenge/data/tcga-brca/raw \
   --report path/to/report.md --out audit.json
+```
+
+Windows (PowerShell):
+
+```powershell
+.venv\Scripts\second-opinion.exe --release ..\oncosys-hackathon-challenge\data\tcga-brca\raw `
+  --report path\to\report.pdf --out audit.json
 ```
 
 It prints one line per claim and writes `audit.json`.
@@ -227,6 +292,14 @@ npm ci
 git clone https://github.com/disleveK/oncosys-hackathon-challenge.git ../oncosys-hackathon-challenge && .venv/bin/python ../oncosys-hackathon-challenge/data/tcga-brca/fetch.py
 ```
 
+Windows (PowerShell):
+
+```powershell
+py -3.13 -m venv .venv; .venv\Scripts\python.exe -m pip install -r requirements.txt
+npm ci
+git clone https://github.com/disleveK/oncosys-hackathon-challenge.git ..\oncosys-hackathon-challenge; .venv\Scripts\python.exe ..\oncosys-hackathon-challenge\data\tcga-brca\fetch.py
+```
+
 The third command downloads the frozen TCGA-BRCA release A (about 70 MB) into
 `../oncosys-hackathon-challenge/data/tcga-brca/raw/` and verifies its checksums. If `fetch.py`
 prints `CHANGED` for a file, do not use that file and tell the organizers. No TCGA data is
@@ -254,9 +327,12 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
 
 ### Audit your own report
 
-1. **Start:** upload a `.md` or `.txt` report (or paste the text), enter the release folder, click
+1. **Start:** upload a `.md`, `.txt` or `.pdf` report (or paste the text), enter the release folder, click
    **Check the files** (it lists the files and checksums, or what is missing), then **Run the audit**
-   to go straight through, or **Find claims only** to adjust the list first.
+   to go straight through, or **Find claims only** to adjust the list first. A PDF's text is read on
+   the server (pypdf, `POST /report-file`, `second_opinion/report_file.py`) with page numbers, running
+   headers and footers dropped and words split at line ends joined back, then shown in the report box so
+   you can check it before the audit. A scanned PDF has no text to read: paste the text, or run OCR first.
 2. **Claims:** untick sentences that are not claims, or tick ones the tool skipped. **Run audit**.
 3. **Audit board:** one entry per claim with the verdict, how solid it is and the Claim Ladder.
    **Open evidence** shows the calculation, the "report vs data" gauge, the files and checksums, the
@@ -332,11 +408,19 @@ cd ../oncosys-hackathon-challenge
 ../SecondOpinion/.venv/bin/python envelopes/unseal.py <number> <four words>
 ```
 
-On Windows, set `PYTHONUTF8=1` first (`$env:PYTHONUTF8=1` in PowerShell): `unseal.py` prints check
-marks and can otherwise stop with a `UnicodeEncodeError`. Rehearse with the public practice envelope:
+Rehearse with the public practice envelope:
 
 ```bash
 ../SecondOpinion/.venv/bin/python envelopes/unseal.py practice orange meadow pilot lantern
+```
+
+Windows (PowerShell). Set `PYTHONUTF8` first: `unseal.py` prints check marks and can otherwise stop with
+a `UnicodeEncodeError` (the app's **Unseal envelope** button sets it for you):
+
+```powershell
+cd ..\oncosys-hackathon-challenge
+$env:PYTHONUTF8 = 1
+..\SecondOpinion\.venv\Scripts\python.exe envelopes\unseal.py practice orange meadow pilot lantern
 ```
 
 **Which release to audit against.** Our product's input in the envelope is
@@ -348,12 +432,20 @@ against release A**, `../oncosys-hackathon-challenge/data/tcga-brca/raw` (its ma
 up and are read for slide counts). The tool works on an envelope's `release/` folder too, if the judges
 ask for it.
 
-From this repository (`.venv\Scripts\second-opinion.exe` and backslashes on Windows):
+From this repository:
 
 ```bash
 .venv/bin/second-opinion --release ../oncosys-hackathon-challenge/data/tcga-brca/raw \
   --report ../oncosys-hackathon-challenge/envelopes/opened/E<number>/claim_auditor_report.md --out audit.json
 .venv/bin/python ../oncosys-hackathon-challenge/format/validate.py audit.json
+```
+
+Windows (PowerShell):
+
+```powershell
+.venv\Scripts\second-opinion.exe --release ..\oncosys-hackathon-challenge\data\tcga-brca\raw `
+  --report ..\oncosys-hackathon-challenge\envelopes\opened\E<number>\claim_auditor_report.md --out audit.json
+.venv\Scripts\python.exe ..\oncosys-hackathon-challenge\format\validate.py audit.json
 ```
 
 It prints one line per claim (verdict, the data's value or what is missing, fragile and close-call
@@ -381,6 +473,12 @@ If ports 3000 or 8000 are busy:
 PORT=3001 UVICORN_PORT=8001 API_ORIGIN=http://127.0.0.1:8001 npm run dev
 ```
 
+Windows (PowerShell; the settings last until you close that window):
+
+```powershell
+$env:PORT = 3001; $env:UVICORN_PORT = 8001; $env:API_ORIGIN = "http://127.0.0.1:8001"; npm run dev
+```
+
 ## Tests and checks
 
 ```bash
@@ -399,6 +497,18 @@ export SO_ENVELOPE_DIR="$PWD/../oncosys-hackathon-challenge/envelopes/opened/pra
 npm test
 ```
 
+Windows (PowerShell):
+
+```powershell
+$env:SO_RELEASE_DIR = (Resolve-Path ..\oncosys-hackathon-challenge\data\tcga-brca\raw).Path
+$env:SO_ENVELOPE_DIR = (Resolve-Path ..\oncosys-hackathon-challenge\envelopes\opened\practice\release).Path
+npm test
+```
+
+`npm test` and `npm run dev` run Python through `scripts/py.mjs`, which picks `.venv/bin/python` or
+`.venv\Scripts\python.exe`, so the same npm commands work on every system. The PDF fixtures in
+`tests/pdf/` are printed from Markdown reports by `tests/pdf/make_fixtures.py` (needs Chrome or Edge).
+
 The real-data tests reproduce the organizers' numbers: 535 of 1,101, Luminal A 421 of 844, ER-alpha
 529 vs 169 samples with a difference of 3.051, and the other ways of counting.
 
@@ -413,6 +523,13 @@ The real-data tests reproduce the organizers' numbers: 535 of 1,101, Luminal A 4
 | Port already in use | Use the `PORT` / `UVICORN_PORT` / `API_ORIGIN` command above |
 | Fonts missing offline | The web fonts are downloaded the first time you run `npm run dev` or `npm run build` and cached after that. Connect once |
 | `/board` shows "No audit yet" | State is per browser tab. Run an audit first, or you opened a new tab |
+| "No Python virtual environment found" | Create `.venv` in the repository root (step 3) |
+| "This PDF has no text to read" | The PDF is a scanned image. Paste the text, or run the PDF through OCR first |
+| PDF text looks off in the report box | PDF text has no paragraph marks, so a table or a two-column layout can come out in an odd order. Fix it in the box, or paste the text |
+| Windows: `npm.ps1 cannot be loaded because running scripts is disabled` | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or type `npm.cmd` instead of `npm` |
+| Windows: `npm ci` fails with `EPERM` or "file in use" | A running `npm run dev` (or an editor) holds a file in `node_modules`. Stop it with Ctrl+C and run `npm ci` again |
+| Windows: `py` or `python` is not found | Install Python from python.org (tick "Add python.exe to PATH") or with winget, then open a new PowerShell window |
+| Windows: `UnicodeEncodeError` from `unseal.py` | Run `$env:PYTHONUTF8 = 1` in that PowerShell window first |
 
 ## Limitations
 
@@ -453,6 +570,7 @@ apps/web/          Next.js App Router, TypeScript, Tailwind CSS: the screens abo
 apps/api/app/      FastAPI transport and request/response models (stateless)
 second_opinion/    Python audit engine and CLI, shared by the API and the CLI
 tests/             Engine, API and web-flow tests; tests/reports holds our own reports with known answers
+scripts/py.mjs     Runs the .venv Python for the npm scripts on macOS, Linux and Windows
 docs/              Plan, challenge snapshot, demo shot list, stack references
 ```
 
@@ -461,6 +579,7 @@ and Decision Record. No database. The API keeps no session: the browser sends ba
 
 | Engine module | Role |
 | --- | --- |
+| `report_file.py` | Read an uploaded report file: Markdown and text decoded, PDF text pulled out and cleaned |
 | `extract.py`, `unanswerable.py` | Split the report into sentences, type each claim, parse numbers, detect "the data can't answer this" |
 | `release.py` | Load a release folder (any envelope), checksums, which samples are in which data layer |
 | `checks/` | One check per claim type: count, coverage, share, comparison, rank, ratio, statistic; `attributes.py` reads receptor status, stage, histology, mutations, copy number and deaths the same way for every check |
@@ -471,6 +590,7 @@ and Decision Record. No database. The API keeps no session: the browser sends ba
 
 | API route | Purpose |
 | --- | --- |
+| `POST /report-file` | A report file (Markdown, text or PDF) → its text, for the report box |
 | `POST /extract`, `POST /classify` | Report text → sentences and claims; type one ticked sentence |
 | `POST /audit` | Claims + release folder → audit result |
 | `POST /practice-release` | A release-A folder for the practice run (local copy or temporary download) |

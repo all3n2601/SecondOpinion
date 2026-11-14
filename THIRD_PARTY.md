@@ -13,6 +13,7 @@ for the hackathon build. Licenses were read from each package's own metadata.
 | [Uvicorn](https://www.uvicorn.org/) | 0.54.0 | BSD-3-Clause | API server |
 | [python-multipart](https://github.com/Kludex/python-multipart) | 0.0.33 | Apache-2.0 | Form uploads |
 | [PyYAML](https://pyyaml.org/) | 6.0.3 | MIT | Reviewer roles file (`roles.yaml`) |
+| [pypdf](https://github.com/py-pdf/pypdf) | 6.21.4 | BSD-3-Clause | Reading the text of PDF reports |
 | [pytest](https://pytest.org/) (dev) | 9.2.0 | MIT | Tests |
 | [HTTPX](https://www.python-httpx.org/) (dev) | 0.28.1 | BSD-3-Clause | API tests |
 

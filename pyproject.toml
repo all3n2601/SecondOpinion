@@ -15,6 +15,7 @@ dependencies = [
     "python-multipart>=0.0.18,<1",
     "pyyaml>=6,<7",
     "cryptography>=41",  # the organizers' envelopes/unseal.py needs it to open sealed envelopes
+    "pypdf>=6,<7",
 ]
 
 [project.optional-dependencies]

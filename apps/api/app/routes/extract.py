@@ -2,16 +2,19 @@
 
 from dataclasses import dataclass
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from second_opinion.ai.client import make_client
 from second_opinion.ai.extract_ai import add_missed_claims
 from second_opinion.extract import classify_sentence, extract_claims
 from second_opinion.model import Claim, ClaimType, ExtractResult, SentenceInfo
+from second_opinion.report_file import ReportFileError, ReportKind, read_report_file
 
 router = APIRouter(tags=["extract"])
 
 MAX_REPORT_CHARS = 500_000  # a long paper is ~100k characters; this only stops runaway uploads
+MAX_REPORT_FILE_BYTES = 20 * 1024 * 1024  # PDFs with figures run to a few MB
 
 
 @dataclass
@@ -45,6 +48,35 @@ def extract(body: ExtractRequest) -> ExtractResult:
             detail=f"The report is too long ({len(body.report_text):,} characters; the limit is {MAX_REPORT_CHARS:,})",
         )
     return _with_ai_claims(extract_claims(body.report_text))
+
+
+class ReportFileResponse(BaseModel):
+    filename: str
+    kind: ReportKind
+    text: str
+    pages: int | None = None
+
+
+@router.post("/report-file", response_model=ReportFileResponse)
+def report_file(file: UploadFile = File(...)) -> ReportFileResponse:
+    """A report file (Markdown, text or PDF) as text, for the browser to show before /extract reads it."""
+    filename = file.filename or "report"
+    data = file.file.read(MAX_REPORT_FILE_BYTES + 1)
+    if len(data) > MAX_REPORT_FILE_BYTES:
+        limit_mb = MAX_REPORT_FILE_BYTES // 2**20
+        raise HTTPException(status_code=413, detail=f"The file is too large (the limit is {limit_mb} MB)")
+    if not data.strip():
+        raise HTTPException(status_code=422, detail="The file is empty")
+    try:
+        read = read_report_file(data, filename)
+    except ReportFileError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if len(read.text) > MAX_REPORT_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"The report is too long ({len(read.text):,} characters; the limit is {MAX_REPORT_CHARS:,})",
+        )
+    return ReportFileResponse(filename=filename, kind=read.kind, text=read.text, pages=read.pages)
 
 
 @router.post("/classify", response_model=Claim)

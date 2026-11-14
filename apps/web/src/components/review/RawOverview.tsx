@@ -1,5 +1,5 @@
 import { FileChecksums } from "@/components/review/sections";
-import { countText, finalVerdict, formatCount, VERDICT_LABEL } from "@/lib/review";
+import { countText, finalVerdict, samplesText, VERDICT_LABEL } from "@/lib/review";
 import type { ClaimResult, ReleaseInfo, Verdict } from "@/lib/types";
 import { focusRing } from "@/lib/ui";
 
@@ -52,8 +52,28 @@ export default function RawOverview({ claims, release, headline, caption }: {
                       <span className={`font-semibold ${INK[final]}`}>{VERDICT_LABEL[final]}</span>
                       {final !== c.verdict && <span className="block text-ink-soft">tool: {VERDICT_LABEL[c.verdict]}</span>}
                     </td>
-                    <td className={`${TD} whitespace-nowrap`}>{countText(c.fact) ?? "none"}</td>
-                    <td className={`${TD} text-right`}>{formatCount(c.fact?.sample_ids.length ?? 0)}</td>
+                    {(c.parts?.length ?? 0) > 1 ? (
+                      // A sentence with several parts: each part's own count, never the first part's for the row.
+                      <>
+                        <td className={`${TD} whitespace-nowrap`}>
+                          {c.parts!.map((p) => (
+                            <span key={p.claim.id} className="block">
+                              <span className="text-ink-soft">{p.claim.id}</span> {countText(p.fact) ?? "none"}
+                            </span>
+                          ))}
+                        </td>
+                        <td className={`${TD} text-right`}>
+                          {c.parts!.map((p) => (
+                            <span key={p.claim.id} className="block">{samplesText(p.fact)}</span>
+                          ))}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className={`${TD} whitespace-nowrap`}>{countText(c.fact) ?? "none"}</td>
+                        <td className={`${TD} text-right`}>{samplesText(c.fact)}</td>
+                      </>
+                    )}
                     <td className={`${TD} whitespace-nowrap`}>
                       {c.fact?.files.length ? c.fact.files.map((f) => <span key={f} className="block">{f}</span>) : "none"}
                     </td>

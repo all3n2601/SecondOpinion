@@ -17,7 +17,7 @@ import { useRoleView } from "@/lib/roles";
 import type { RoleView } from "@/lib/types";
 import { narrationClaims, useNarration } from "@/lib/use-narration";
 import { useReviewSelection } from "@/lib/use-review-selection";
-import { buttonPrimary, buttonQuiet, pageTitle } from "@/lib/ui";
+import { buttonPrimary, buttonQuiet, focusRing, pageTitle } from "@/lib/ui";
 
 const INTRO: Record<RoleView, string> = {
   story: "A short read on what the audit found. Look at each claim, then accept the check or change it with a reason.",
@@ -79,6 +79,17 @@ export default function ReviewPage() {
           <div className="min-w-0">
             <Breadcrumb items={[{ label: "Audit board", href: "/board" }, { label: "Review" }]} />
             <h1 className="text-2xl font-semibold tracking-tight text-ink">Review every verdict</h1>
+            {/* Keyboard users reach the open claim (and "Start reviewing") without tabbing through every claim. */}
+            <a
+              href="#review-pane"
+              onClick={(e) => {
+                e.preventDefault();
+                pane.current?.focus();
+              }}
+              className={`sr-only focus:not-sr-only focus:mt-2 focus:inline-flex focus:rounded-control focus:bg-sheet focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-pen ${focusRing}`}
+            >
+              Skip to the open claim
+            </a>
             <div className="mt-4">
               <RolePicker />
             </div>
@@ -125,10 +136,11 @@ export default function ReviewPage() {
           </div>
 
           <section
+            id="review-pane"
             ref={pane}
             tabIndex={-1}
             aria-label={current ? `Claim ${current.claim.id}` : "Overview"}
-            className="min-w-0 scroll-mt-6 focus:outline-none lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:pr-1"
+            className="min-w-0 scroll-mt-6 focus:outline-none lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:p-1"
           >
             {/* Every claim's form stays mounted, hidden unless open, so a half-written review survives switching. */}
             {claims.map((result) => {

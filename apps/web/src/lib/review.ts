@@ -46,7 +46,19 @@ export function countText(fact: Fact | null): string | null {
     const unknown = fact.unknown_count ? `; ${formatCount(fact.unknown_count)} unknown, left out` : "";
     return `${formatCount(fact.numerator)} of ${formatCount(fact.denominator)}${unknown}`;
   }
-  return fact.value !== null ? String(fact.value) : null;
+  if (fact.value === null) return null;
+  // "1,101", never "1101"; a mean or a ratio keeps up to three decimals.
+  return Number.isInteger(fact.value) ? formatCount(fact.value) : fact.value.toLocaleString("en-US", { maximumFractionDigits: 3 });
+}
+
+/**
+ * How many samples a check lists, as text: "85"; "0" when it counted none; "not listed" when the check does not
+ * list samples (a ranking, a rate or a mean), where a bare 0 would read as "no samples".
+ */
+export function samplesText(fact: Fact | null): string {
+  if (!fact) return "none";
+  if (fact.sample_ids.length > 0) return formatCount(fact.sample_ids.length);
+  return fact.numerator === 0 ? "0" : "not listed";
 }
 
 /** The one number a reviewer needs to judge the tool's verdict. */

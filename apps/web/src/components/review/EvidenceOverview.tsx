@@ -1,5 +1,5 @@
 import VerdictBadge from "@/components/VerdictBadge";
-import { variantWords, VERDICT_LABEL } from "@/lib/claim-format";
+import { agreement, agreementFraction, agreementText, partsWord, variantWords, VERDICT_LABEL } from "@/lib/claim-format";
 import { finalVerdict, formatCount } from "@/lib/review";
 import type { ClaimResult } from "@/lib/types";
 
@@ -9,6 +9,8 @@ const MAX_CELLS = 12;
 /** "n of m ways of counting agree" as a bar: one cell per way, filled when that way gives the tool's verdict. */
 function AgreementBar({ result }: { result: ClaimResult }) {
   const { variants, verdict } = result;
+  const whole = agreement(result);
+  if (whole?.kind === "parts") return <PartsBar result={result} />;
   if (variants.length === 0) return <span className="text-sm text-ink-soft">Only one way to count it</span>;
   const agree = variants.filter((v) => v.verdict === verdict).length;
   const label = `${formatCount(agree)} of ${formatCount(variants.length)} ways of counting agree`;
@@ -30,6 +32,32 @@ function AgreementBar({ result }: { result: ClaimResult }) {
       <span aria-hidden="true" className="num shrink-0 font-mono text-sm text-ink">
         {formatCount(agree)} of {formatCount(variants.length)}
       </span>
+    </span>
+  );
+}
+
+/** A sentence with several parts: one cell per part, filled when that part holds under every way of counting. */
+function PartsBar({ result }: { result: ClaimResult }) {
+  const whole = agreement(result);
+  if (whole?.kind !== "parts") return null;
+  const parts = (result.parts ?? []).filter((p) => p.solidity !== "not_applicable");
+  return (
+    <span className="grid gap-1">
+      <span className="flex items-center gap-3">
+        <span role="img" aria-label={agreementText(whole)} className="flex h-3 w-full max-w-48 gap-0.5 overflow-hidden rounded-stamp bg-wash">
+          {parts.map((p) => (
+            <span
+              key={p.claim.id}
+              title={`${p.claim.part_label || p.claim.text}: ${p.solidity === "holds_under_every_variant" ? "holds every way" : "changes with how it is counted"}`}
+              className={`flex-1 ${p.solidity === "holds_under_every_variant" ? "bg-pen" : "bg-rule-strong"}`}
+            />
+          ))}
+        </span>
+        <span aria-hidden="true" className="num shrink-0 font-mono text-sm text-ink">
+          {agreementFraction(whole)} {partsWord(whole)}
+        </span>
+      </span>
+      {whole.changing.length > 0 && <span aria-hidden="true" className="text-ink-soft">{agreementText(whole).split("; ")[1]}</span>}
     </span>
   );
 }

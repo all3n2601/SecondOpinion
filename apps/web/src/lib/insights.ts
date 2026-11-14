@@ -4,7 +4,7 @@
 // is arithmetic on the audit's own facts.
 
 import { paramsFromAiPlan } from "./ai-plan";
-import { flipWords, PRIMARY_VARIANT_ID, variantChanges, variantWords } from "./claim-format";
+import { agreement, agreementFraction, flipWords, partsWord, PRIMARY_VARIANT_ID, variantChanges, variantWords } from "./claim-format";
 import { finalVerdict, formatCount } from "./review";
 import type { ClaimParams, ClaimResult, Fact, Verdict } from "./types";
 
@@ -304,9 +304,9 @@ export function causeTeaser(d: Diagnosis): string {
 
 /** "8 of 8 ways agree", plus "; skeptic tests apply" when they ran; null with no other ways of counting. */
 export function robustnessTeaser(result: ClaimResult): string | null {
-  if (!result.variants.length) return null;
-  const agree = result.variants.filter((v) => v.verdict === result.verdict).length;
-  const text = `${formatCount(agree)} of ${formatCount(result.variants.length)} ways agree`;
+  const whole = agreement(result);
+  if (!whole) return null;
+  const text = whole.kind === "parts" ? `${agreementFraction(whole)} ${partsWord(whole)} ${whole.hold === 1 ? "holds" : "hold"} every way` : `${agreementFraction(whole)} ways agree`;
   return result.skeptic ? `${text}; skeptic tests apply` : text;
 }
 

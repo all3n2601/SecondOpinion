@@ -7,7 +7,7 @@
 // after a count slot ("Claims to review: {total}", never "{total} claims"). Pure functions: no React, no fetch.
 
 import { describeStated } from "./ai-plan";
-import { formatResultFact } from "./claim-format";
+import { agreement, agreementFraction, formatResultFact } from "./claim-format";
 import { finalVerdict, formatCount } from "./review";
 import type { ClaimParams, ClaimResult, RoleView, Verdict } from "./types";
 
@@ -86,8 +86,10 @@ export function claimSlots(result: ClaimResult): Record<string, string> {
 
   // The data is what the tool computed, whatever a reviewer later decided about it.
   let dataShows = "";
+  const multiPart = (result.parts?.length ?? 0) > 1;
   if (result.verdict === "contradicted") dataShows = result.correct_value ?? formatResultFact(result);
-  else if (result.verdict === "supported") dataShows = formatResultFact(result);
+  // One figure cannot stand for a sentence with several parts; each part's figure is listed under it.
+  else if (result.verdict === "supported" && !multiPart) dataShows = formatResultFact(result);
   if (dataShows) slots.data_shows = dataShows;
 
   // A single-value comparison misleads for a range or a figure out of a stated total, and "the same as" next to
@@ -104,9 +106,12 @@ export function claimSlots(result: ClaimResult): Record<string, string> {
     }
   }
 
-  if (result.variants.length > 0) {
-    slots.agree = formatCount(result.variants.filter((v) => v.verdict === result.verdict).length);
-    slots.ways = formatCount(result.variants.length);
+  const whole = agreement(result);
+  if (whole?.kind === "ways") {
+    slots.agree = formatCount(whole.agree);
+    slots.ways = formatCount(whole.ways);
+  } else if (whole?.kind === "parts") {
+    slots.parts_hold = agreementFraction(whole);  // "3 of 4": parts that hold under every way of counting
   }
   return slots;
 }
@@ -196,7 +201,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "Supported: data shows {data_shows}.",
             "Supported.",
           ],
-          "Ways of counting that agree: {agree} of {ways}.",
+          ["Ways of counting that agree: {agree} of {ways}.", "Parts that hold under every way of counting: {parts_hold}."],
           "Check it, then accept.",
         );
       }
@@ -209,7 +214,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "Contradicted: data shows {data_shows}.",
             "Contradicted.",
           ],
-          "Ways of counting that agree: {agree} of {ways}.",
+          ["Ways of counting that agree: {agree} of {ways}.", "Parts that hold under every way of counting: {parts_hold}."],
           "Accept, or override with a reason.",
         );
       }
@@ -235,7 +240,10 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "The recomputed figure is {data_shows}.",
             "The recomputed figure supports the claim.",
           ],
-          "Ways of counting that give the same verdict: {agree} of {ways}.",
+          [
+            "Ways of counting that give the same verdict: {agree} of {ways}.",
+            "Parts that keep their verdict under every way of counting: {parts_hold}.",
+          ],
         );
       }
       if (kind === "contradicted") {
@@ -247,7 +255,10 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "The recomputed figure is {data_shows}.",
             "The recomputed figure contradicts the claim.",
           ],
-          "Ways of counting that give the same verdict: {agree} of {ways}.",
+          [
+            "Ways of counting that give the same verdict: {agree} of {ways}.",
+            "Parts that keep their verdict under every way of counting: {parts_hold}.",
+          ],
         );
       }
       return "The release lacks the data this claim needs, so no verdict on the figure is possible.";
@@ -261,7 +272,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
         "stated {stated}",
         "data {data_shows}",
         "{direction}",
-        "agree {agree}/{ways}",
+        ["agree {agree}/{ways}", "parts robust {parts_hold}"],
       );
     }
   }

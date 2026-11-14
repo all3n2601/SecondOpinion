@@ -205,12 +205,76 @@ export function resultTypeLabel(result: ClaimResult): string {
   return plan ? PLAN_OP_LABEL[plan.op] : TYPE_LABEL[result.claim.type];
 }
 
+/**
+ * How solid a verdict is under the other ways of counting, for a whole sentence.
+ * One claim: how many ways of counting give the same verdict ("8 of 8").
+ * A sentence with several parts: how many parts give the same verdict under every way of counting, and which do not.
+ * Never one part's count standing in for the sentence: that read "8 of 8" under a "Fragile" tag.
+ */
+export type Agreement =
+  | { kind: "ways"; agree: number; ways: number }
+  | { kind: "parts"; hold: number; tested: number; changing: { label: string; flips: string[] }[] };
+
+export function agreement(result: ClaimResult): Agreement | null {
+  const parts = result.parts ?? [];
+  if (parts.length > 1) {
+    const tested = parts.filter((p) => p.solidity !== "not_applicable");
+    if (tested.length === 0) return null;
+    const changing = tested
+      .filter((p) => p.solidity === "holds_under_some_variants")
+      .map((p) => ({ label: p.claim.part_label || p.claim.text, flips: p.flips_on }));
+    return { kind: "parts", hold: tested.length - changing.length, tested: tested.length, changing };
+  }
+  if (result.variants.length === 0) return null;
+  return {
+    kind: "ways",
+    agree: result.variants.filter((v) => v.verdict === result.verdict).length,
+    ways: result.variants.length,
+  };
+}
+
+/** "part" or "parts", for "1 of 1 part" and "3 of 4 parts". */
+export function partsWord(a: Agreement): string {
+  return a.kind === "parts" && a.tested === 1 ? "part" : "parts";
+}
+
+/** "3 of 4" / "8 of 8": the fraction alone, for a bar or a table cell. */
+export function agreementFraction(a: Agreement): string {
+  return a.kind === "parts" ? `${count.format(a.hold)} of ${count.format(a.tested)}` : `${count.format(a.agree)} of ${count.format(a.ways)}`;
+}
+
+/**
+ * "8 of 8 ways of counting agree" / "3 of 4 parts hold under every way of counting; “48.5% of Luminal A” changes when
+ * using the 2012 study subtype label". `withReasons` adds which parts change and why (up to two of each).
+ */
+export function agreementText(a: Agreement, withReasons = true): string {
+  if (a.kind === "ways") return `${agreementFraction(a)} ways of counting agree`;
+  const head = `${agreementFraction(a)} ${partsWord(a)} ${a.hold === 1 ? "holds" : "hold"} under every way of counting`;
+  if (!withReasons || a.changing.length === 0) return head;
+  const labels = a.changing.map((c) => `“${c.label}”`);
+  const which = labels.length > 2 ? `${labels.slice(0, 2).join(", ")} and ${labels.length - 2} more` : labels.join(" and ");
+  const reasons = [...new Set(a.changing.flatMap((c) => c.flips))].map(flipWords);
+  const why = reasons.length === 0 ? "" : ` when ${reasons.length > 2 ? `${reasons.slice(0, 2).join(" or ")}, or another way` : reasons.join(" or ")}`;
+  return `${head}; ${which} ${a.changing.length === 1 ? "changes" : "change"}${why}`;
+}
+
 export type SolidityText = { short: string; long: string };
 
 /** "Robust (8 of 8)" / "Fragile: flips when using the 2012 study subtype label" / not tested. */
 export function solidityText(result: ClaimResult): SolidityText {
   const checked = result.variants.filter((v) => v.verdict !== null);
   const same = checked.filter((v) => v.verdict === result.verdict).length;
+  const whole = agreement(result);
+  if (whole?.kind === "parts") {  // a sentence with several parts: count parts, never one part's ways of counting
+    const reasons = [...new Set(result.flips_on)].map(flipWords);
+    const shown = reasons.length > 2 ? `${reasons.slice(0, 2).join(" or ")}, and ${reasons.length - 2} more` : reasons.join(" or ");
+    if (result.solidity === "holds_under_every_variant") {
+      return { short: `Robust (${agreementFraction(whole)} parts)`, long: `${agreementText(whole)}.` };
+    }
+    if (result.solidity === "holds_under_some_variants") {
+      return { short: `Fragile: flips when ${shown || "counting differently"}`, long: `${agreementText(whole)}.` };
+    }
+  }
   if (result.solidity === "holds_under_every_variant") {
     return {
       short: `Robust (${same} of ${checked.length})`,

@@ -2,7 +2,7 @@ import { STORY_WORDS } from "@/components/review/ClaimBody";
 import { finalVerdict, formatCount, VERDICTS } from "@/lib/review";
 import type { ClaimResult, Verdict } from "@/lib/types";
 
-/** "5 held up", "1 was wrong", "2 couldn't be checked". */
+/** "5 held up", "1 was wrong", "2 couldn't be checked" (the story view's phrase family, as in STORY_WORDS). */
 function countWords(verdict: Verdict, n: number): string {
   const count = formatCount(n);
   if (verdict === "supported") return `${count} held up`;

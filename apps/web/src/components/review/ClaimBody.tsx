@@ -11,6 +11,7 @@ import {
   SampleIds,
   SkepticLine,
 } from "@/components/review/sections";
+import { STORY_VERDICT_WORDS } from "@/lib/narrate";
 import { countText, finalVerdict, formatCount, keyNumber, VERDICT_LABEL } from "@/lib/review";
 import type { ClaimResult, RoleView, Verdict } from "@/lib/types";
 import { focusRing } from "@/lib/ui";
@@ -19,9 +20,9 @@ type Sentence = { text: string; ai: boolean };
 
 /** Plain words for a verdict, for readers with little data background (story view, story overview). */
 export const STORY_WORDS: Record<Verdict, { label: string; icon: typeof CircleCheck; ink: string; fill: string }> = {
-  supported: { label: "Held up", icon: CircleCheck, ink: "text-supported", fill: "bg-supported" },
-  contradicted: { label: "Wrong", icon: CircleX, ink: "text-contradicted", fill: "bg-contradicted" },
-  insufficient_evidence: { label: "Can't tell", icon: CircleHelp, ink: "text-insufficient", fill: "bg-insufficient" },
+  supported: { label: STORY_VERDICT_WORDS.supported, icon: CircleCheck, ink: "text-supported", fill: "bg-supported" },
+  contradicted: { label: STORY_VERDICT_WORDS.contradicted, icon: CircleX, ink: "text-contradicted", fill: "bg-contradicted" },
+  insufficient_evidence: { label: STORY_VERDICT_WORDS.insufficient_evidence, icon: CircleHelp, ink: "text-insufficient", fill: "bg-insufficient" },
 };
 
 /** The narrated sentence, with the AI marker when the AI helper chose the words. */

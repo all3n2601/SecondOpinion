@@ -5,6 +5,7 @@ import {
   fillSlots,
   narrationKey,
   renderNarration,
+  STORY_VERDICT_WORDS,
   templateFor,
 } from "./narrate";
 import type { ClaimResult, ClaimType, RoleView, Verdict } from "./types";
@@ -226,9 +227,50 @@ describe("templateFor", () => {
     }
   });
   it("uses plain words only in the story view", () => {
+    // Keep in step with STORY_JARGON in second_opinion/ai/narrate.py (whole words, plurals too).
+    const jargon = /\b(?:fragile|robust|robustness|variants?|solidity|skeptic|verdict|p-value|PAM50)s?\b/i;
+    const overridden = (["supported", "contradicted", "insufficient_evidence"] as Verdict[]).map((v) =>
+      result({ verdict: v === "supported" ? "contradicted" : "supported", review: review(v) }),
+    );
+    for (const claims of [audit, overridden, []]) {
+      const t = templateFor("story", claims);
+      // Slot names are not words the reader sees ({fragile} becomes a number), as in the server's checker.
+      for (const text of [t.headline, t.caption, ...Object.values(t.claims)]) expect(text.replace(/\{\w+\}/g, " ")).not.toMatch(jargon);
+    }
+  });
+  it("uses one phrase family for a claim that could not be checked in the story view", () => {
+    const [, , c] = audit;
     const t = templateFor("story", audit);
+    expect(STORY_VERDICT_WORDS.insufficient_evidence).toBe("Couldn't be checked");
+    expect(t.headline).toContain("Couldn't be checked: {insufficient}");
+    expect(t.claims[c.claim.id]).toMatch(/^This claim couldn't be checked/);
+    const changed = result({ review: review("insufficient_evidence") });
+    expect(templateFor("story", [changed]).claims[changed.claim.id]).toContain(`"Couldn't be checked"`);
     const all = [t.headline, t.caption, ...Object.values(t.claims)].join(" ");
-    expect(all).not.toMatch(/variant|solidity|skeptic|PAM50/i);
+    expect(all).not.toMatch(/can't tell|could not be checked|not checkable/i);
+  });
+  it("reads correctly when every count is 1", () => {
+    const one = result({
+      verdict: "contradicted",
+      correct_value: "48.0% (48 of 100)",
+      solidity: "holds_under_some_variants",
+      fact: { ...result().fact!, value: 48, numerator: 48 },
+      variants: [{ variant_id: "v1", fact: null, verdict: "contradicted" }],
+      review: review("contradicted"),
+    });
+    for (const view of VIEWS) {
+      const out = renderNarration(view, [one], null);
+      for (const text of [out.headline, out.caption, out.claims[one.claim.id].text]) {
+        expect(text, `${view}: ${text}`).not.toMatch(/\b1 (?:of 1 )?(?:claims|ways|verdicts|were|are)\b/);
+      }
+    }
+  });
+  it("words the empty overview for an audit that ran and found no claims", () => {
+    for (const view of VIEWS) {
+      const t = templateFor(view, []);
+      expect(`${t.headline} ${t.caption}`, view).not.toMatch(/run (?:the|an) audit|add a report|yet/i);
+    }
+    expect(templateFor("story", []).headline).toBe("The report had no claims to check.");
   });
   it("says so when a reviewer's verdict differs from the data, instead of claiming the data agrees", () => {
     const overridden = result({ verdict: "contradicted", correct_value: "7 of 12", review: review("supported") });

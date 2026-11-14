@@ -2,8 +2,9 @@
 // number on screen always comes from the data, never from the wording. The built-in templates below are
 // the fallback and the baseline; the optional AI endpoint (POST /ai/narrate) writes the same slotted
 // shape, already checked by second_opinion/ai/narrate.py. These templates obey the same rules as that
-// checker (no digits, no number or comparison words, no percent sign outside a slot) so a reviewer
-// hears one voice whichever wrote it. Pure functions: no React, no fetch.
+// checker (no digits, no number or comparison words, no percent sign outside a slot; no jargon in the story
+// view) so a reviewer hears one voice whichever wrote it. A slot can hold 1, so no template puts a plural noun
+// after a count slot ("Claims to review: {total}", never "{total} claims"). Pure functions: no React, no fetch.
 
 import { describeStated } from "./ai-plan";
 import { formatResultFact } from "./claim-format";
@@ -134,18 +135,24 @@ const FINAL_WORDS: Record<Verdict, string> = {
 
 type Kind = Verdict | "overridden";
 
+/** Story-view words for a final verdict. The same family as STORY_WORDS in components/review/ClaimBody.tsx. */
+export const STORY_VERDICT_WORDS: Record<Verdict, string> = {
+  supported: "Held up",
+  contradicted: "Wrong",
+  insufficient_evidence: "Couldn't be checked",
+};
+
 function claimSentence(view: RoleView, result: ClaimResult): string {
   const final = finalVerdict(result);
   const kind: Kind = final === result.verdict ? final : "overridden";
   const values = { ...auditSlots([result]), ...claimSlots(result) };
-  const ways = "{agree} of {ways} ways of counting";
 
   switch (view) {
     case "story": {
       if (kind === "overridden") {
         return compose(
           values, " ",
-          `A reviewer changed the verdict to ${FINAL_WORDS[final]}.`,
+          `A reviewer changed this to "${STORY_VERDICT_WORDS[final]}".`,
           ["The report says {stated}, and the data shows {data_shows}.", "The data shows {data_shows}."],
         );
       }
@@ -170,7 +177,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
           ],
         );
       }
-      return "This release does not have the data to check this claim.";
+      return "This claim couldn't be checked: the release does not have the data it needs.";
     }
 
     case "checklist": {
@@ -189,7 +196,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "Supported: data shows {data_shows}.",
             "Supported.",
           ],
-          `${ways} agree.`,
+          "Ways of counting that agree: {agree} of {ways}.",
           "Check it, then accept.",
         );
       }
@@ -202,7 +209,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "Contradicted: data shows {data_shows}.",
             "Contradicted.",
           ],
-          `${ways} agree.`,
+          "Ways of counting that agree: {agree} of {ways}.",
           "Accept, or override with a reason.",
         );
       }
@@ -228,7 +235,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "The recomputed figure is {data_shows}.",
             "The recomputed figure supports the claim.",
           ],
-          `${ways} give the same verdict.`,
+          "Ways of counting that give the same verdict: {agree} of {ways}.",
         );
       }
       if (kind === "contradicted") {
@@ -240,7 +247,7 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
             "The recomputed figure is {data_shows}.",
             "The recomputed figure contradicts the claim.",
           ],
-          `${ways} give the same verdict.`,
+          "Ways of counting that give the same verdict: {agree} of {ways}.",
         );
       }
       return "The release lacks the data this claim needs, so no verdict on the figure is possible.";
@@ -261,24 +268,23 @@ function claimSentence(view: RoleView, result: ClaimResult): string {
 }
 
 const HEADLINE: Record<RoleView, string> = {
-  story:
-    "{supported} of {total} claims held up against the data, {contradicted} did not, and {insufficient} could not be checked.",
-  checklist: "{total} claims to review: {supported} supported, {contradicted} contradicted, {insufficient} with too little data.",
-  evidence:
-    "{supported} supported, {contradicted} contradicted and {insufficient} with insufficient evidence, out of {total} claims.",
+  story: "Claims checked against the data: {total}. Held up: {supported}. Wrong: {contradicted}. Couldn't be checked: {insufficient}.",
+  checklist: "Claims to review: {total} (supported {supported}, contradicted {contradicted}, too little data {insufficient}).",
+  evidence: "Claims audited: {total}. Supported: {supported}; contradicted: {contradicted}; insufficient evidence: {insufficient}.",
   raw: "total {total} | supported {supported} | contradicted {contradicted} | insufficient {insufficient}",
 };
 
 const CAPTION: Record<RoleView, string> = {
-  story: "{reviewed} reviewed by a person so far. {fragile} could change if counted another way.",
-  checklist: "{reviewed} of {total} reviewed. Accept or override each claim, then finish.",
-  evidence: "{fragile} verdicts hold in only some ways of counting; {reviewed} reviewed so far.",
+  story: "Reviewed by a person so far: {reviewed}. Could change if counted another way: {fragile}.",
+  checklist: "Reviewed so far: {reviewed} of {total}. Accept or override each claim, then finish.",
+  evidence: "Verdicts that hold in only some ways of counting: {fragile}. Reviewed so far: {reviewed}.",
   raw: "reviewed {reviewed} | fragile {fragile}",
 };
 
+// An audit that ran and found nothing to check in the report (the page shows no overview without an audit).
 const EMPTY: Record<RoleView, { headline: string; caption: string }> = {
-  story: { headline: "There are no claims to look at yet.", caption: "Add a report and run the audit to see what held up." },
-  checklist: { headline: "No claims to review.", caption: "Run an audit first." },
+  story: { headline: "The report had no claims to check.", caption: "There is nothing here to review." },
+  checklist: { headline: "No claims to review.", caption: "The audit found no claims in the report." },
   evidence: { headline: "The audit has no claims.", caption: "Nothing to recompute." },
   raw: { headline: "no claims", caption: "audit empty" },
 };

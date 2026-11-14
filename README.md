@@ -277,13 +277,17 @@ code:
 | `story` | Program leader | A short written summary of what held up and what did not |
 | `checklist` | Data-use reviewer | Counts by verdict, then every claim as a tick box that jumps to its row |
 | `evidence` | Researcher | Each claim next to the numbers and checks behind it |
-| `raw` | Data engineer | Plain tables and files, no written summary |
+| `raw` | Data engineer | Plain tables and files, with only a terse one-line headline, caption and per-claim summary |
 
 If a role has no `view`, it comes from `detail`: `summary` is `story`, `standard` is `checklist`,
-`full` is `evidence`. The **Add a role** form has a "How it looks" choice for it. The wording in the
-`story` and `checklist` views is template text by default. If an AI helper is configured,
-`POST /ai/narrate` can reword it with named blanks that the browser fills from the audit, so the
-numbers still come from code; anything that fails the checker falls back to the template wording.
+`full` is `evidence`. The **Add a role** form has a "How it looks" choice for it. The wording in all
+four views (headline, caption and one line per claim) is template text by default. If the optional AI
+helper is configured (`SO_AI_API_KEY` and `SO_AI_MODEL` in `.env`, see `.env.example`; `SO_AI=off`
+switches it off), `POST /ai/narrate` can reword it with named blanks that the browser fills from the
+audit, so the numbers still come from code. The model sees only the view, and per claim its id, final
+verdict, how solid it is (in plain words), whether a person overrode it, the report sentence and the
+names of the blanks that claim has a value for. Anything that fails the checker
+(`second_opinion/ai/narrate.py`) falls back to the template wording.
 
 The app keeps your work if you refresh the page. It is stored only in that browser tab
 (`sessionStorage`); closing the tab clears it, and **Start over** clears it on demand.
@@ -348,6 +352,8 @@ is not needed). The validator must print `valid`. A full run takes under 10 seco
 | `SO_RELEASE_DIR` | environment | Folder of the real release; turns on the real-data tests |
 | `SO_ENVELOPE_DIR` | environment | An unsealed envelope's `release/` folder; turns on the envelope rehearsal tests |
 | `SO_RELEASES_ROOT` | environment, for any shared or deployed instance | If set, `/audit` only accepts release folders inside this directory. Leave it unset for local use |
+| `SO_AI_API_KEY`, `SO_AI_MODEL` | `.env` (copy `.env.example`; git ignores `.env`) | Turn on the optional AI helper (claim plans and Review-page wording). With either unset it stays off. `SO_AI_BASE_URL` and `SO_AI_TIMEOUT` are optional |
+| `SO_AI` | `.env` or environment | `off`, `0` or `false` switches the AI helper off even when the key and model are set |
 
 If ports 3000 or 8000 are busy:
 

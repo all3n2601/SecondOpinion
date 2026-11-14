@@ -1,10 +1,10 @@
 """Score the auditor against blind test reports and their answer keys.
 
-usage: python tests/blind/score.py SETS_DIR [--ai] [--json OUT]
+usage: python tests/blind/score.py SETS_DIR [--ai [--no-split]] [--json OUT]
 
 SETS_DIR holds blindset*/ folders, each with report .md files, key.json and nonclaims.json. Needs the real release in
 SO_RELEASE_DIR. Rules only by default (the AI layer is switched off); --ai runs the app's normal path with the AI helper
-from .env: it adds the claims the rules missed, then audits with the AI plan executor. The AI mode sends report text to
+from .env: it adds the claims the rules missed, splits each unmapped one (unless --no-split), then audits with the AI plan executor. The AI mode sends report text to
 the configured AI host.
 
 Matching: a key entry matches the first finding whose claim text (or original sentence) contains `claim_contains`, after
@@ -91,9 +91,10 @@ def _rows(audit) -> list[dict]:
     return rows
 
 
-def score_set(folder: str, release_dir: str, client) -> dict:
+def score_set(folder: str, release_dir: str, client, split: bool = True) -> dict:
     """Run every report in one blindset folder and score it against its key."""
     from second_opinion.ai.extract_ai import add_missed_claims
+    from second_opinion.ai.split import split_gated
     from second_opinion.audit import audit_claims
     from second_opinion.extract import extract_claims
 
@@ -111,6 +112,8 @@ def score_set(folder: str, release_dir: str, client) -> dict:
             extracted = extract_claims(text)
             if client is not None:  # what POST /extract returns
                 extracted = add_missed_claims(extracted, client)
+                if split:
+                    extracted = split_gated(extracted, client)
             claims = extracted.claims
             findings[report] = _rows(audit_claims(claims, release_dir, client) if claims else None)
         except Exception as exc:  # a crash is a result too
@@ -175,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("sets_dir")
     parser.add_argument("--ai", action="store_true", help="use the AI helper configured in .env, as the app does")
+    parser.add_argument("--no-split", action="store_true", help="with --ai: skip the AI split, to measure what it adds")
     parser.add_argument("--json", metavar="OUT", help="also write every entry and finding to this file")
     args = parser.parse_args(argv)
 
@@ -196,18 +200,19 @@ def main(argv: list[str] | None = None) -> int:
     sets: dict[str, dict] = {}
     for key_path in sorted(glob.glob(os.path.join(args.sets_dir, "blindset*", "key.json"))):
         folder = os.path.dirname(key_path)
-        sets[os.path.basename(folder)] = score_set(folder, release_dir, client)
+        sets[os.path.basename(folder)] = score_set(folder, release_dir, client, split=not args.no_split)
     if not sets:
         sys.exit(f"no blindset*/key.json under {args.sets_dir}")
 
+    mode = ("ai, no split" if args.no_split else "ai") if args.ai else "rules only"
     print(format_table(sets))
     unscored = sum(len(s["extras"]) for s in sets.values())
     errors = sum(len(s["errors"]) for s in sets.values())
-    print(f"\nmode: {'ai' if args.ai else 'rules only'}; unscored findings: {unscored}; errors: {errors}; "
+    print(f"\nmode: {mode}; unscored findings: {unscored}; errors: {errors}; "
           f"seconds: {time.time() - started:.0f}")
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
-            json.dump({"mode": "ai" if args.ai else "rules", "sets": sets}, f, indent=1, default=str)
+            json.dump({"mode": mode, "sets": sets}, f, indent=1, default=str)
     return 0
 
 

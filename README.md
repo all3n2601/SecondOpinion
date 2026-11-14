@@ -5,7 +5,7 @@
 > Research prototype. Not a clinical decision system. Verdicts need human review.
 > No diagnosis, treatment advice or risk scores.
 
-**Demo video:** _link to be added_ (3 minutes; script in [docs/DEMO.md](docs/DEMO.md))
+**Demo video:** _link to be added_ (about 3 minutes, silent screen recording; shot list in [docs/DEMO.md](docs/DEMO.md))
 
 ## How to run it, step by step
 
@@ -454,7 +454,7 @@ apps/web/          Next.js App Router, TypeScript, Tailwind CSS: the screens abo
 apps/api/app/      FastAPI transport and request/response models (stateless)
 second_opinion/    Python audit engine and CLI, shared by the API and the CLI
 tests/             Engine, API and web-flow tests; tests/reports holds our own reports with known answers
-docs/              Plan, challenge snapshot, demo script, stack references
+docs/              Plan, challenge snapshot, demo shot list, stack references
 ```
 
 Browser → Next.js (proxies `/api/*`) → FastAPI → `second_opinion` (pandas) → evidence, `audit.json`

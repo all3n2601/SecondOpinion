@@ -1,27 +1,33 @@
-# Demo video script (3 minutes)
+# Demo video (about 3 minutes, screen recording only)
 
-Record the screen at 1280×800 or larger, with the practice report and release A (or the unsealed
-practice envelope). Before you start, run `npm run dev`, open http://localhost:3000, check it says
-**API connected**, and set **Viewing as** to *Data-use reviewer*.
+The video is a silent screen recording: no voice-over. The screen has to tell the story on its own,
+so move the mouse slowly and pause on each key screen for a few seconds so it can be read.
 
-| Time | Screen | Say |
+Record at 1280×800 or larger, with the practice report and release A (or the unsealed practice
+envelope). Before you start, run `npm run dev`, open http://localhost:3000, check it says
+**API connected**, and set **Viewing as** to *Data-use reviewer*. Close other tabs and hide
+notifications.
+
+| Time | Do this | Pause on |
 | --- | --- | --- |
-| 0:00 | Start | "Reviewers get reports like this and must decide: can we publish it?" |
-| 0:20 | Start → **Run the practice audit** (fills in the data folder) → **Open the audit board** | "Three claims: one supported, one wrong, one the data can't answer." |
-| 0:50 | Open C2 (≈62% Luminal A) → evidence panel | "The report says 62%. The data says 49.9%, 421 of 844, and never 62% however you count it. Here are the code and the sample IDs." |
-| 1:40 | Open C3 (hormone therapy) | "This release has no treatment data, so we don't guess. Here's the data that would be needed." |
-| 2:00 | **Review** → accept all three | "A person confirms or overrides every verdict before anything is exported." |
-| 2:10 | **Decision** → switch **Viewing as** to *Program leader* | "Same facts, simpler view. The tool suggests Fix a problem." |
-| 2:40 | Choose a decision, write a reason, **Export**, download both files | "audit.json passes the organizers' validator, and the Decision Record says who must sign off. Research prototype, never a clinical decision." |
+| 0:00 | Landing page → **Start an audit** | The report text and the research-only banner |
+| 0:20 | **Run the practice audit** → **Open the audit board** | The three verdicts: one supported, one wrong, one the data can't answer |
+| 0:50 | Open C2 (≈62% Luminal A) → evidence panel | 62% in the report vs 49.9% (421 of 844) in the data, the code and the sample IDs |
+| 1:40 | Open C3 (hormone therapy) | *Insufficient evidence* and the data that would be needed |
+| 2:00 | **Review** → accept all three | That a person confirms each verdict |
+| 2:10 | **Decision** → switch **Viewing as** to *Program leader* | The simpler view and the suggested decision |
+| 2:40 | Choose a decision, type a reason, **Export**, download both files | The downloaded `audit.json` and Decision Record |
 
 After recording, upload the video (unlisted is fine), and replace `_link to be added_` at the top of
 the README with the link.
 
 Checks before recording:
 
+- [ ] Click through once first: the landing page and Review page changed on Nov 14, so make sure
+      every step above still matches the screen.
 - [ ] `.venv/bin/python docs/challenge/format/validate.py audit.json` prints `valid` on the downloaded file.
 - [ ] The research-only banner is visible on every screen in the video.
-- [ ] No sentence in the voice-over sounds like medical advice.
+- [ ] Nothing typed on screen (for example the decision reason) reads like medical advice.
 
 ---
 

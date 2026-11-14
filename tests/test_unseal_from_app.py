@@ -1,5 +1,7 @@
 """Opening a sealed envelope from the Start page: POST /envelope/unseal runs the organizers' unseal.py."""
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -76,8 +78,8 @@ def test_practice_envelope_opens_and_fills_in_the_start_page(monkeypatch):
     assert body["envelope"] == "practice"
     assert len(body["checks"]) == 4 and "Envelope practice opened" in body["checks"]
     assert body["report_name"] == "practice_brief.md" and "Luminal A" in body["report_text"]
-    assert body["release_a_dir"].endswith("data/tcga-brca/raw")
-    assert body["envelope_release_dir"].endswith("envelopes/opened/practice/release")
+    assert Path(body["release_a_dir"]).as_posix().endswith("data/tcga-brca/raw")  # native separators on Windows
+    assert Path(body["envelope_release_dir"]).as_posix().endswith("envelopes/opened/practice/release")
     assert "release/clinical.tsv" in body["files"]
 
 

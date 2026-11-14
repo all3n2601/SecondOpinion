@@ -61,6 +61,8 @@ export interface Claim {
   parts?: Claim[];
   /** For a part: the words it checks, e.g. "7 metastatic samples". */
   part_label?: string;
+  /** The sentence's words the rules reading left unused ("N0", "15"): the claim was gated to UNMAPPED. Absent or [] = complete. */
+  coverage_gaps?: string[];
 }
 
 export type ClaimSource = "rules" | "ai";

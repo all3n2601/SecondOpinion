@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from second_opinion.extract import (
     _DEFINITION,
     _NUMBER,
+    _OPPOSITE,
     AGE_RANGE,
     STAGE_ENTITY,
     _STUDY_SOURCE,
@@ -27,6 +28,7 @@ from second_opinion.extract import (
     find_numbers,
 )
 from second_opinion.model import Claim, ClaimParams, ClaimType
+from second_opinion.verdict import PERCENT_TOLERANCE_POINTS
 
 if TYPE_CHECKING:
     from second_opinion.ai.plan import QueryPlan
@@ -38,6 +40,7 @@ NAME_LIKE_NUMBERS = (
     STAGE_ENTITY,
     re.compile(r"\b(?:HER-?2|IHC)\s+(?:score\s+(?:of\s+)?)?[0-3](?![\d,.])\s*\+?|(?<![\w.,])[0-3]\+", re.IGNORECASE),
     re.compile(r"\bchromosomes?\s+\d+", re.IGNORECASE),
+    re.compile(r"^[\s|]*\d{1,3}\s*\|"),  # a table row's number: "6 | Luminal A tumors had higher HER3 protein ..."
 )
 # Entities that find_entities reports but that name a method, not a group: "GISTIC2 calls".
 NOT_GROUPS = re.compile(r"^GISTIC\d*$", re.IGNORECASE)
@@ -76,8 +79,9 @@ _SUBJECT_COUNTS = (
     (re.compile(r"(?:^|_)(?:primary_)?tumors$|(?:^|_)patients$"), {"tumors", "patients"}),
     (re.compile(r"(?:^|_)samples$"), {"samples"}),
     (re.compile(r"(?:^|_)slides$"), {"slides"}),
-    (re.compile(r"^features:genes$"), {"genes"}),
-    (re.compile(r"^features:(?:proteins|antibodies)$"), {"proteins"}),
+    # a feature count counts the file's rows: genes (mutation, copy number, RNA) or proteins
+    (re.compile(r"^features:(?:genes|mutation|copy_number|rna)$"), {"genes"}),
+    (re.compile(r"^features:(?:proteins?|antibodies)$"), {"proteins"}),
     # data-layer coverage ("has_rna", "layers:rna+protein"): tumors or samples with the layer
     (re.compile(r"^(?:has_|layers:|all_five_layers|subtype_sources|label_pair)"), {"tumors", "patients", "samples"}),
 )
@@ -88,6 +92,8 @@ _SUBJECT_GROUPS = {
     "diagnostic": {"slide_kind:diagnostic", "qualifier:diagnostic", "qualifier:ffpe"},
     "frozen": {"slide_kind:frozen", "qualifier:frozen"},
 }
+# A slide-kind group is also named by the qualifier words ("Diagnostic (FFPE) slides").
+_SLIDE_KIND_WORDS = {"diagnostic": {"qualifier:diagnostic", "qualifier:ffpe"}, "frozen": {"qualifier:frozen"}}
 _THRESHOLD_ATTRIBUTES = ("age_group", "diagnosis_year")  # categories like "gt60", "gte2010" carry a figure
 _DEATH_ATTRIBUTES = ("vital_status", "dss_status")
 
@@ -99,6 +105,8 @@ class Piece:
     words: str
     value: float | None = None
     key: str | None = None  # "attribute:category" for groups, the noun lemma for counted things
+    amount_word: bool = False  # "a third", "majority": an amount written in words
+    bound: str | None = None  # an amount word's bound: "majority" is "gt" 50
 
 
 @dataclass
@@ -146,10 +154,16 @@ def _figures(text: str, entities: list) -> list[Piece]:
         else:  # "55-65%": the low and the high end are two figures
             for m in _NUMBER.finditer(text, n.start, n.end):
                 out.append(_piece(text, m.start(), m.end(), float(m.group(0).replace(",", ""))))
+    amounts = [a for a in find_amounts(text) if a.words]  # amount words: "a third", "most", "one in ten"
+    # a number word inside a fraction is part of it: "two thirds" is one figure, not "two"
+    out = [p for p in out if not any(a.start <= p.start and p.end <= a.end and (a.start, a.end) != (p.start, p.end)
+                                     for a in amounts)]
     taken = [(p.start, p.end) for p in out]
-    for a in find_amounts(text):  # amount words: "a third", "most", "one in ten"
-        if a.words and not _overlaps(a.start, a.end, taken):
-            out.append(_piece(text, a.start, a.end, a.value))
+    for a in amounts:
+        if not _overlaps(a.start, a.end, taken):
+            piece = _piece(text, a.start, a.end, a.value)
+            piece.amount_word, piece.bound = True, a.bound
+            out.append(piece)
     for m in age_thresholds(text):  # "over 60": the age is a figure (and the group a group)
         g = next(g for g in ("age", "age2", "age3") if m.group(g))
         out.append(_piece(text, m.start(g), m.end(g), float(age_of(m))))
@@ -214,6 +228,8 @@ def _add_group(uses: Uses, attribute: str | None, category: str | None) -> None:
         uses.figures.update(float(n) for n in re.findall(r"\d+", category))
     if attribute in _DEATH_ATTRIBUTES:
         uses.counted.add("deaths")
+    if attribute == "slide_kind":
+        uses.groups.update(_SLIDE_KIND_WORDS.get(category, set()))
 
 
 def _add_words(uses: Uses, words: str | None) -> None:
@@ -245,13 +261,20 @@ def _part_span(text: str, part: Claim, figures: list[Piece]) -> tuple[int, int] 
     return (min(f.start for f in own), max(f.end for f in own)) if own else None
 
 
+DAYS_PER_YEAR = 365.25
+
+
 def _add_params(uses: Uses, claim: Claim) -> None:
     p: ClaimParams = claim.params
     uses.figures.update(_recorded(p))
+    if p.unit == "years":  # "843 days" is read as 2.308 years
+        uses.figures.update(v * DAYS_PER_YEAR for v in (p.stated_value, p.stated_high) if v is not None)
     if p.subtype_source:  # "Under the 2012 consortium labels": the subtype group is read from that source
         uses.groups.add(f"subtype_source:{p.subtype_source}")
     if (p.subject or "").startswith(("label_pair", "subtype_sources")):  # compares the two label sources
         uses.groups.add(SUBTYPE_SOURCE_KEY)
+    if (p.subject or "").startswith("label_pair:"):  # "label_pair:Luminal B:Luminal A": the two labels
+        uses.groups.update(f"subtype:{label}" for label in p.subject.split(":")[1:] if label)
     if p.subtype:
         uses.groups.add(f"subtype:{p.subtype}")
     _add_group(uses, p.attribute, p.category)
@@ -259,6 +282,9 @@ def _add_params(uses: Uses, claim: Claim) -> None:
     for attribute in {p.attribute_b or p.attribute, p.within_attribute}:
         _add_group(uses, attribute, p.category_b)
     _add_group(uses, p.within_attribute, p.within_category)
+    if p.stated_value == 0 and p.bound == "lte" and p.within_category in _OPPOSITE:
+        # "found only in ER-positive tumors" is read as "in none of the ER-negative tumors"
+        _add_group(uses, p.within_attribute, _OPPOSITE[p.within_category])
     _add_words(uses, p.group_a)
     _add_words(uses, p.group_b)
     if p.attribute == "mutation" and claim.type == ClaimType.RANK:  # ranked among all genes
@@ -270,8 +296,11 @@ def _add_params(uses: Uses, claim: Claim) -> None:
         for pattern, nouns in _SUBJECT_COUNTS:
             if pattern.search(subject):
                 uses.counted.update(nouns)
-        for name in re.split(r"[_+]", subject):
+        names = re.split(r"[_+]", subject)
+        for name in names:
             uses.groups.update(_SUBJECT_GROUPS.get(name, set()))
+        if "samples" in names and {"male", "female"} & set(names):  # "samples from male patients"
+            uses.counted.add("patients")
 
 
 def _filter_value(value: Any) -> list:
@@ -379,6 +408,32 @@ def _figure_used(piece: Piece, uses: Uses) -> bool:
     return _inside(piece.start, uses.spans) or any(_same_figure(piece, used) for used in uses.figures)
 
 
+# Words between an amount word and the percent that restates it that start a different statement.
+_NOT_A_RESTATEMENT = re.compile(r";|\b(?:and|but|while|whereas|versus|vs|against|compared|than|or)\b", re.IGNORECASE)
+
+
+def _agrees(amount: Piece, percent: float) -> bool:
+    """The percent satisfies the amount word: "a majority" (gt 50) and 59%, "a quarter" and 27%."""
+    v = amount.value or 0.0
+    return {
+        "gt": percent > v, "gte": percent >= v, "lt": percent < v, "lte": percent <= v,
+    }.get(amount.bound or "", abs(percent - v) <= float(PERCENT_TOLERANCE_POINTS) * 2)
+
+
+def _restated(amount: Piece, figures: list[Piece], text: str, uses: Uses) -> bool:
+    """An amount word followed, in the same statement, by a used percent that agrees with it is used through that
+    percent: "a majority (59%)", "Just over a quarter of patients, 27%", "almost all ER-negative: 124 of 136 (91.2%)".
+    """
+    for f in figures:
+        if f.start < amount.end or not re.search(r"%|percent", text[f.start:f.end + 9], re.IGNORECASE):
+            continue
+        between = text[amount.end:f.start]
+        if _NOT_A_RESTATEMENT.search(between):
+            return False
+        return _figure_used(f, uses) and f.value is not None and _agrees(amount, f.value)
+    return False
+
+
 def missing(text: str, uses: Uses) -> list[str]:
     """The sentence's words the reading left unused, in sentence order; [] when the reading is complete.
 
@@ -386,7 +441,10 @@ def missing(text: str, uses: Uses) -> list[str]:
     qualifier only when a reading names it as a group, which the rules cannot.
     """
     d = sentence_demands(text)
-    unused: list[Piece] = [f for f in d.figures if not _figure_used(f, uses)]
+    unused: list[Piece] = [
+        f for f in d.figures
+        if not _figure_used(f, uses) and not (f.amount_word and _restated(f, d.figures, text, uses))
+    ]
     unused += [g for g in d.groups if g.key not in uses.groups]
     unused += [c for c in d.counted if c.key not in uses.counted]
     unused += [q for q in d.qualifiers if q.key not in uses.groups]

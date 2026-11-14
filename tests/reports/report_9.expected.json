@@ -44,9 +44,9 @@
   },
   {
     "claim_contains": "273 of 791",
-    "type": "COUNT",
-    "verdict": "supported",
-    "why": "PIK3CA 273 first (blind test written and answered with pandas by an independent agent)"
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "coverage gate: the reading records 273 but not 791 as its total, so the rules give no verdict (the data: PIK3CA 273 first (blind test written and answered with pandas by an independent agent))"
   },
   {
     "claim_contains": "85% versus 10%",

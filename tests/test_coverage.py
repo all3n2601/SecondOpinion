@@ -6,7 +6,7 @@ import pytest
 
 from second_opinion.ai.plan import CountPlan, Filter, QueryPlan, SharePlan, Stated
 from second_opinion.coverage import Uses, missing, reading_uses, sentence_demands
-from second_opinion.extract import extract_claims
+from second_opinion.extract import classify_sentence, split_sentences
 from second_opinion.model import Claim, ClaimParams, ClaimType
 
 PRACTICE = Path(__file__).resolve().parents[1] / "apps" / "web" / "public" / "practice_brief.md"
@@ -29,12 +29,32 @@ COMPLETE = [
     "The release contains 1,247 samples from 1,101 patients.",
     "About 77% of tumors with a known ER status are ER-positive (808 of 1,046).",
     "Gene-level GISTIC2 calls were used, with a value of 2 treated as high-level amplification.",  # no figure demanded
+    # Task 3 tunes (the gate was too strict on these readings):
+    "12 samples are from male patients.",  # samples counted through the patients' sex
+    "Diagnostic (FFPE) slides outnumber frozen sections in the slide manifest.",  # FFPE names the diagnostic group
+    "Mutation calls are available for roughly two thirds of primary tumours.",  # "two thirds" is one figure
+    "MYC is amplified (GISTIC +2) in roughly one fifth of tumours.",
+    "GATA3 mutations were found only in ER-positive tumors.",  # read as "in none of the ER-negative tumors"
+    "The protein panel measures 131 proteins.",  # a feature count counts the file's rows
+    "The mutation file lists more than 40,000 genes.",
+    "The median overall-survival time on record was 843 days, a little over two years.",  # read as 2.308 years
+    "The largest single disagreement is a group of 31 tumors that the 2012 study placed in LumB and that RNA-seq calls LumA.",
+    "Just over a quarter of patients, 27%, were diagnosed before age 50.",  # the amount word restated as a percent
+    "Among infiltrating lobular carcinomas with mutation data, a majority (59%) carried a CDH1 mutation.",
+    "Basal-like tumors are almost all ER-negative: 124 of 136 with a known ER status (91.2%).",
+    "6 | Luminal A tumors had higher HER3 protein than basal-like tumors (mean 0.36 versus 0.11). | Protein, RNA subtype",
 ]
+
+
+def rules_claims(text: str) -> list[Claim]:
+    """The rules' own readings of each sentence, before `extract_claims` gates the incomplete ones."""
+    infos = split_sentences(text)
+    return [c for i, info in enumerate(infos) if (c := classify_sentence(info, f"C{i + 1}")) is not None]
 
 
 def _rules_uses(sentence: str) -> Uses:
     """What today's rules reading of the sentence used; nothing when the rules make no claim of it."""
-    claims = extract_claims(sentence).claims
+    claims = rules_claims(sentence)
     return reading_uses(claims[0]) if claims else Uses()
 
 
@@ -49,7 +69,7 @@ def test_complete_rules_reading_leaves_nothing(sentence: str) -> None:
 
 
 def test_practice_brief_claims_are_complete() -> None:
-    claims = extract_claims(PRACTICE.read_text()).claims
+    claims = rules_claims(PRACTICE.read_text())
     assert len(claims) == 3
     for claim in claims:
         assert missing(claim.text, reading_uses(claim)) == [], claim.text
@@ -67,6 +87,7 @@ def test_missing_words_come_in_sentence_order() -> None:
     "Stage 2 tumors are common.",
     "The cohort was first described in 2010.",
     "HER2 3+ tumors are HER2-positive by IHC.",
+    "9 | PTEN protein was lower in Luminal A than in basal-like tumors. | Protein, RNA subtype",  # a table row number
     "Gene-level GISTIC2 calls were used, with a value of 2 treated as high-level amplification.",
 ])
 def test_name_like_numbers_demand_no_figure(sentence: str) -> None:
@@ -136,7 +157,7 @@ def test_qualifiers() -> None:
 
 def test_reading_uses_collects_params_from_claim_and_parts() -> None:
     sentence = "TP53 mutations dominate basal-like tumors, at 85% compared with 10% in Luminal A."
-    claim = extract_claims(sentence).claims[0]
+    claim = rules_claims(sentence)[0]
     uses = reading_uses(claim)
     assert {85.0, 10.0} <= uses.figures
     assert {"mutation:TP53", "subtype:Luminal A"} <= uses.groups
@@ -222,7 +243,7 @@ def test_more_complete_rules_readings(sentence: str) -> None:
      "versus 12 of 233 ER-negative tumors.", ["233"]),
 ])
 def test_a_part_label_does_not_use_the_figures_inside_it(sentence: str, unused: list[str]) -> None:
-    uses = reading_uses(extract_claims(sentence).claims[0])
+    uses = reading_uses(rules_claims(sentence)[0])
     assert uses.part_spans  # the parts' labels cover these figures ...
     gaps = missing(sentence, uses)
     assert all(word in gaps for word in unused), gaps  # ... but the reading never recorded them
@@ -230,7 +251,7 @@ def test_a_part_label_does_not_use_the_figures_inside_it(sentence: str, unused: 
 
 def test_a_generated_part_label_falls_back_to_the_parts_figures() -> None:
     sentence = "Patients were diagnosed between the ages of 26 and 89."
-    claim = extract_claims(sentence).claims[0]
+    claim = rules_claims(sentence)[0]
     assert [p.part_label for p in claim.parts] == ["youngest 26", "oldest 89"]  # not the sentence's words
     a, b = sentence.index("26"), sentence.index("89")
     assert reading_uses(claim).part_spans == [(a, a + 2), (b, b + 2)]
@@ -246,7 +267,7 @@ def test_a_recorded_total_is_used_and_an_unrecorded_one_is_not() -> None:
 def test_subtype_source_qualifies_the_subtype_group() -> None:
     sentence = "Under the 2012 consortium labels, Luminal A accounts for 40% of primary tumors."
     assert [q.key for q in sentence_demands(sentence).qualifiers] == ["subtype_source:study_2012_label"]
-    claim = extract_claims(sentence).claims[0]
+    claim = rules_claims(sentence)[0]
     assert claim.params.subtype_source == "study_2012_label"
     assert "subtype_source:study_2012_label" in reading_uses(claim).groups
     assert missing(sentence, reading_uses(claim)) == []
@@ -266,3 +287,19 @@ def test_subtype_source_qualifies_the_subtype_group() -> None:
 ])
 def test_ihc_score_pattern_stops_at_the_digit(sentence: str, figures: list[str]) -> None:
     assert [f.words for f in sentence_demands(sentence).figures] == figures
+
+
+def test_a_fraction_written_in_words_is_one_figure() -> None:
+    assert [f.words for f in sentence_demands("Roughly two thirds of tumours have mutation calls.").figures] == ["two thirds"]
+
+
+@pytest.mark.parametrize(("sentence", "used", "unused"), [
+    ("A majority (45%) of lobular tumors carry a CDH1 mutation.", {45.0}, ["majority"]),  # the percent disagrees
+    ("A third of tumors are ER-negative, against 35% of lobular tumors.", {35.0}, ["A third"]),  # another statement
+    ("A third of tumors are ER-negative and 35% are lobular.", {35.0}, ["A third"]),
+    ("A majority (59%) of lobular tumors carry a CDH1 mutation.", set(), ["majority", "59%"]),  # percent unused too
+])
+def test_an_amount_word_is_used_only_through_an_agreeing_restatement(sentence: str, used: set, unused: list) -> None:
+    uses = Uses(figures=used, groups={"histology:lobular", "mutation:CDH1", "er_status:negative"},
+                counted={"tumors", "patients"})
+    assert missing(sentence, uses) == unused

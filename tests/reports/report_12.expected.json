@@ -49,9 +49,9 @@
   },
   {
     "claim_contains": "190 of 198",
-    "type": "SHARE",
-    "verdict": "supported",
-    "why": "190/198 (blind test written and answered with pandas by an independent agent)"
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "coverage gate: the 'almost all' reading does not check 190 of 198, so the rules give no verdict (the data: 190/198 (blind test written and answered with pandas by an independent agent))"
   },
   {
     "claim_contains": "Obese",

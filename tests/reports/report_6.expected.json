@@ -25,9 +25,9 @@
   },
   {
     "claim_contains": "followed by Luminal B",
-    "type": "RANK",
-    "verdict": "supported",
-    "why": "Luminal A 421 > Luminal B 192 > Basal-like 141"
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "coverage gate: the rank check does not test the stated 844 tumours with a PAM50 call, so the rules give no verdict (the data: Luminal A 421 > Luminal B 192 > Basal-like 141)"
   },
   {
     "claim_contains": "Nearly half",

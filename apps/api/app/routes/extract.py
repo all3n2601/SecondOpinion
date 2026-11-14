@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from second_opinion.ai.client import make_client
 from second_opinion.ai.extract_ai import add_missed_claims
-from second_opinion.extract import classify_sentence, extract_claims
+from second_opinion.extract import classify_sentence, extract_claims, gate
 from second_opinion.model import Claim, ClaimType, ExtractResult, SentenceInfo
 
 router = APIRouter(tags=["extract"])
@@ -54,6 +54,8 @@ def classify(body: ClassifyRequest) -> Claim:
         raise HTTPException(status_code=422, detail="The sentence is empty")
     info = SentenceInfo(index=body.sentence_index, text=text, claim_id=None)
     claim = classify_sentence(info, body.claim_id)
+    if claim is not None:
+        claim = gate(claim)
     if claim is None:
         claim = Claim(id=body.claim_id, text=text, sentence_index=body.sentence_index, type=ClaimType.UNMAPPED)
     return claim

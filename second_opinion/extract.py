@@ -2626,14 +2626,46 @@ _STUDY_SOURCE = re.compile(
 )
 
 
+GATED = "this sentence also states {words}, which the rules could not check; a person should check it"
+
+
+def _quoted_list(words: list[str]) -> str:
+    """'"N0", "15" and "N3"'."""
+    quoted = [f'"{w}"' for w in words]
+    return quoted[0] if len(quoted) == 1 else ", ".join(quoted[:-1]) + " and " + quoted[-1]
+
+
+def gate(claim: Claim) -> Claim:
+    """The coverage gate: a rules reading that leaves part of the sentence unused gives no verdict.
+
+    A complete reading, a `NOT_ANSWERABLE` claim or an `UNMAPPED` one comes back unchanged. Otherwise the claim
+    becomes `UNMAPPED` (same id, text, sentence and original text; no params or parts), with the unused words in
+    `coverage_gaps` and a `needed_data` reason naming them, so the audit says "can't check".
+    """
+    if claim.type in (ClaimType.NOT_ANSWERABLE, ClaimType.UNMAPPED):
+        return claim
+    from second_opinion.coverage import missing, reading_uses  # coverage imports this module
+
+    gaps = missing(claim.text, reading_uses(claim))
+    if not gaps:
+        return claim
+    return Claim(
+        id=claim.id, text=claim.text, sentence_index=claim.sentence_index, type=ClaimType.UNMAPPED,
+        needed_data=GATED.format(words=_quoted_list(gaps)), source=claim.source, original_text=claim.original_text,
+        coverage_gaps=gaps,
+    )
+
+
 def extract_claims(report_text: str) -> ExtractResult:
-    """Split the report and type every sentence. Claim ids run C1, C2, ... over claims only."""
+    """Split the report and type every sentence, gating each reading (`gate`). Claim ids run C1, C2, ... over
+    claims only."""
     sentences = split_sentences(report_text)
     claims: list[Claim] = []
     for info in sentences:
         claim = classify_sentence(info, f"C{len(claims) + 1}")
         if claim is not None:
             claim.original_text = info.original_text
+            claim = gate(claim)
             claims.append(claim)
             info.claim_id = claim.id
     return ExtractResult(sentences=sentences, claims=claims)

@@ -34,7 +34,7 @@ function PartsChart({ result, plain }: { result: ClaimResult; plain: boolean }) 
       <ul className="mt-2 divide-y divide-rule border-y border-rule">
         {parts.map((part) => (
           <li key={part.claim.id} className="py-3">
-            <p className="grid gap-1 sm:grid-cols-[1fr_auto] sm:gap-4">
+            <p className="grid gap-1">
               <q className="reported text-ink">{part.claim.part_label || part.claim.text}</q>
               <span className="text-sm font-medium text-ink">
                 {plain ? STORY_VERDICT_WORDS[part.verdict] : VERDICT_LABEL[part.verdict]}

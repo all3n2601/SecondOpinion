@@ -75,15 +75,14 @@ export default function ReviewPage() {
         <div className="grid gap-8 lg:grid-cols-[minmax(17rem,30%)_minmax(0,1fr)] lg:items-start">
           <div className="min-w-0">
             <Breadcrumb items={[{ label: "Audit board", href: "/board" }, { label: "Review" }]} />
-            <h1 className={pageTitle}>Review every verdict</h1>
-            <p className="mt-2 text-sm text-ink-soft">{INTRO[view]}</p>
-            <div className="mt-5">
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">Review every verdict</h1>
+            <div className="mt-4">
               <RolePicker />
             </div>
-            <div className="mt-6">
+            <div className="mt-5">
               <VerdictStack claims={claims} />
             </div>
-            <div className="mt-5">
+            <div className="mt-4">
               <p role="status" aria-live="polite" className="num text-sm font-semibold text-ink">
                 {done} of {total} reviewed
               </p>
@@ -101,7 +100,7 @@ export default function ReviewPage() {
                 />
               </div>
             </div>
-            <div className="mt-5">
+            <div className="mt-4">
               <ReviewList claims={claims} selected={selected} onSelect={open} />
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -152,6 +151,7 @@ export default function ReviewPage() {
               </div>
             ) : (
               <>
+                <p className="mb-4 max-w-prose text-ink-soft">{INTRO[view]}</p>
                 {/* Shown once the narrated text is real: before that it would read as an empty audit. */}
                 {hydrated && ready && <ReviewOverview view={view} audit={audit} narration={narration} />}
                 {total === 0 ? (

@@ -262,7 +262,10 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
    **Open evidence** shows the calculation, the "report vs data" gauge, the files and checksums, the
    code that reproduces the number, the sample IDs (CSV download), the eight ways of counting and the
    skeptic tests.
-4. **Review:** accept or override each verdict (an override needs a reason and your role).
+4. **Review:** accept or override each verdict (an override needs a reason and your role). The page is a list
+   of claims beside one open entry: it opens on the role's **Overview**, **Start reviewing** opens the first
+   claim not yet reviewed, and **Save and next** moves on until every claim is done. The open claim is in the
+   address (`#review-C2`), so reload and the back button keep your place.
    **Continue to decision** unlocks when every claim is reviewed. The page layout follows the role
    (see below).
 5. **Decision:** read the suggested decision and who must sign off, choose one, give a reason,

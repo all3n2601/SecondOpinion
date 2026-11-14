@@ -289,6 +289,12 @@ verdict, how solid it is (in plain words), whether a person overrode it, the rep
 names of the blanks that claim has a value for. Anything that fails the checker
 (`second_opinion/ai/narrate.py`) falls back to the template wording.
 
+Every claim row reads the same way in every view: the answer (verdict, how solid it is, the claim and one
+sentence), one chart, folded detail, then the Accept / Override form. Each closed fold still shows a
+one-line summary. The Program leader gets no folds, only a plain "What else we found" box; the Data-use
+reviewer's folds start closed; the Researcher's open on what the number rests on and where the figure
+might come from; the Data engineer's open on the numbers, sample IDs and code.
+
 Each checked share or count also gets three readings, worked out in the browser from numbers the audit
 already returns (`apps/web/src/lib/insights.ts`), at each view's level of detail:
 

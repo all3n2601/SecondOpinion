@@ -2,6 +2,7 @@ import ClaimVsData from "@/components/ClaimVsData";
 import { CountingStrip } from "@/components/review/Insights";
 import { formatResultFact, VERDICT_LABEL } from "@/lib/claim-format";
 import { countingRange, statedFigure } from "@/lib/insights";
+import { STORY_VERDICT_WORDS } from "@/lib/narrate";
 import type { ClaimResult } from "@/lib/types";
 import { sectionTitle } from "@/lib/ui";
 
@@ -13,7 +14,8 @@ function Strip({ result, plain }: { result: ClaimResult; plain: boolean }) {
   return <CountingStrip range={range} stated={statedFigure(result)} verdict={result.verdict} plain={plain} />;
 }
 
-function partFinding(part: ClaimResult): string {
+function partFinding(part: ClaimResult, plain: boolean): string {
+  if (plain) return part.verdict === "contradicted" && part.correct_value ? `: the data shows ${part.correct_value}` : "";
   if (part.verdict === "contradicted" && part.correct_value) return `: data shows ${part.correct_value}`;
   if (part.verdict === "supported" && part.fact) return `: ${formatResultFact(part)}`;
   if (part.verdict === "insufficient_evidence" && part.missing_evidence) return `: ${part.missing_evidence}`;
@@ -25,16 +27,18 @@ function PartsChart({ result, plain }: { result: ClaimResult; plain: boolean }) 
   const parts = result.parts ?? [];
   return (
     <section aria-label="Each part of the sentence" className="mt-6">
-      <h3 className={`${sectionTitle} text-base`}>Each part of the sentence</h3>
-      <p className="mt-0.5 text-sm text-ink-soft">The sentence takes the verdict of its worst part.</p>
+      <h3 className={`${sectionTitle} text-base`}>{plain ? "The sentence, piece by piece" : "Each part of the sentence"}</h3>
+      <p className="mt-0.5 text-sm text-ink-soft">
+        {plain ? "If one piece is wrong, the whole sentence counts as wrong." : "The sentence takes the verdict of its worst part."}
+      </p>
       <ul className="mt-2 divide-y divide-rule border-y border-rule">
         {parts.map((part) => (
           <li key={part.claim.id} className="py-3">
             <p className="grid gap-1 sm:grid-cols-[1fr_auto] sm:gap-4">
               <q className="reported text-ink">{part.claim.part_label || part.claim.text}</q>
               <span className="text-sm font-medium text-ink">
-                {VERDICT_LABEL[part.verdict]}
-                {partFinding(part)}
+                {plain ? STORY_VERDICT_WORDS[part.verdict] : VERDICT_LABEL[part.verdict]}
+                {partFinding(part, plain)}
               </span>
             </p>
             <Strip result={part} plain={plain} />

@@ -116,10 +116,26 @@ function causeFold(result: ClaimResult, open: boolean): FoldSpec | null {
   };
 }
 
-/** Robustness, skeptic tests and corrected wording; null when none of them has anything to say. */
+/**
+ * Robustness, skeptic tests and corrected wording. With no recount and no skeptic test, only the corrected
+ * wording (when the ladder changed anything) under its own title; null when there is nothing to say.
+ */
 function robustnessFold(result: ClaimResult, open: boolean): FoldSpec | null {
   const corrected = result.ladder.some((s) => s.struck || s.inserted);
-  if (!result.variants.length && !result.skeptic && !corrected) return null;
+  if (!result.variants.length && !result.skeptic) {
+    if (!corrected) return null;
+    return {
+      key: "corrected",
+      title: "Corrected wording",
+      teaser: null,
+      open,
+      content: (
+        <p className="max-w-prose font-serif text-base text-ink">
+          <CorrectedWording result={result} />
+        </p>
+      ),
+    };
+  }
   return {
     key: "robustness",
     title: "Robustness and skeptic tests",
@@ -245,7 +261,7 @@ function EvidenceBody({ result, sentence }: { result: ClaimResult; sentence: Sen
     <div>
       <Answer result={result} sentence={sentence} size="sm" />
       <ClaimChart result={result} plain={false} />
-      <Folds folds={[restsFold(result, true), causeFold(result, true), robustnessFold(result, true), codeAndIdsFold(result)]} />
+      <Folds folds={[restsFold(result, true), causeFold(result, true), robustnessFold(result, false), codeAndIdsFold(result)]} />
     </div>
   );
 }

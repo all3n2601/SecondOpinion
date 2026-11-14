@@ -22,7 +22,7 @@ BANNED_WORDS = frozenset(
     more fewer less above below over under exceeds
     zero thirty forty fifty sixty seventy eighty ninety hundred thousand million percent twice double triple
     quarter third thirds both neither couple pair exceed exceeded exceeding greater larger smaller least
-    highest lowest minority""".split()
+    highest lowest minority cent""".split()
 )
 
 MAX_HEADLINE = 160
@@ -68,6 +68,9 @@ def _clean(token: str) -> str:
     return token.strip(_EDGE_PUNCTUATION)
 
 
+_TYPOGRAPHY = frozenset("\u2010\u2011\u2013\u2014\u2018\u2019\u201c\u201d\u2026\u00a0")
+
+
 def _tokens(text: str) -> list[str]:
     """NFKC-normalised word tokens (edge punctuation stripped, lowercased)."""
     return [t for t in (_clean(t).lower() for t in _TOKEN.findall(unicodedata.normalize("NFKC", text))) if t]
@@ -78,9 +81,29 @@ def _names(text: str) -> set[str]:
     return {t for t in _tokens(text) if re.search(r"\d", t) and re.search(r"[^\W\d_]", t)}
 
 
+def _is_separator(ch: str) -> bool:
+    """Printable ASCII that is not a letter or digit (space, punctuation), or fixed typographic punctuation."""
+    return (ch.isascii() and not ch.isalnum()) or ch in _TYPOGRAPHY
+
+
+def _chunks(text: str) -> list[str]:
+    """Runs of characters between separators, lowercased. Text is NFKC-normalised first."""
+    chunks, current = [], []
+    for ch in unicodedata.normalize("NFKC", text):
+        if _is_separator(ch):
+            if current:
+                chunks.append("".join(current).lower())
+            current = []
+        else:
+            current.append(ch)
+    if current:
+        chunks.append("".join(current).lower())
+    return chunks
+
+
 def _foreign_words(text: str) -> set[str]:
-    """Tokens of a text that contain a non-ASCII letter (a name like 'Gdańsk' a claim may legitimately use)."""
-    return {t for t in _tokens(text) if any(not c.isascii() and c.isalpha() for c in t)}
+    """Chunks of a claim text that contain a non-ASCII character (a name like 'Gdansk' with an accent)."""
+    return {c for c in _chunks(text) if not c.isascii()}
 
 
 def _check_text(text: str, field: str, slots: frozenset[str], names: set[str], foreign: set[str], cap: int) -> list[str]:
@@ -95,23 +118,30 @@ def _check_text(text: str, field: str, slots: frozenset[str], names: set[str], f
     if unknown:
         problems.append(f"{field}: slot {{{unknown[0]}}} is not allowed here")
     bare = _SLOT.sub(" ", text)
-    if re.search(r"[{}]", unicodedata.normalize("NFKC", bare)):
+    normal = unicodedata.normalize("NFKC", bare)
+    if re.search(r"[{}]", normal):
         problems.append(f"{field}: a slot must be written exactly like {{total}}")
+    # Allowlist: after NFKC every character is printable ASCII, fixed typographic punctuation, or part of a
+    # word copied from the claim text. Anything else (look-alike letters, combining marks, selectors) is out.
+    for chunk in _chunks(bare):
+        if not chunk.isascii() and chunk not in foreign:
+            problems.append(f"{field}: '{chunk}' uses characters that are not plain English")
+    if any(ch.isascii() and not ch.isprintable() for ch in normal):
+        problems.append(f"{field}: control characters are not allowed")
+    # Numerals in other scripts (and Roman-numeral or fraction characters NFKC turns into letters).
     for raw in _TOKEN.findall(bare):
-        token = _clean(unicodedata.normalize("NFKC", raw)).lower()
+        if any(not c.isascii() and c.isnumeric() for c in raw):
+            if _clean(unicodedata.normalize("NFKC", raw)).lower() not in names:
+                problems.append(f"{field}: write numbers only through slots, not '{raw}'")
+    for raw in _TOKEN.findall(normal):
+        token = _clean(raw).lower()
         if not token:
             continue
-        numeric = "%" in token or any(c.isnumeric() for c in token) or any(
-            not c.isascii() and c.isnumeric() for c in raw
-        )
         if "%" in token:
             problems.append(f"{field}: write numbers only through slots, not '{raw}'")
-        elif numeric:
+        elif any(c.isnumeric() for c in token):
             if not (re.search(r"[^\W\d_]", token) and token in names):
                 problems.append(f"{field}: write numbers only through slots, not '{raw}'")
-        elif any(not c.isascii() and c.isalpha() for c in token):
-            if token not in foreign:
-                problems.append(f"{field}: '{raw}' uses letters that are not plain English")
         elif token in BANNED_WORDS:
             problems.append(f"{field}: the word '{token}' is not allowed; use a slot or other wording")
     return list(dict.fromkeys(problems))

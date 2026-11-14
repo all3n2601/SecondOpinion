@@ -108,6 +108,41 @@ def test_unicode_number_tricks_rejected(sentence):
     assert any(p.startswith("headline") for p in problems)
 
 
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "tw\u034fo claims failed.",  # combining grapheme joiner (Mn)
+        "tw\ufe0fo claims failed.",  # variation selector
+        "t\u0301wo claims failed.",  # combining acute
+        "o\u0301ne claim failed.",
+        "\u00f3ne claim failed.",  # precomposed o-acute
+        "{supported}\uff05 held up.",  # fullwidth percent
+        "Half\nthe claims failed.",  # control character
+        "Seven\u2009claims failed.",
+        "per cent of claims held up.",
+    ],
+)
+def test_allowlist_rejects_hidden_characters(sentence):
+    narration, problems = check_narration(with_(c_c1=sentence), claims())
+    assert narration is None
+    assert any(p.startswith("claims.C1") for p in problems)
+    assert check_narration(with_(headline=sentence), claims())[0] is None
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The report \u201csays\u201d {stated} \u2014 and it\u2019s fine.",
+        "A well-known result; follow-up is needed.",
+        "A non\u2011breaking hyphen and an en\u2013dash are fine.",
+    ],
+)
+def test_allowlist_keeps_ordinary_typography(sentence):
+    narration, problems = check_narration(with_(c_c1=sentence), claims())
+    assert problems == []
+    assert narration is not None
+
+
 def test_typographic_punctuation_still_allowed():
     sentence = "The report \u201csays\u201d {stated} \u2014 and it\u2019s fine; the data agrees\u2026"
     narration, problems = check_narration(with_(c_c1=sentence), claims())

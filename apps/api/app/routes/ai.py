@@ -3,7 +3,7 @@
 from typing import Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from second_opinion.ai.client import AIError, make_client
 from second_opinion.ai.config import ai_status
@@ -25,9 +25,9 @@ def status() -> AIStatus:
 
 
 class NarrateClaimIn(BaseModel):
-    id: str
-    verdict: str
-    solidity: str
+    id: str = Field(max_length=40)
+    verdict: Literal["supported", "contradicted", "insufficient_evidence"]
+    solidity: Literal["holds_under_every_variant", "holds_under_some_variants", "not_applicable"]
     overridden: bool
     text: str = Field(max_length=2000)
 
@@ -35,6 +35,14 @@ class NarrateClaimIn(BaseModel):
 class NarrateRequest(BaseModel):
     view: Literal["story", "checklist", "evidence", "raw"]
     claims: list[NarrateClaimIn] = Field(max_length=100)
+
+    @field_validator("claims")
+    @classmethod
+    def _unique_ids(cls, claims: list[NarrateClaimIn]) -> list[NarrateClaimIn]:
+        ids = [c.id for c in claims]
+        if len(set(ids)) != len(ids):
+            raise ValueError("claim ids must be unique")
+        return claims
 
 
 class NarrateResponse(BaseModel):

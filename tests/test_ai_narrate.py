@@ -25,8 +25,8 @@ web = TestClient(app)
 
 def claims() -> list[NarrateClaim]:
     return [
-        NarrateClaim("C1", "supported", "solid", False, "About 62% of HER2-positive tumours were Luminal B."),
-        NarrateClaim("C2", "contradicted", "solid", False, "Most samples came from site A."),
+        NarrateClaim("C1", "supported", "holds_under_every_variant", False, "About 62% of HER2-positive tumours were Luminal B."),
+        NarrateClaim("C2", "contradicted", "holds_under_every_variant", False, "Most samples came from site A."),
     ]
 
 
@@ -86,6 +86,70 @@ def test_number_and_comparison_words_rejected(word):
     assert any(p.startswith("claims.C1") for p in problems)
 
 
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "\u0663 of {total} failed.",  # Arabic-Indic three
+        "\uff12 of {total} failed.",  # fullwidth 2
+        "\u00bd of claims failed.",
+        "{total}\u00b2 checks.",
+        "\u216b claims.",  # roman numeral twelve
+        "\u2154 held up.",
+        "tw\u200bo claims failed.",  # zero-width space
+        "tw\u03bf claims failed.",  # Greek omicron
+    ],
+)
+def test_unicode_number_tricks_rejected(sentence):
+    narration, problems = check_narration(with_(c_c1=sentence), claims())
+    assert narration is None
+    assert any(p.startswith("claims.C1") for p in problems)
+    narration, problems = check_narration(with_(headline=sentence), claims())
+    assert narration is None
+    assert any(p.startswith("headline") for p in problems)
+
+
+def test_typographic_punctuation_still_allowed():
+    sentence = "The report \u201csays\u201d {stated} \u2014 and it\u2019s fine; the data agrees\u2026"
+    narration, problems = check_narration(with_(c_c1=sentence), claims())
+    assert problems == []
+    assert narration is not None
+
+
+def test_non_ascii_name_allowed_only_from_claim_text():
+    other = claims()
+    other[0] = NarrateClaim("C1", "supported", "holds_under_every_variant", False, "Gda\u0144sk had HER\u2082 tumours.")
+    assert check_narration(with_(c_c1="Gda\u0144sk and HER2 look fine: {stated}."), other)[1] == []
+    assert check_narration(with_(c_c2="Gda\u0144sk looks fine."), other)[0] is None
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "thirty claims failed",
+        "a hundred percent held up",
+        "zero held up",
+        "a third of claims held up",
+        "both held up",
+        "neither held up",
+        "twice the report",
+        "greater than the report",
+        "exceeded the report",
+        "sixty-plus claims held up",
+    ],
+)
+def test_extended_banned_words_rejected(sentence):
+    narration, problems = check_narration(with_(c_c1=sentence + "."), claims())
+    assert narration is None
+    assert any(p.startswith("claims.C1") for p in problems)
+
+
+def test_prompt_lists_extended_banned_words():
+    system, _ = build_prompt("story", claims())
+    for word in ("zero", "thirty", "percent", "twice", "neither", "exceeded", "minority", "thousand"):
+        assert word in BANNED_WORDS
+        assert word in system
+
+
 @pytest.mark.parametrize("word", ["someone", "overall"])
 def test_whole_word_match_only(word):
     narration, problems = check_narration(with_(c_c1=f"{word} should look; {{stated}}."), claims())
@@ -107,7 +171,7 @@ def test_letter_digit_name_allowed_only_from_claim_text():
     assert any(p.startswith("claims.C1") for p in problems)
     # a name from C2's text is not allowed in C1's sentence
     other = claims()
-    other[1] = NarrateClaim("C2", "contradicted", "solid", False, "TP53 samples came from site A.")
+    other[1] = NarrateClaim("C2", "contradicted", "holds_under_every_variant", False, "TP53 samples came from site A.")
     assert check_narration(with_(c_c1="TP53 looks fine."), other)[0] is None
     assert check_narration(with_(c_c1="her2 looks fine."), claims())[1] == []
 
@@ -262,11 +326,27 @@ def test_narrate_endpoint_bad_wording_falls_back(monkeypatch):
     assert res.json()["reason"] == "The AI wording did not pass the checks"
 
 
+def test_narrate_endpoint_rejects_duplicate_ids_and_bad_values(monkeypatch):
+    use_client(monkeypatch, None)
+    dup = payload()
+    dup["claims"][1]["id"] = "C1"
+    assert web.post("/ai/narrate", json=dup).status_code == 422
+    bad_verdict = payload()
+    bad_verdict["claims"][0]["verdict"] = "maybe"
+    assert web.post("/ai/narrate", json=bad_verdict).status_code == 422
+    bad_solidity = payload()
+    bad_solidity["claims"][0]["solidity"] = "solid"
+    assert web.post("/ai/narrate", json=bad_solidity).status_code == 422
+    long_id = payload()
+    long_id["claims"][0]["id"] = "C" * 41
+    assert web.post("/ai/narrate", json=long_id).status_code == 422
+
+
 def test_narrate_endpoint_rejects_bad_requests(monkeypatch):
     use_client(monkeypatch, None)
     assert web.post("/ai/narrate", json=payload("poster")).status_code == 422
     too_many = payload()
-    too_many["claims"] = too_many["claims"] * 51
+    too_many["claims"] = [{**too_many["claims"][0], "id": f"C{i}"} for i in range(101)]
     assert web.post("/ai/narrate", json=too_many).status_code == 422
     long_text = payload()
     long_text["claims"][0]["text"] = "a" * 2001

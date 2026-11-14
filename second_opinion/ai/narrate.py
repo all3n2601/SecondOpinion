@@ -9,6 +9,7 @@ text, a wrong claim id or an over-long string all reject the answer.
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from second_opinion.ai.client import AIError, ChatClient
@@ -18,7 +19,10 @@ CLAIM_SLOTS = frozenset({"stated", "data_shows", "direction", "agree", "ways"})
 BANNED_WORDS = frozenset(
     """one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen
     seventeen eighteen nineteen twenty half dozen none all every most majority few several many higher lower
-    more fewer less above below over under exceeds""".split()
+    more fewer less above below over under exceeds
+    zero thirty forty fifty sixty seventy eighty ninety hundred thousand million percent twice double triple
+    quarter third thirds both neither couple pair exceed exceeded exceeding greater larger smaller least
+    highest lowest minority""".split()
 )
 
 MAX_HEADLINE = 160
@@ -26,7 +30,7 @@ MAX_CAPTION = 200
 MAX_SENTENCE = 220
 
 _SLOT = re.compile(r"\{(\w+)\}")
-_TOKEN = re.compile(r"[A-Za-z0-9%.]+")
+_TOKEN = re.compile(r"[\w%.]+")  # Unicode-aware: digits and letters of any script
 _EDGE_PUNCTUATION = ".,;:!?\"'()"
 
 _AUDIENCES = {
@@ -64,39 +68,52 @@ def _clean(token: str) -> str:
     return token.strip(_EDGE_PUNCTUATION)
 
 
+def _tokens(text: str) -> list[str]:
+    """NFKC-normalised word tokens (edge punctuation stripped, lowercased)."""
+    return [t for t in (_clean(t).lower() for t in _TOKEN.findall(unicodedata.normalize("NFKC", text))) if t]
+
+
 def _names(text: str) -> set[str]:
     """Letter+digit tokens (HER2, PAM50) in a text, lowercased."""
-    found = set()
-    for token in _TOKEN.findall(text):
-        token = _clean(token)
-        if re.search(r"\d", token) and re.search(r"[A-Za-z]", token):
-            found.add(token.lower())
-    return found
+    return {t for t in _tokens(text) if re.search(r"\d", t) and re.search(r"[^\W\d_]", t)}
 
 
-def _check_text(text: str, field: str, slots: frozenset[str], names: set[str], cap: int) -> list[str]:
+def _foreign_words(text: str) -> set[str]:
+    """Tokens of a text that contain a non-ASCII letter (a name like 'Gdańsk' a claim may legitimately use)."""
+    return {t for t in _tokens(text) if any(not c.isascii() and c.isalpha() for c in t)}
+
+
+def _check_text(text: str, field: str, slots: frozenset[str], names: set[str], foreign: set[str], cap: int) -> list[str]:
     problems = []
     if not text.strip():
         return [f"{field}: must not be empty"]
     if len(text) > cap:
         problems.append(f"{field}: {len(text)} characters, the limit is {cap}")
+    if any(unicodedata.category(c) == "Cf" for c in text):
+        problems.append(f"{field}: invisible formatting characters are not allowed")
     unknown = sorted({s for s in _SLOT.findall(text) if s not in slots})
     if unknown:
         problems.append(f"{field}: slot {{{unknown[0]}}} is not allowed here")
     bare = _SLOT.sub(" ", text)
-    if "{" in bare or "}" in bare:
+    if re.search(r"[{}]", unicodedata.normalize("NFKC", bare)):
         problems.append(f"{field}: a slot must be written exactly like {{total}}")
-    for token in _TOKEN.findall(bare):
-        token = _clean(token)
+    for raw in _TOKEN.findall(bare):
+        token = _clean(unicodedata.normalize("NFKC", raw)).lower()
         if not token:
             continue
+        numeric = "%" in token or any(c.isnumeric() for c in token) or any(
+            not c.isascii() and c.isnumeric() for c in raw
+        )
         if "%" in token:
-            problems.append(f"{field}: write numbers only through slots, not '{token}'")
-        elif re.search(r"\d", token):
-            if not (re.search(r"[A-Za-z]", token) and token.lower() in names):
-                problems.append(f"{field}: write numbers only through slots, not '{token}'")
-        elif token.lower() in BANNED_WORDS:
-            problems.append(f"{field}: the word '{token.lower()}' is not allowed; use a slot or other wording")
+            problems.append(f"{field}: write numbers only through slots, not '{raw}'")
+        elif numeric:
+            if not (re.search(r"[^\W\d_]", token) and token in names):
+                problems.append(f"{field}: write numbers only through slots, not '{raw}'")
+        elif any(not c.isascii() and c.isalpha() for c in token):
+            if token not in foreign:
+                problems.append(f"{field}: '{raw}' uses letters that are not plain English")
+        elif token in BANNED_WORDS:
+            problems.append(f"{field}: the word '{token}' is not allowed; use a slot or other wording")
     return list(dict.fromkeys(problems))
 
 
@@ -117,8 +134,9 @@ def check_narration(data: dict, claims: list[NarrateClaim]) -> tuple[Narration |
 
     texts = {c.id: c.text for c in claims}
     all_names = set().union(*(_names(t) for t in texts.values())) if texts else set()
-    problems += _check_text(headline, "headline", AUDIT_SLOTS, all_names, MAX_HEADLINE)
-    problems += _check_text(caption, "caption", AUDIT_SLOTS, all_names, MAX_CAPTION)
+    all_foreign = set().union(*(_foreign_words(t) for t in texts.values())) if texts else set()
+    problems += _check_text(headline, "headline", AUDIT_SLOTS, all_names, all_foreign, MAX_HEADLINE)
+    problems += _check_text(caption, "caption", AUDIT_SLOTS, all_names, all_foreign, MAX_CAPTION)
     for cid in texts:
         if cid not in sentences:
             problems.append(f"claims.{cid}: missing")
@@ -126,7 +144,8 @@ def check_narration(data: dict, claims: list[NarrateClaim]) -> tuple[Narration |
             problems.append(f"claims.{cid}: must be a string")
         else:
             problems += _check_text(
-                sentences[cid], f"claims.{cid}", AUDIT_SLOTS | CLAIM_SLOTS, _names(texts[cid]), MAX_SENTENCE
+                sentences[cid], f"claims.{cid}", AUDIT_SLOTS | CLAIM_SLOTS,
+                _names(texts[cid]), _foreign_words(texts[cid]), MAX_SENTENCE
             )
     for cid in sentences:
         if cid not in texts:

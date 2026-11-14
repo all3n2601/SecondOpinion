@@ -55,6 +55,11 @@ def test_shared_instance_does_not_open_envelopes(monkeypatch, tmp_path):
 
 
 def _challenge_repo_ready() -> bool:
+    """The challenge repo with release A fetched, and its requirements (cryptography) installed in this venv."""
+    import importlib.util
+
+    if importlib.util.find_spec("cryptography") is None:
+        return False
     try:
         repo = envelope.challenge_repo()
     except EnvelopeError:
@@ -62,7 +67,7 @@ def _challenge_repo_ready() -> bool:
     return (repo / "envelopes" / "sealed" / "practice.sealed").is_file() and (repo / "data" / "tcga-brca" / "raw" / "clinical.tsv").is_file()
 
 
-@pytest.mark.skipif(not _challenge_repo_ready(), reason="needs the challenge repo with release A fetched")
+@pytest.mark.skipif(not _challenge_repo_ready(), reason="needs the challenge repo, release A and the cryptography package")
 def test_practice_envelope_opens_and_fills_in_the_start_page(monkeypatch):
     monkeypatch.delenv("SO_RELEASES_ROOT", raising=False)
     response = client.post("/envelope/unseal", json={"envelope": "practice", "code": PRACTICE_CODE})
@@ -76,7 +81,7 @@ def test_practice_envelope_opens_and_fills_in_the_start_page(monkeypatch):
     assert "release/clinical.tsv" in body["files"]
 
 
-@pytest.mark.skipif(not _challenge_repo_ready(), reason="needs the challenge repo with release A fetched")
+@pytest.mark.skipif(not _challenge_repo_ready(), reason="needs the challenge repo, release A and the cryptography package")
 def test_wrong_code_gives_unseal_py_own_message(monkeypatch):
     monkeypatch.delenv("SO_RELEASES_ROOT", raising=False)
     response = client.post("/envelope/unseal", json={"envelope": "practice", "code": "orange meadow pilot llama"})

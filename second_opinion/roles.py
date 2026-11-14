@@ -15,6 +15,8 @@ VALID_SECTIONS = (
     "sample_ids", "files", "code",
 )
 DETAIL_LEVELS = ("summary", "standard", "full")
+VALID_VIEWS = ("story", "checklist", "evidence", "raw")
+VIEW_FOR_DETAIL = {"summary": "story", "standard": "checklist", "full": "evidence"}
 
 
 @dataclass
@@ -23,6 +25,7 @@ class Role:
     sections: list[str] = field(default_factory=list)
     detail: Literal["summary", "standard", "full"] = "standard"
     explain_terms: bool = False
+    view: Literal["story", "checklist", "evidence", "raw"] | None = None
 
 
 def _path(path: Path | None) -> Path:
@@ -31,15 +34,19 @@ def _path(path: Path | None) -> Path:
 
 def load_roles(path: Path | None = None) -> list[Role]:
     raw = yaml.safe_load(_path(path).read_text(encoding="utf-8")) or []
-    return [
-        Role(
-            name=str(r["name"]),
-            sections=[str(s) for s in r.get("sections") or []],
-            detail=r.get("detail", "standard"),
-            explain_terms=bool(r.get("explain_terms", False)),
+    roles = []
+    for r in raw:
+        detail = r.get("detail", "standard")
+        roles.append(
+            Role(
+                name=str(r["name"]),
+                sections=[str(s) for s in r.get("sections") or []],
+                detail=detail,
+                explain_terms=bool(r.get("explain_terms", False)),
+                view=r.get("view") or VIEW_FOR_DETAIL.get(detail, "checklist"),
+            )
         )
-        for r in raw
-    ]
+    return roles
 
 
 class DuplicateRoleError(ValueError):
@@ -62,8 +69,11 @@ def validate_role(role: Role, existing: list[Role]) -> Role:
         )
     if role.detail not in DETAIL_LEVELS:
         raise ValueError(f"Detail must be one of: {', '.join(DETAIL_LEVELS)}.")
+    view = role.view or VIEW_FOR_DETAIL[role.detail]
+    if view not in VALID_VIEWS:
+        raise ValueError(f"View must be one of: {', '.join(VALID_VIEWS)}.")
     sections = list(dict.fromkeys(role.sections))  # drop repeats, keep order
-    return Role(name=name, sections=sections, detail=role.detail, explain_terms=bool(role.explain_terms))
+    return Role(name=name, sections=sections, detail=role.detail, explain_terms=bool(role.explain_terms), view=view)
 
 
 def add_role(role: Role, path: Path | None = None) -> list[Role]:
@@ -72,6 +82,7 @@ def add_role(role: Role, path: Path | None = None) -> list[Role]:
     roles.append(validate_role(role, roles))
     target.write_text(
         "# Reviewer roles. See VALID_SECTIONS in second_opinion/roles.py for section names.\n"
+        "# view: story | checklist | evidence | raw (the Review page layout; defaults from detail)\n"
         + yaml.safe_dump([asdict(r) for r in roles], sort_keys=False, default_flow_style=None),
         encoding="utf-8",
     )

@@ -272,8 +272,17 @@ The app keeps your work if you refresh the page. It is stored only in that brows
 
 ## Run on a sealed envelope (judging)
 
-At the Q&A, judges give an envelope number and a four-word code. From the challenge repository
-(unsealing needs its own requirements, which include `cryptography`):
+At the Q&A, judges give an envelope number and a four-word code.
+
+**In the app:** on the Start page, type them into **Open a sealed envelope** and press **Unseal envelope**.
+It runs the organizers' own `envelopes/unseal.py`, lists the fingerprint checks it passed, loads
+`claim_auditor_report.md` into the report box and sets the data folder to release A (or the envelope's
+own release, if you pick it). Then press **Run the audit now**. **Rehearse with the practice envelope**
+does the same with the public practice code. The challenge repository must sit next to this one (or set
+`SO_CHALLENGE_DIR`), with release A fetched and its requirements installed in `.venv`.
+
+**From the terminal**, in the challenge repository (unsealing needs its own requirements, which include
+`cryptography`):
 
 ```bash
 cd ../oncosys-hackathon-challenge

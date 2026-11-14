@@ -76,6 +76,26 @@ export function getPracticeRelease(): Promise<PracticeRelease> {
   return request("/practice-release", { method: "POST" });
 }
 
+export interface OpenedEnvelope {
+  envelope: string;
+  opened_dir: string;
+  /** The file the report came from (claim_auditor_report.md, or the practice brief), null if there is none. */
+  report_name: string | null;
+  report_text: string | null;
+  release_a_dir: string;
+  envelope_release_dir: string;
+  files: string[];
+  /** The checks the organizers' unseal.py passed, in its own words. */
+  checks: string[];
+  seconds: number;
+  notes: string[];
+}
+
+/** Open a sealed envelope with the organizers' unseal.py. Takes 10 to 20 seconds. */
+export function unsealEnvelope(envelope: string, code: string): Promise<OpenedEnvelope> {
+  return request("/envelope/unseal", { method: "POST", body: { envelope, code } });
+}
+
 export function suggestDecision(audit: AuditResult): Promise<DecisionSuggestion> {
   return request("/decision", { method: "POST", body: { audit } });
 }

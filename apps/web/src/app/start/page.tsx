@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AiStatusChip from "@/components/AiStatusChip";
 import ApiStatus from "@/components/ApiStatus";
+import EnvelopeOpener from "@/components/EnvelopeOpener";
 import PipelineSteps, { seconds, type PipelineStep, type StepState } from "@/components/pipeline/PipelineSteps";
 import ReleasePicker from "@/components/ReleasePicker";
 import ReportUpload from "@/components/ReportUpload";
@@ -269,19 +270,36 @@ export default function StartPage() {
       </div>
 
       <div className="mt-8 grid gap-x-10 gap-y-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,25rem)] xl:items-start">
-        <div className="min-w-0 divide-y divide-rule rounded-panel border border-rule bg-sheet">
-          <div className="p-5 sm:p-6">
-            <ReportUpload value={reportText} onChange={setReportText} />
+        <div className="min-w-0 space-y-6">
+          <div className="divide-y divide-rule rounded-panel border border-rule bg-sheet">
+            <div className="p-5 sm:p-6">
+              <ReportUpload value={reportText} onChange={setReportText} />
+            </div>
+            <div className="p-5 sm:p-6">
+              <ReleasePicker
+                value={releaseDir}
+                onChange={(dir) => {
+                  setReleaseDir(dir);
+                  setDataNote(null);
+                }}
+              />
+            </div>
           </div>
-          <div className="p-5 sm:p-6">
-            <ReleasePicker
-              value={releaseDir}
-              onChange={(dir) => {
-                setReleaseDir(dir);
-                setDataNote(null);
-              }}
-            />
-          </div>
+          <EnvelopeOpener
+            disabled={running || !hydrated}
+            canAudit={canRun}
+            onOpened={(text, dir) => {
+              if (text !== null) setReportText(text);
+              setReleaseDir(dir);
+              setDataNote(null);
+              setRun({ state: "idle" });
+            }}
+            onReleaseChange={(dir) => {
+              setReleaseDir(dir);
+              setDataNote(null);
+            }}
+            onAudit={() => start(reportText, releaseDir)}
+          />
         </div>
 
         <section aria-labelledby="pipeline-heading" className="xl:sticky xl:top-8">

@@ -54,7 +54,8 @@ def with_(**changes) -> dict:
 
 def test_slot_and_word_lists_match_the_constraints():
     assert AUDIT_SLOTS == {"supported", "contradicted", "insufficient", "total", "reviewed", "fragile"}
-    assert CLAIM_SLOTS == {"stated", "data_shows", "direction", "agree", "ways"}
+    # parts_hold: a sentence with several parts says how many parts hold, never one part's {agree} of {ways}
+    assert CLAIM_SLOTS == {"stated", "data_shows", "direction", "agree", "ways", "parts_hold"}
     assert {"two", "most", "none", "exceeds", "dozen", "majority"} <= BANNED_WORDS
     assert "someone" not in BANNED_WORDS
 

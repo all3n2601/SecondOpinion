@@ -4,7 +4,10 @@ import Link from "next/link";
 import { CircleCheck, CircleHelp, CircleX, Info } from "lucide-react";
 import ClaimCard from "@/components/ClaimCard";
 import NoAuditNotice from "@/components/NoAuditNotice";
+import RolePicker from "@/components/RolePicker";
 import { useAudit } from "@/lib/audit-context";
+import { renderNarration } from "@/lib/narrate";
+import { useRoleView } from "@/lib/roles";
 import type { Verdict } from "@/lib/types";
 import { buttonPrimary, pageTitle, pageWidth } from "@/lib/ui";
 
@@ -16,8 +19,17 @@ const SUMMARY: Record<Verdict, { words: string; icon: typeof CircleCheck; ink: s
   insufficient_evidence: { words: "needs more evidence", icon: CircleHelp, ink: "text-insufficient", fill: "bg-insufficient" },
 };
 
+/** What each view does to the board, said under the role picker. */
+const VIEW_NOTE: Record<string, string> = {
+  story: "A short board: each claim's verdict in one plain sentence. Open More detail on a claim for the numbers and caveats.",
+  checklist: "Every claim with the figure behind its verdict and what to keep in mind.",
+  evidence: "Every claim with its figures, corrected wording and how it holds up when counted other ways.",
+  raw: "Every claim in full. Open a claim for its samples, file checksums and code.",
+};
+
 export default function BoardPage() {
   const { audit } = useAudit();
+  const { view } = useRoleView();
 
   if (!audit) {
     return (
@@ -29,6 +41,8 @@ export default function BoardPage() {
   }
 
   const counts = ORDER.map((v) => ({ verdict: v, n: audit.claims.filter((c) => c.verdict === v).length }));
+  // The story view's plain sentences: the built-in wording the Review page uses, every number from our code.
+  const plain = view === "story" ? renderNarration("story", audit.claims, null).claims : null;
   const fileCount = audit.release.files.length;
 
   return (
@@ -38,6 +52,11 @@ export default function BoardPage() {
         Each claim from the report, checked against release {audit.release.name} ({fileCount} files). Open a claim to
         see the calculation, the samples and the code behind it.
       </p>
+
+      <div className="mt-5 flex flex-wrap items-end gap-x-6 gap-y-2">
+        <RolePicker allowAdd={false} />
+        <p className="max-w-prose pb-2.5 text-sm text-ink-soft">{VIEW_NOTE[view]}</p>
+      </div>
 
       {audit.claims.length > 0 && (
         <div className="mt-6 grid gap-3">
@@ -95,7 +114,7 @@ export default function BoardPage() {
         >
           {audit.claims.map((result) => (
             <li key={result.claim.id}>
-              <ClaimCard result={result} />
+              <ClaimCard result={result} plain={plain?.[result.claim.id]?.text} />
             </li>
           ))}
         </ol>

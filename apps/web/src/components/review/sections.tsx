@@ -1,5 +1,5 @@
 import VerdictBadge from "@/components/VerdictBadge";
-import { flipWords } from "@/lib/claim-format";
+import { agreement, agreementText, flipWords } from "@/lib/claim-format";
 import {
   countText,
   finalVerdict,
@@ -47,8 +47,7 @@ export function RobustnessLine({ result, full }: { result: ClaimResult; full: bo
     <>
       {SOLIDITY_LABEL[c.solidity]}
       {c.flips_on.length > 0 && ` (changes when ${c.flips_on.map(flipWords).join(" or ")})`}
-      {full && c.variants.length > 0 &&
-        `; ${c.variants.filter((v) => v.verdict === c.verdict).length} of ${c.variants.length} ways of counting agree`}
+      {full && agreement(c) && `; ${agreementText(agreement(c)!, false)}`}
     </>
   );
 }

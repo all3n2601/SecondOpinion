@@ -1,4 +1,4 @@
-"""Command line: second-opinion --release <dir> --report <report.md> [--claims-json c.json] --out audit.json"""
+"""Command line: second-opinion --release <dir> --report <report.md|.pdf> [--claims-json c.json] --out audit.json"""
 
 import argparse
 import dataclasses
@@ -44,19 +44,19 @@ def _load_claims(args: argparse.Namespace) -> list[Claim]:
 
 
 def read_report(path: str) -> str:
-    """The report's text: UTF-8 (a Windows byte-order mark is dropped), else Windows-1252."""
+    """The report's text: Markdown or text (UTF-8, else Windows-1252), or the text layer of a PDF."""
+    from second_opinion.report_file import ReportFileError, read_report_file
+
     try:
         raw = Path(path).read_bytes()
     except FileNotFoundError:
         _fail(f"report not found: {path}")
     except OSError as exc:
         _fail(f"cannot read the report {path}: {exc}")
-    for encoding in ("utf-8-sig", "cp1252"):
-        try:
-            return raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return raw.decode("utf-8", errors="replace")
+    try:
+        return read_report_file(raw, path).text
+    except ReportFileError as exc:
+        _fail(f"{path}: {exc}")
 
 
 def _print_table(audit) -> None:
@@ -91,7 +91,7 @@ def _json_default(value: object) -> str:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="second_opinion")
     parser.add_argument("--release", required=True, help="folder with the five TCGA-BRCA release files")
-    parser.add_argument("--report", help="report to audit (Markdown or text); not needed with --claims-json")
+    parser.add_argument("--report", help="report to audit (Markdown, text or PDF); not needed with --claims-json")
     parser.add_argument("--claims-json", help="JSON list of claims; skips claim extraction")
     parser.add_argument("--out", default="audit.json", help="where to write audit.json")
     parser.add_argument("--no-ai", action="store_true", help="do not use the optional AI helper in this run")

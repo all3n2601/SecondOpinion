@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from second_opinion.ai.client import AIError, ChatClient
 
 AUDIT_SLOTS = frozenset({"supported", "contradicted", "insufficient", "total", "reviewed", "fragile"})
-CLAIM_SLOTS = frozenset({"stated", "data_shows", "direction", "agree", "ways"})
+CLAIM_SLOTS = frozenset({"stated", "data_shows", "direction", "agree", "ways", "parts_hold"})
 BANNED_WORDS = frozenset(
     """one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen
     seventeen eighteen nineteen twenty half dozen none all every most majority few several many higher lower
@@ -266,6 +266,8 @@ SLOT_MEANINGS = {
     ),
     "agree": "how many ways of counting gave the same answer (use with {ways}: {agree} out of {ways})",
     "ways": "how many ways of counting were tried",
+    "parts_hold": "for a sentence with several parts: how many parts give the same answer however they are counted, "
+                  "as \"3 of 4\" (never use it with {agree} or {ways})",
 }
 
 _STORY_RULE = """

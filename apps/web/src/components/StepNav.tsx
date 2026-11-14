@@ -1,8 +1,10 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAudit } from "@/lib/audit-context";
+import { unreviewedIds } from "@/lib/review";
 
 export const STEPS = [
   { href: "/start", label: "Start", hint: "Report and data" },
@@ -24,6 +26,9 @@ function isCurrent(href: string, pathname: string): boolean {
 export default function StepNav() {
   const pathname = usePathname();
   const currentIndex = STEPS.findIndex((step) => isCurrent(step.href, pathname));
+  const { audit } = useAudit();
+  // Decision comes after Review: while any claim is unreviewed, the Decision step leads to Review instead.
+  const decisionLocked = audit !== null && unreviewedIds(audit.claims).length > 0;
 
   return (
     <nav aria-label="Audit steps">
@@ -31,6 +36,7 @@ export default function StepNav() {
         {STEPS.map((step, i) => {
           const current = i === currentIndex;
           const done = currentIndex > i;
+          const locked = step.href === "/decision" && decisionLocked && !current;
           return (
             <li key={step.href} className="relative lg:pb-1">
               {/* the vertical line that joins the steps in the rail */}
@@ -41,7 +47,8 @@ export default function StepNav() {
                 />
               )}
               <Link
-                href={step.href}
+                href={locked ? "/review" : step.href}
+                title={locked ? "Review every claim first" : undefined}
                 aria-current={current ? "step" : undefined}
                 className="group flex min-h-11 flex-col items-center gap-1 rounded-control px-1 py-2 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pen lg:flex-row lg:items-start lg:gap-3 lg:px-0 lg:py-1.5 lg:text-left"
               >
@@ -55,7 +62,13 @@ export default function StepNav() {
                         : "border-rule-strong bg-sheet text-ink-soft group-hover:border-ink-soft"
                   }`}
                 >
-                  {done ? <Check className="size-4" strokeWidth={2.5} /> : i + 1}
+                  {done ? (
+                    <Check className="size-4" strokeWidth={2.5} />
+                  ) : locked ? (
+                    <Lock className="size-3.5" strokeWidth={2.25} />
+                  ) : (
+                    i + 1
+                  )}
                 </span>
                 <span className="min-w-0">
                   <span
@@ -65,8 +78,11 @@ export default function StepNav() {
                   >
                     <span className="sr-only">Step {i + 1}: </span>
                     {step.label}
+                    {locked && <span className="sr-only"> (locked: review every claim first; opens Review)</span>}
                   </span>
-                  <span className="mt-0.5 hidden text-sm text-ink-faint lg:block">{step.hint}</span>
+                  <span className="mt-0.5 hidden text-sm text-ink-faint lg:block">
+                    {locked ? "Review every claim first" : step.hint}
+                  </span>
                 </span>
               </Link>
             </li>

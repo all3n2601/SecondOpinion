@@ -51,9 +51,9 @@ interface Suggested {
 /** Suggested decision, the reviewer's choice, and the two downloads. */
 export default function DecisionPanel({ audit }: { audit: AuditResult }) {
   const id = useId();
-  // The recorded (exported) decision lives in the audit context, so it survives a trip to a claim's evidence and a
-  // reload; the form starts from it.
-  const { role, decision: recorded, setDecision, reportText } = useAudit();
+  // The form (draft) and the recorded (exported) decision live in the audit context, so both survive a trip to a
+  // claim's evidence and a reload. A field nobody has touched falls back to the recorded decision.
+  const { role, decision: recorded, setDecision, draft, updateDraft, reportText } = useAudit();
   const { roles } = useRoles();
 
   const [suggested, setSuggested] = useState<Suggested | null>(null);
@@ -69,10 +69,13 @@ export default function DecisionPanel({ audit }: { audit: AuditResult }) {
   const current = suggested?.audit === audit ? suggested : null; // null while (re)loading
   const suggestion = current?.suggestion ?? null;
 
-  const [picked, setPicked] = useState<Decision | null>(recorded?.choice ?? null);
+  const picked = draft?.choice ?? recorded?.choice ?? null;
   const choice = picked ?? suggestion?.decision ?? null;
-  const [reason, setReason] = useState(recorded?.reason ?? "");
-  const [pickedRole, setPickedRole] = useState<string | null>(recorded?.reviewer_role ?? null);
+  const reason = draft?.reason ?? recorded?.reason ?? "";
+  const pickedRole = draft?.reviewer_role ?? recorded?.reviewer_role ?? null;
+  const setPicked = (d: Decision) => updateDraft({ choice: d });
+  const setReason = (text: string) => updateDraft({ reason: text });
+  const setPickedRole = (name: string) => updateDraft({ reviewer_role: name });
   const reviewerRole = pickedRole ?? role;
 
   const [exportError, setExportError] = useState<string | null>(null);
@@ -388,25 +391,30 @@ export default function DecisionPanel({ audit }: { audit: AuditResult }) {
         </section>
       )}
 
-      {recordedNow && reportText.trim() && (
+      {/* The report under the chosen decision: a live preview while choosing, the record once exported. */}
+      {choice && reportText.trim() && (
         <section aria-labelledby={`${id}-after`}>
           <h2 id={`${id}-after`} className={sectionTitle}>
-            The report after this decision
+            {recordedNow ? "The report after this decision" : "Preview: the report under this decision"}
           </h2>
           <p className="mt-1 max-w-prose text-ink">
-            <span className="font-semibold">{recordedNow.choice}.</span> {DECISION_HEADLINE[recordedNow.choice]}
+            <span className="font-semibold">{choice}.</span> {DECISION_HEADLINE[choice]}
           </p>
           <p className="mt-1 max-w-prose text-sm text-ink-soft">
-            {actionSummary(audit.claims, recordedNow.choice)}. Each claim is marked with what this decision does to it and
-            its final verdict. Click a marked sentence to open its evidence; you come back to the same place.
+            {actionSummary(audit.claims, choice)}.{" "}
+            {recordedNow
+              ? "Recorded: this is the decision you exported."
+              : "Not recorded yet: it changes as you choose, and is recorded when you export."}{" "}
+            Each claim is marked with what this decision does to it and its final verdict. Click a marked sentence to open
+            its evidence; you come back to the same place.
           </p>
           <div className="mt-6">
             <MarkedReport
               audit={audit}
               reportText={reportText}
               from="decision"
-              decision={recordedNow.choice}
-              label="The report after this decision"
+              decision={choice}
+              label={recordedNow ? "The report after this decision" : "Preview of the report under this decision"}
             />
           </div>
         </section>

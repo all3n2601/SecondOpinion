@@ -350,13 +350,14 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
    **Continue to decision** unlocks when every claim is reviewed. The page layout follows the role
    (see below).
 5. **Decision:** read the suggested decision and who must sign off, choose one, give a reason,
-   **Export**, then download `audit.json` and `decision_record.md`. Once exported, the page shows **the report
-   after this decision**: the report as written, each claim marked with its final verdict and what the decision
-   does to it. *Fix a problem* and *Narrow the question* write in the Claim Ladder's wording (struck and
+   **Export**, then download `audit.json` and `decision_record.md`. Below the form, the report is shown under
+   the chosen decision: a **preview** that changes as you pick a decision (the suggested one at first), and
+   **the report after this decision** once you export. Each claim is marked with its final verdict and what
+   the decision does to it. *Fix a problem* and *Narrow the question* write in the Claim Ladder's wording (struck and
    inserted) where a claim does not hold, or say it must be reworded by hand; *Stop* marks those claims *Hold*;
    *Proceed* keeps the report as written. Click a claim for its evidence; **Back to the decision**, Back and
-   reload return to it (`/decision#mark-C2`). The decision is kept in the tab with the audit and cleared as soon
-   as the audit or any review changes.
+   reload return to it (`/decision#mark-C2`). The choice and reason (exported or not) are kept in the tab with
+   the audit and cleared as soon as the audit or any review changes.
 
 **Role views.** Each role in `second_opinion/roles.yaml` has a `view` that sets how the Review page
 looks. Every view keeps Accept / Override and the "all reviewed" gate, and every number comes from

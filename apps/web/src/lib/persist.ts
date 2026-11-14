@@ -19,6 +19,14 @@ export interface RecordedDecision {
   files: ExportResponse;
 }
 
+/** The decision form before export: what is picked so far. Null fields mean "not chosen yet" (the suggestion or the
+ * viewing role stands in). Kept so a trip to a claim's evidence, or a reload, does not lose it. */
+export interface DecisionDraft {
+  choice: Decision | null;
+  reason: string;
+  reviewer_role: string | null;
+}
+
 /** The part of the audit context that survives a reload. Transient UI state is not in here. */
 export interface PersistedState {
   reportText: string;
@@ -29,10 +37,12 @@ export interface PersistedState {
   role: string;
   /** Null until the decision is exported; cleared whenever the audit or a review changes. */
   decision: RecordedDecision | null;
+  /** The decision form as last edited; cleared with the decision. */
+  draft: DecisionDraft | null;
 }
 
 export function emptyState(releaseDir = ""): PersistedState {
-  return { reportText: "", releaseDir, sentences: [], claims: [], audit: null, role: DEFAULT_ROLE, decision: null };
+  return { reportText: "", releaseDir, sentences: [], claims: [], audit: null, role: DEFAULT_ROLE, decision: null, draft: null };
 }
 
 /** Nothing worth keeping: no report, no extraction, no audit. */
@@ -82,6 +92,15 @@ function isDecision(v: unknown): v is RecordedDecision {
   );
 }
 
+function isDraft(v: unknown): v is DecisionDraft {
+  return (
+    isRecord(v) &&
+    (v.choice === null || DECISIONS.includes(v.choice as Decision)) &&
+    typeof v.reason === "string" &&
+    (v.reviewer_role === null || typeof v.reviewer_role === "string")
+  );
+}
+
 /**
  * Turn the raw stored string into state, or null when there is nothing usable (missing, not JSON,
  * wrong version, wrong shape). Missing or malformed individual fields fall back to their defaults;
@@ -110,6 +129,7 @@ export function parsePersisted(raw: string | null | undefined, releaseDirDefault
     role: typeof s.role === "string" && s.role.trim() !== "" ? s.role : DEFAULT_ROLE,
     // A decision without the audit it was about means nothing, so it is dropped with it.
     decision: audit && isDecision(s.decision) ? s.decision : null,
+    draft: audit && isDraft(s.draft) ? s.draft : null,
   };
   return isEmptyState(state) ? null : state;
 }

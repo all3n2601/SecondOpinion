@@ -17,6 +17,7 @@ import {
   loadPersisted,
   savePersisted,
   type PersistedState,
+  type DecisionDraft,
   type RecordedDecision,
 } from "./persist";
 import type { AuditResult, Claim, ExtractResult, Review, SentenceInfo } from "./types";
@@ -50,6 +51,9 @@ export interface AuditState {
   /** The exported decision, or null. Any change to the audit or its reviews clears it: it no longer applies. */
   decision: RecordedDecision | null;
   setDecision: (decision: RecordedDecision | null) => void;
+  /** The decision form before export (choice, reason, role); cleared together with the decision. */
+  draft: DecisionDraft | null;
+  updateDraft: (patch: Partial<DecisionDraft>) => void;
 
   /** False on the server and on the first client render; true once any stored state has been restored. */
   hydrated: boolean;
@@ -75,7 +79,16 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [role, setRole] = useState(DEFAULT_ROLE);
-  const [decision, setDecision] = useState<RecordedDecision | null>(null);
+  const [decision, setRecorded] = useState<RecordedDecision | null>(null);
+  const [draft, setDraft] = useState<DecisionDraft | null>(null);
+  // The draft and the recorded decision are about the same audit, so they always go together.
+  const setDecision = useCallback((next: RecordedDecision | null) => {
+    setRecorded(next);
+    if (next === null) setDraft(null);
+  }, []);
+  const updateDraft = useCallback((patch: Partial<DecisionDraft>) => {
+    setDraft((prev) => ({ choice: null, reason: "", reviewer_role: null, ...prev, ...patch }));
+  }, []);
   const [hydrated, setHydrated] = useState(false);
   // The latest state worth saving; null until restore has run, so we never overwrite storage with the empty first render.
   const latest = useRef<PersistedState | null>(null);
@@ -92,15 +105,16 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       setClaims(stored.claims);
       setAudit(stored.audit);
       setRole(stored.role);
-      setDecision(stored.decision);
+      setRecorded(stored.decision);
+      setDraft(stored.draft);
     }
     setHydrated(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const snapshot = useMemo<PersistedState>(
-    () => ({ reportText, releaseDir, sentences, claims, audit, role, decision }),
-    [reportText, releaseDir, sentences, claims, audit, role, decision],
+    () => ({ reportText, releaseDir, sentences, claims, audit, role, decision, draft }),
+    [reportText, releaseDir, sentences, claims, audit, role, decision, draft],
   );
 
   // Debounced write: typing in the report box must not hit storage on every keystroke.
@@ -138,14 +152,16 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     setClaims(fresh.claims);
     setAudit(fresh.audit);
     setRole(fresh.role);
-    setDecision(fresh.decision);
+    setRecorded(fresh.decision);
+    setDraft(fresh.draft);
   }, []);
 
   const setExtract = useCallback((result: ExtractResult) => {
     setSentences(result.sentences);
     setClaims(result.claims);
     setAudit(null);
-    setDecision(null);
+    setRecorded(null);
+    setDraft(null);
   }, []);
 
   const toggleClaim = useCallback(
@@ -165,7 +181,8 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       }
       // The claim set changed, so an earlier audit (and any decision on it) no longer describes it.
       setAudit(null);
-      setDecision(null);
+      setRecorded(null);
+      setDraft(null);
     },
     [sentences, claims],
   );
@@ -173,11 +190,14 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
   // A new audit replaces the old one, so a decision recorded on the old one goes with it.
   const replaceAudit = useCallback((result: AuditResult | null) => {
     setAudit(result);
-    setDecision(null);
+    setRecorded(null);
+    setDraft(null);
   }, []);
 
   const setReview = useCallback((claimId: string, review: Review | null) => {
-    setDecision(null); // the decision was made on the reviews as they were
+    // The decision (and its draft) was made on the reviews as they were.
+    setRecorded(null);
+    setDraft(null);
     setAudit((prev) =>
       prev && {
         ...prev,
@@ -203,10 +223,12 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       setRole,
       decision,
       setDecision,
+      draft,
+      updateDraft,
       hydrated,
       reset,
     }),
-    [reportText, releaseDir, sentences, claims, setExtract, toggleClaim, audit, replaceAudit, setReview, role, decision, hydrated, reset],
+    [reportText, releaseDir, sentences, claims, setExtract, toggleClaim, audit, replaceAudit, setReview, role, decision, setDecision, draft, updateDraft, hydrated, reset],
   );
 
   return <AuditContext.Provider value={value}>{children}</AuditContext.Provider>;

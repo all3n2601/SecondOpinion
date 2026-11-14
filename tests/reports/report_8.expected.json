@@ -20,9 +20,9 @@
   },
   {
     "claim_contains": "median age at diagnosis was 58",
-    "type": "STATISTIC",
-    "verdict": "supported",
-    "why": "median 58.0"
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "coverage gate: the median-age reading does not check the 26 to 90 range, so the rules give no verdict (the data: median 58.0)"
   },
   {
     "claim_contains": "Twelve patients were men",

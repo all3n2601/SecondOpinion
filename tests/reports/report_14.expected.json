@@ -25,9 +25,9 @@
   },
   {
     "claim_contains": "smallest group",
-    "type": "COUNT",
-    "verdict": "supported",
-    "why": "Normal-like 23 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+    "type": "UNMAPPED",
+    "verdict": "insufficient_evidence",
+    "why": "coverage gate: the reading counts tumors but the sentence counts samples (normal tissue samples carry PAM50 calls too), so the rules give no verdict (the data: Normal-like 23 (blind test 4: written and answered with pandas by an independent referee before any tool ran))"
   },
   {
     "claim_contains": "91% are ER-negative",

@@ -11,6 +11,7 @@ from pathlib import Path
 import jsonschema
 
 from .decision import final_verdict
+from .extract import NOT_FULLY_READ
 from .verdict import format_fact
 from .model import (
     AuditResult,
@@ -86,6 +87,9 @@ def _summary(result: ClaimResult, verdict: Verdict) -> str:
     elif verdict == Verdict.SUPPORTED:
         n_of_m = _n_of_m(result.fact, result.claim)
         text = f"Recomputed from the data: {n_of_m}." if n_of_m else "Recomputed from the data."
+    elif result.claim.coverage_gaps:  # gated: the data could answer it, the rules did not read all of it
+        why = (result.missing_evidence or result.claim.needed_data or "").rstrip(". ")
+        text = f"Not checked: {NOT_FULLY_READ}; {why}." if why else f"Not checked: {NOT_FULLY_READ}."
     else:
         need = result.missing_evidence or result.claim.needed_data or "data this release does not have"
         text = f"The data cannot answer this; would need: {need}."

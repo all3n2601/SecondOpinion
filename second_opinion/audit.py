@@ -12,9 +12,11 @@ from typing import Any, Callable
 
 from second_opinion.ai.client import AIError, ChatClient, make_client
 from second_opinion.ai.executor import PlanRejected, run_plan
+from second_opinion.ai.plan import QueryPlan
 from second_opinion.ai.planner import plan_claim
 from second_opinion.checks import CHECKS, CannotCheck
-from second_opinion.extract import find_numbers
+from second_opinion.coverage import Uses, missing, missing_outside_parts, reading_uses
+from second_opinion.extract import _quoted_list
 from second_opinion.model import (
     AuditResult,
     Claim,
@@ -34,9 +36,15 @@ UNMAPPED_MISSING = "No check exists yet for this kind of claim"
 CHECK_FAILED = "The check could not be completed on this release; a person should check this claim by hand"
 AI_LIMITATION = "Checked by a query plan the AI helper proposed; our code ran it on the release."
 AI_COULD_NOT = "The AI helper could not turn this into a check we can run: {why}"
+# A plan that left part of the sentence unused: say what it covered, never whether that part agrees.
 AI_PARTLY_CHECKED = (
-    'Only part of this sentence was checked: "{span}" agrees with the data. Not checked: {numbers}. '
-    "A sentence counts as supported only when every part of it is checked."
+    "The AI helper's check covered only {span}. Not checked: {words}. "
+    "A sentence gets a verdict only when every part of it is checked; a person should check the rest."
+)
+# Every part agrees, but some of the sentence sits in no part: no verdict on what no part checked.
+PARTS_DO_NOT_COVER = (
+    "Every part that was checked agrees with the data, but no part covers {words}. "
+    "A sentence counts as supported only when its parts cover all of it; a person should check the rest."
 )
 STANDARD_RELEASE_FOLDER = "raw"  # where fetch.py puts the organizers' release; it is "release A"
 STANDARD_RELEASE_NAME = "A"
@@ -300,9 +308,42 @@ def _close_call_notes(claim: Claim, fact: Fact, verdict: Verdict) -> list[str]:
     return notes
 
 
+def _parts_uses(claim: Claim, parts: list[ClaimResult]) -> Uses:
+    """What the parts used of the sentence: their rules readings, the groups their AI plans named, their spans."""
+    uses = reading_uses(claim)
+    for r in parts:
+        if r.ai_plan and r.ai_plan.get("answerable"):
+            try:
+                plan_uses = reading_uses(r.claim, plan=QueryPlan.model_validate(r.ai_plan))
+            except Exception:  # noqa: BLE001 - a plan we cannot re-read names nothing; its span still counts
+                continue
+            uses.groups |= plan_uses.groups  # figures and quoted spans are the statement's, not the sentence's
+            uses.counted |= plan_uses.counted
+    return uses
+
+
+def _not_covered(claim: Claim, parts: list[ClaimResult]) -> ClaimResult | None:
+    """The join: an all-supported sentence with a demanded piece that no part covers is "can't check"."""
+    gaps = missing_outside_parts(claim.text, _parts_uses(claim, parts))
+    if not gaps:
+        return None
+    result = _insufficient(replace(claim, coverage_gaps=gaps), PARTS_DO_NOT_COVER.format(words=_quoted_list(gaps)))
+    result.parts = parts
+    result.notes = list(dict.fromkeys(n for r in parts for n in r.notes))
+    return result
+
+
 def _combine_parts(claim: Claim, parts: list[ClaimResult]) -> ClaimResult:
-    """One result for a sentence with several checks: its worst part decides, every part is kept."""
+    """One result for a sentence with several checks: its worst part decides, every part is kept.
+
+    A complete contradicted part keeps the sentence contradicted. A sentence whose parts all agree is supported
+    only when the parts cover it (`_not_covered`).
+    """
     worst = min(parts, key=lambda r: _SEVERITY_ORDER[r.verdict])
+    if worst.verdict == Verdict.SUPPORTED:
+        uncovered = _not_covered(claim, parts)
+        if uncovered is not None:
+            return uncovered
     verdict = worst.verdict
     deciding = [r for r in parts if r.verdict == verdict]
     labelled = len(parts) > 1
@@ -369,21 +410,10 @@ def _honest_need(need: str) -> str:
 
 
 def _ai_failed(claim: Claim, why: str) -> ClaimResult:
+    if claim.coverage_gaps and claim.needed_data:  # a gated claim keeps the gate's reason, not a generic one
+        return _insufficient(claim, claim.needed_data)
     why = " ".join(why.split()).rstrip(".")
     return _insufficient(claim, AI_COULD_NOT.format(why=(why or "the answer was not usable") + "."))
-
-
-def _unchecked_numbers(text: str, span: str, total: float | None) -> list[str]:
-    """Numbers the sentence states outside the span the AI plan tested (a plan tests one figure)."""
-    start = text.lower().find(" ".join(span.split()).lower())
-    if start == -1:
-        return []
-    end = start + len(" ".join(span.split()))
-    return [
-        text[n.start:n.end].strip()
-        for n in find_numbers(text)
-        if not (start <= n.start and n.end <= end) and not n.is_total and n.value != total
-    ]
 
 
 def _ai_checked(claim: Claim, release: Release, client: ChatClient) -> ClaimResult:
@@ -394,14 +424,14 @@ def _ai_checked(claim: Claim, release: Release, client: ChatClient) -> ClaimResu
             result = _insufficient(claim, _honest_need((qp.needed_data or "").strip()) or "Data this release does not contain")
         else:
             fact, verdict, correct_value = run_plan(claim.text, qp, release)
-            untested = (
-                _unchecked_numbers(claim.text, qp.stated.span, qp.stated.total)
-                if verdict == Verdict.SUPPORTED and qp.stated is not None
-                else []
-            )
-            if untested:  # a contradicted part would already show; "supported" needs every part checked
+            # The coverage gate: a plan that leaves part of the sentence unused gives no verdict, contradicted
+            # included (the unused part could change what the sentence says).
+            gaps = missing(claim.text, reading_uses(claim, plan=qp))
+            if gaps:
+                # The unused words go on the result's claim, so export, decision and the web say "not fully read".
+                span = f'"{qp.stated.span}"' if qp.stated is not None and qp.stated.span else "part of the sentence"
                 result = _insufficient(
-                    claim, AI_PARTLY_CHECKED.format(span=qp.stated.span, numbers=", ".join(untested))
+                    replace(claim, coverage_gaps=gaps), AI_PARTLY_CHECKED.format(span=span, words=_quoted_list(gaps))
                 )
                 result.ai_plan = qp.model_dump(mode="json")
                 return result

@@ -36,8 +36,12 @@ def _load_claims(args: argparse.Namespace) -> list[Claim]:
     try:  # the optional AI helper flags factual sentences the rules skipped (rules-only on any failure)
         from second_opinion.ai.client import make_client
         from second_opinion.ai.extract_ai import add_missed_claims
+        from second_opinion.ai.split import split_gated
 
-        result = add_missed_claims(result, make_client())
+        client = make_client()
+        recovered = add_missed_claims(result, client)
+        # then, as POST /extract does, splits each sentence the rules only half read (unless --no-split)
+        result = recovered if getattr(args, "no_split", False) else split_gated(recovered, client)
     except Exception:  # noqa: BLE001
         pass
     return result.claims
@@ -95,6 +99,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--claims-json", help="JSON list of claims; skips claim extraction")
     parser.add_argument("--out", default="audit.json", help="where to write audit.json")
     parser.add_argument("--no-ai", action="store_true", help="do not use the optional AI helper in this run")
+    parser.add_argument(
+        "--no-split", action="store_true",
+        help="with the AI helper: keep sentences the rules only half read whole (they come back can't check)",
+    )
     parser.add_argument("--quiet", action="store_true", help="do not print the verdict table")
     args = parser.parse_args(argv)
     if not args.report and not args.claims_json:

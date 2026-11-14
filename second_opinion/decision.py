@@ -41,6 +41,8 @@ def _claim_reason(result: ClaimResult) -> str:
     if verdict == Verdict.CONTRADICTED:
         shows = result.correct_value or "a different value"
         text = f"{cid}: contradicted; the data shows {shows}."
+    elif verdict == Verdict.INSUFFICIENT_EVIDENCE and result.claim.coverage_gaps:
+        text = f"{cid}: not checked; the rules could not read every part of the sentence ({_words(result)})."
     elif verdict == Verdict.INSUFFICIENT_EVIDENCE:
         need = result.missing_evidence or result.claim.needed_data or "data this release does not have"
         text = f"{cid}: insufficient evidence; would need {need}."
@@ -54,6 +56,11 @@ def _claim_reason(result: ClaimResult) -> str:
             f"{result.review.reviewer_role}: {result.review.reason}"
         )
     return text
+
+
+def _words(result: ClaimResult) -> str:
+    """The words a gated claim's reading left unused: '"N0", "15"'."""
+    return ", ".join(f'"{w}"' for w in result.claim.coverage_gaps)
 
 
 def _flips(result: ClaimResult) -> str:
@@ -70,6 +77,8 @@ def _would_change(audit: AuditResult) -> list[str]:
         if verdict == Verdict.CONTRADICTED:
             value = result.correct_value or "what the data shows"
             changes.append(f"If {cid} were reworded to {value}, it could be published")
+        elif verdict == Verdict.INSUFFICIENT_EVIDENCE and result.claim.coverage_gaps:
+            changes.append(f"If a person checked {_words(result)} in {cid}, it could be decided")
         elif verdict == Verdict.INSUFFICIENT_EVIDENCE:
             need = result.missing_evidence or result.claim.needed_data or "the missing data"
             changes.append(f"If {need} were added, {cid} could be tested")

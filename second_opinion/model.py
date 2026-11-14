@@ -77,6 +77,8 @@ class Claim:
     # carries one sub-claim per statement. The sentence is judged by its worst part.
     parts: list["Claim"] = field(default_factory=list)
     part_label: str = ""  # for a part: the words it checks, e.g. "7 metastatic samples"
+    # The sentence's words a rules reading left unused ("N0", "15"): the claim was gated to UNMAPPED. [] = complete.
+    coverage_gaps: list[str] = field(default_factory=list)
 
 
 @dataclass

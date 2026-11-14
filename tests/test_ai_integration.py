@@ -90,14 +90,20 @@ def test_a_supported_plan_that_leaves_a_stated_number_unchecked_is_not_supported
     sentence = LUMA_SENTENCE[:-1] + ", and 10 samples have no call."
     result = audit_claims([unmapped(sentence)], mini_release, ai_client=ScriptedClient([LUMA_OK])).claims[0]
     assert result.verdict == Verdict.INSUFFICIENT_EVIDENCE
-    assert "Not checked: 10" in result.missing_evidence and '"About 43%"' in result.missing_evidence
+    assert 'Not checked: "10" and "samples"' in result.missing_evidence and '"About 43%"' in result.missing_evidence
+    assert "agrees" not in result.missing_evidence  # the plan's span is named, never judged
+    assert result.claim.coverage_gaps == ["10", "samples"]  # export, decision and the web say "not fully read"
     assert result.ai_plan is not None  # the reviewer can still see what the plan tested
 
 
-def test_a_contradicted_part_still_contradicts_the_whole_sentence(mini_release):
+def test_a_contradicted_plan_that_leaves_a_stated_number_unchecked_is_not_contradicted(mini_release):
+    # The coverage gate (audit._ai_checked): a plan that skips part of the sentence gives no verdict, contradicted
+    # included, because the unchecked part could change what the sentence says.
     sentence = LUMA_WRONG[:-1] + ", and 10 samples have no call."
     result = audit_claims([unmapped(sentence)], mini_release, ai_client=ScriptedClient([share_answer("42%", 42)])).claims[0]
-    assert result.verdict == Verdict.CONTRADICTED
+    assert result.verdict == Verdict.INSUFFICIENT_EVIDENCE and result.correct_value is None
+    assert 'Not checked: "10"' in result.missing_evidence and "agrees" not in result.missing_evidence
+    assert result.claim.coverage_gaps and result.ai_plan is not None
 
 
 def test_the_ai_judges_the_sentence_not_the_claim_params(mini_release):
@@ -251,7 +257,7 @@ def test_extract_recovers_claims_in_sentence_order(monkeypatch):
     by_index = {s["index"]: s["claim_id"] for s in body["sentences"]}
     assert by_index == {0: None, 1: "C1", 2: "C2", 3: "C3"}
     assert body["claims"][1]["params"]["stated_value"] == 535  # the rules claim is untouched, only renumbered
-    assert len(client.calls) == 1
+    assert len(client.calls) == 3  # the claim finder, then a split try for each recovered claim (none scripted)
     assert "Of the 1,101 primary tumors" not in client.calls[0][1]  # only unclaimed sentences are sent
 
 
@@ -268,6 +274,46 @@ def test_extract_ai_error_returns_the_rules_only_result(monkeypatch):
     assert response.status_code == 200
     assert response.json() == baseline
     assert [c["id"] for c in baseline["claims"]] == ["C1"]
+
+
+def test_extract_splits_a_sentence_the_rules_only_half_read(monkeypatch):
+    sentence = "TP53 mutations dominate basal-like tumors, at 85% compared with 10% in Luminal A."
+    split = {"parts": [
+        {"span": "basal-like tumors, at 85%", "statement": "TP53 is mutated in 85% of basal-like tumors."},
+        {"span": "10% in Luminal A", "statement": "TP53 is mutated in 10% of Luminal A tumors."},
+    ]}
+    client = ScriptedClient([{"claim_indices": []}, split])
+    monkeypatch.setattr("apps.api.app.routes.extract.make_client", lambda: client)
+    (claim,) = web.post("/extract", json={"report_text": sentence}).json()["claims"]
+    assert [(p["id"], p["type"], p["source"]) for p in claim["parts"]] == [("C1.1", "SHARE", "ai"), ("C1.2", "SHARE", "ai")]
+
+
+def test_extract_with_split_off_keeps_the_half_read_sentence_whole(monkeypatch):
+    sentence = "TP53 mutations dominate basal-like tumors, at 85% compared with 10% in Luminal A."
+    client = ScriptedClient([{"parts": []}])  # a split reply, which must never be asked for
+    monkeypatch.setattr("apps.api.app.routes.extract.make_client", lambda: client)
+    (claim,) = web.post("/extract", json={"report_text": sentence, "split": False}).json()["claims"]
+    assert (claim["type"], claim["parts"]) == ("UNMAPPED", [])
+    assert claim["coverage_gaps"]  # still gated, so the audit says can't check
+    assert client.calls == []  # the sentence is a claim already, so no finder call; split off, so no split call
+
+
+@pytest.mark.parametrize("no_split, parts", [(False, ["C1.1", "C1.2"]), (True, [])])
+def test_cli_splits_as_the_app_does_unless_no_split(monkeypatch, tmp_path, no_split, parts):
+    import argparse
+
+    from second_opinion.cli import _load_claims
+
+    report = tmp_path / "r.md"
+    report.write_text("TP53 mutations dominate basal-like tumors, at 85% compared with 10% in Luminal A.", encoding="utf-8")
+    split = {"parts": [
+        {"span": "basal-like tumors, at 85%", "statement": "TP53 is mutated in 85% of basal-like tumors."},
+        {"span": "10% in Luminal A", "statement": "TP53 is mutated in 10% of Luminal A tumors."},
+    ]}
+    monkeypatch.setattr("second_opinion.ai.client.make_client", lambda: ScriptedClient([split]))
+    args = argparse.Namespace(claims_json=None, report=str(report), no_split=no_split)
+    (claim,) = _load_claims(args)
+    assert [p.id for p in claim.parts] == parts
 
 
 def test_classify_is_unchanged_by_the_ai(monkeypatch):

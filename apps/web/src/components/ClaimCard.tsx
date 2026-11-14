@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Clock, FileSearch, FileText, Sparkles, UserCheck } from "lucide-react";
 import { formatResultFact, resultTypeLabel, VERDICT_LABEL } from "@/lib/claim-format";
+import { NOT_FULLY_READ, notFullyRead, notFullyReadText } from "@/lib/coverage";
 import { reportHref } from "@/lib/report-nav";
 import type { ClaimResult } from "@/lib/types";
 import { buttonQuiet, buttonSecondary, focusRing } from "@/lib/ui";
@@ -77,7 +78,12 @@ export default function ClaimCard({ result, plain }: { result: ClaimResult; plai
             )}
           </Row>
         )}
-        {verdict === "insufficient_evidence" && (
+        {verdict === "insufficient_evidence" && notFullyRead(result.claim) && (
+          <Row label={NOT_FULLY_READ}>
+            <p>{notFullyReadText(result)}</p>
+          </Row>
+        )}
+        {verdict === "insufficient_evidence" && !notFullyRead(result.claim) && (
           <Row label="Why we can’t check it">
             <p>
               This data cannot answer it.

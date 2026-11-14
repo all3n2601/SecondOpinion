@@ -4,7 +4,8 @@ Not a pytest test: the AI pass calls the configured model, so its answers can ch
 
   SO_RELEASE_DIR=../oncosys-hackathon-challenge/data/tcga-brca/raw .venv/bin/python tests/ai_hard/compare.py [name ...]
 
-Names pick reports ("numbers" runs numbers_report.md); with none, every report runs. `--rules` skips the AI pass.
+Names pick reports ("numbers" runs numbers_report.md); with none, every report runs. `--rules` skips the AI pass; `--no-split`
+runs the AI pass without the AI split (to measure what the split adds).
 The last run's rows are saved to last_run.json (git-ignored) for the bug list.
 """
 
@@ -16,6 +17,7 @@ from pathlib import Path
 
 from second_opinion.ai.client import make_client
 from second_opinion.ai.extract_ai import add_missed_claims
+from second_opinion.ai.split import split_gated
 from second_opinion.audit import audit_claims
 from second_opinion.extract import extract_claims
 
@@ -64,6 +66,8 @@ def run(report: Path, expected: list[dict], release_dir: str, use_ai: bool) -> t
         sys.exit("The AI helper is off: set SO_AI_API_KEY and SO_AI_MODEL in .env")
     if client is not None:
         extracted = add_missed_claims(extracted, client)
+        if "--no-split" not in sys.argv:  # what POST /extract returns
+            extracted = split_gated(extracted, client)
     results = audit_claims(extracted.claims, release_dir, ai_client=client).claims
     rows: dict[str, dict] = {}
     for row in expected:

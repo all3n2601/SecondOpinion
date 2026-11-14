@@ -10,8 +10,8 @@ import pytest
 from second_opinion import audit as audit_module
 from second_opinion.audit import _honest_need, audit_claims
 from second_opinion.export import build_audit_json, validate_audit_json
-from second_opinion.extract import extract_claims, find_amounts
-from second_opinion.model import Claim, ClaimParams, ClaimType, Fact, Verdict
+from second_opinion.extract import classify_sentence, extract_claims, find_amounts
+from second_opinion.model import Claim, ClaimParams, ClaimType, Fact, SentenceInfo, Verdict
 from second_opinion.verdict import judge
 from tests.helpers import make_mini_release
 
@@ -263,7 +263,12 @@ def test_mini_release_fixture_still_has_no_rna(tmp_path):
 
 def test_slide_counts_use_the_slide_manifest_when_there_is_one(tmp_path):
     folder = make_mini_release(tmp_path / "raw")
-    claims = extract_claims("There are 2 diagnostic slides and 1 frozen section.").claims
+    sentence = "There are 2 diagnostic slides and 1 frozen section."
+    # The coverage gate gives no verdict: the count check counts tumors with a slide, the sentence counts slides.
+    [gated] = extract_claims(sentence).claims
+    assert (gated.type, gated.coverage_gaps) == (ClaimType.UNMAPPED, ["slides"])
+    # The rules reading itself still reads the slide manifest.
+    claims = [classify_sentence(SentenceInfo(index=0, text=sentence, claim_id=None), "C1")]
     without = audit_claims(claims, folder).claims[0]
     assert without.verdict is Verdict.INSUFFICIENT_EVIDENCE and "slide_manifest.csv" in without.missing_evidence
     pd.DataFrame({

@@ -462,7 +462,9 @@ Windows (PowerShell):
 
 It prints one line per claim (verdict, the data's value or what is missing, fragile and close-call
 warnings), then writes `audit.json` only if it passes the shared-format checks. `--no-ai` runs on the
-rules alone; `--quiet` skips the table. Or upload the report in the web app with the same release folder.
+rules alone; `--no-split` keeps the AI helper but does not split sentences the rules only half read
+(they stay whole and come back "can't check"; the web app's Start page has the same "AI split" switch);
+`--quiet` skips the table. Or upload the report in the web app with the same release folder.
 `--claims-json claims.json` skips sentence extraction and audits a given list of claims (then `--report`
 is not needed). The validator must print `valid`. A full run takes under 10 seconds.
 
@@ -603,7 +605,7 @@ and Decision Record. No database. The API keeps no session: the browser sends ba
 | API route | Purpose |
 | --- | --- |
 | `POST /report-file` | A report file (Markdown, text or PDF) → its text, for the report box |
-| `POST /extract`, `POST /classify` | Report text → sentences and claims; type one ticked sentence |
+| `POST /extract`, `POST /classify` | Report text → sentences and claims (`split: false` skips the AI split); type one ticked sentence |
 | `POST /audit` | Claims + release folder → audit result |
 | `POST /practice-release` | A release-A folder for the practice run (local copy or temporary download) |
 | `POST /decision`, `POST /export` | Suggested decision; `audit.json` and Decision Record (refused until every claim is reviewed) |

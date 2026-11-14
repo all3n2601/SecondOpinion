@@ -2,6 +2,7 @@ import { CircleHelp } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { describeStated, paramsFromAiPlan } from "@/lib/ai-plan";
 import { formatFact, formatResultFact, VERDICT_LABEL } from "@/lib/claim-format";
+import { NOT_FULLY_READ, notFullyRead, notFullyReadText } from "@/lib/coverage";
 import type { ClaimParams, ClaimResult, Verdict } from "@/lib/types";
 import { sectionTitle } from "@/lib/ui";
 
@@ -352,14 +353,17 @@ function ComparisonGauge({ result }: { result: ClaimResult }) {
 }
 
 function Needs({ result }: { result: ClaimResult }) {
+  const gated = notFullyRead(result.claim);
   return (
     <section aria-labelledby="needs-title" className="mt-8 rounded-panel border border-insufficient bg-insufficient-tint p-5">
       <h2 id="needs-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-insufficient">
         <CircleHelp aria-hidden="true" className="size-5 shrink-0" strokeWidth={2.25} />
-        What the data would need
+        {gated ? NOT_FULLY_READ : "What the data would need"}
       </h2>
       <p className="mt-2 max-w-prose leading-7 text-ink">
-        {result.missing_evidence ? (
+        {gated ? (
+          notFullyReadText(result)
+        ) : result.missing_evidence ? (
           <>
             This data cannot answer the claim. It would need <strong>{result.missing_evidence}</strong>.
           </>

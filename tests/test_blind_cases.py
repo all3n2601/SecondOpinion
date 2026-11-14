@@ -41,13 +41,14 @@ def test_blind_sentence(release_dir, sentence, verdict):
 
 ROUND_B = [
     ("We analysed the 1,101 primary breast tumors in TCGA-BRCA release A (1,247 samples in total), of which 535 (48.6%) "
-     "carry all five data layers: survival, mutation, copy number, RNA and protein.", S),
+     "carry all five data layers: survival, mutation, copy number, RNA and protein.", I),  # was S: 1,247 unchecked
     ("We analysed the 1,101 primary breast tumors in TCGA-BRCA release A, of which 535 (50.6%) carry all five data layers.", C),
     ("HER2 overexpression by immunohistochemistry was uncommon (22.5%; 164 of 728 tumors with a definitive result), and "
      "triple-negative disease made up 15–17% of tumors with all three receptors known.", S),
-    ("ER-alpha protein was higher in ER-positive than in ER-negative tumors, with a mean RPPA difference of 2.0–2.5 units (n = 698).", C),
+    # was C: the reading checks the 2.0-2.5 difference but not n = 698 (coverage gate)
+    ("ER-alpha protein was higher in ER-positive than in ER-negative tumors, with a mean RPPA difference of 2.0–2.5 units (n = 698).", I),
     ("Mean ERALPHA protein (RPPA) is 2.18 in the 529 ER+ tumors with protein data against -0.87 in the 169 ER- tumors, "
-     "a gap of about 3.1 units.", S),
+     "a gap of about 3.1 units.", I),  # was S: 529, 169 and 3.1 unchecked (coverage gate)
     ("Every one of the 742 primary tumors with protein data also has RNA-seq data.", S),
     ("Basal-like tumors are almost all ER-negative: 124 of 136 with a known ER status (91.2%).", S),
     ("Mean cyclin B1 protein (RPPA CYCLINB1) is lower in Basal-like than in Luminal A tumors.", C),

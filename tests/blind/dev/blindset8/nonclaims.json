@@ -1,0 +1,142 @@
+[
+ {
+  "report": "r1.md",
+  "contains": "Before any analysis, it helps"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Two details about who is in"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Pathology slides are plentiful"
+ },
+ {
+  "report": "r1.md",
+  "contains": "We recommend that every analysis"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Multi-omic studies depend on"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Sample types matter here as well"
+ },
+ {
+  "report": "r2.md",
+  "contains": "We recommend that cohorts be defined"
+ },
+ {
+  "report": "r3.md",
+  "contains": "PAM50 subtypes remain the standard"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Subtype may also matter clinically"
+ },
+ {
+  "report": "r3.md",
+  "contains": "We recommend that subtype shares"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Receptor status drives how"
+ },
+ {
+  "report": "r4.md",
+  "contains": "We recommend that receptor results"
+ },
+ {
+  "report": "r5.md",
+  "contains": "Mutation data is where many"
+ },
+ {
+  "report": "r5.md",
+  "contains": "Genes linked to hereditary risk"
+ },
+ {
+  "report": "r5.md",
+  "contains": "We recommend that mutation rates"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Copy number changes are a hallmark"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Survival follow-up adds outcome"
+ },
+ {
+  "report": "r6.md",
+  "contains": "We recommend that copy number findings"
+ },
+ {
+  "report": "r7.md",
+  "contains": "Clinical descriptors help put"
+ },
+ {
+  "report": "r7.md",
+  "contains": "Protein data tells a consistent"
+ },
+ {
+  "report": "r7.md",
+  "contains": "We recommend that protein comparisons"
+ },
+ {
+  "report": "r1.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r1.md",
+  "contains": "It describes the TCGA-BRCA files"
+ },
+ {
+  "report": "r2.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r2.md",
+  "contains": "It describes the TCGA-BRCA files"
+ },
+ {
+  "report": "r3.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r3.md",
+  "contains": "It describes the TCGA-BRCA files"
+ },
+ {
+  "report": "r4.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r4.md",
+  "contains": "It describes the TCGA-BRCA files"
+ },
+ {
+  "report": "r5.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r5.md",
+  "contains": "It describes the TCGA-BRCA files"
+ },
+ {
+  "report": "r6.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r6.md",
+  "contains": "It describes the TCGA-BRCA files"
+ },
+ {
+  "report": "r7.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r7.md",
+  "contains": "It describes the TCGA-BRCA files"
+ }
+]

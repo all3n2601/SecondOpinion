@@ -1,6 +1,7 @@
 // Plain-word labels for claims, shared by the claims list and the audit board.
 
 import { PLAN_OP_LABEL } from "./ai-plan";
+import { notFullyRead, notFullyReadParams } from "./coverage";
 import type { Claim, ClaimResult, ClaimType, Fact, Verdict } from "./types";
 
 export const TYPE_LABEL: Record<ClaimType, string> = {
@@ -45,6 +46,7 @@ export function describeParams(claim: Claim): string {
     return parts.join(" · ") || "The data cannot answer this kind of claim";
   }
   if (claim.source === "ai") return "The AI helper will propose a check plan when you run the audit";
+  if (notFullyRead(claim)) return notFullyReadParams(claim);
   if (claim.type === "UNMAPPED") return "No check exists yet for this kind of claim";
 
   if (p.unit === "all") {

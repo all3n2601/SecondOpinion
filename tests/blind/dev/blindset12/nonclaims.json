@@ -1,0 +1,214 @@
+[
+ {
+  "report": "r1.md",
+  "contains": "Year 2 Progress Report"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Grant period:"
+ },
+ {
+  "report": "r1.md",
+  "contains": "This report summarizes work on Aim 1"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Our goal for the year was"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Milestone 1.1"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Milestone 1.2"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Milestone 1.3"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Plans for Year 3"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Aim 2 work will begin next quarter"
+ },
+ {
+  "report": "r1.md",
+  "contains": "We request no change to the approved"
+ },
+ {
+  "report": "r2.md",
+  "contains": "What is mutated in TCGA-BRCA"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Transcript of a Thursday lab-meeting"
+ },
+ {
+  "report": "r2.md",
+  "contains": "The usual suspects, and one surprise"
+ },
+ {
+  "report": "r2.md",
+  "contains": "let us start with the big picture"
+ },
+ {
+  "report": "r2.md",
+  "contains": "It is a huge gene"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Slide 2: The long tail"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Slide 3: Co-occurrence"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Splitting by receptor status"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Someone asked about copy number"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Next week we will look at copy number"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Response to reviewers"
+ },
+ {
+  "report": "r3.md",
+  "contains": "We thank both reviewers"
+ },
+ {
+  "report": "r3.md",
+  "contains": "The authors should describe the male"
+ },
+ {
+  "report": "r3.md",
+  "contains": "We agree and have added a paragraph"
+ },
+ {
+  "report": "r3.md",
+  "contains": "clarify how many patients had distant"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Tumor size should be summarized"
+ },
+ {
+  "report": "r3.md",
+  "contains": "added the full T-category table"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Is age at diagnosis similar"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Did ER-negative patients die more"
+ },
+ {
+  "report": "r3.md",
+  "contains": "What about endocrine treatment"
+ },
+ {
+  "report": "r3.md",
+  "contains": "We hope the revised manuscript"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Focal copy-number events in TCGA-BRCA"
+ },
+ {
+  "report": "r4.md",
+  "contains": "We analysed the TCGA-BRCA release A"
+ },
+ {
+  "report": "r4.md",
+  "contains": "identified by the sample-type code"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Gene-level GISTIC2 calls were used"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Subtypes were taken from the RNA-seq"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Protein levels came from the reverse"
+ },
+ {
+  "report": "r4.md",
+  "contains": "These results support integrating"
+ },
+ {
+  "report": "r5.md",
+  "contains": "Interim Progress Report to the Foundation"
+ },
+ {
+  "report": "r5.md",
+  "contains": "months 13 to 18"
+ },
+ {
+  "report": "r5.md",
+  "contains": "Aim 3 asks whether reverse-phase"
+ },
+ {
+  "report": "r5.md",
+  "contains": "we completed the first round"
+ },
+ {
+  "report": "r5.md",
+  "contains": "Preliminary modelling"
+ },
+ {
+  "report": "r5.md",
+  "contains": "focus on validating these comparisons"
+ },
+ {
+  "report": "r5.md",
+  "contains": "We will submit the next report"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Outcomes, demographics and the slide"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Notes from a journal-club style"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Slide 1: Outcome endpoints"
+ },
+ {
+  "report": "r6.md",
+  "contains": "go beyond overall survival"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Slide 2: Who the patients are"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Slide 3: The slide archive"
+ },
+ {
+  "report": "r6.md",
+  "contains": "budget for storage"
+ },
+ {
+  "report": "r6.md",
+  "contains": "pick one endpoint and stick to it"
+ }
+]

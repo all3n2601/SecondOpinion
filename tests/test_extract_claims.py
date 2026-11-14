@@ -142,7 +142,6 @@ def test_more_than_n_is_not_a_comparison():
 @pytest.mark.parametrize("text, subject", [
     ("Every primary tumor has protein data.", "has_protein"),
     ("All primary tumors have survival data.", "has_survival"),
-    ("All 1,101 primary tumors have mutation calls.", "has_mutation"),
     ("Each primary tumor has copy-number data.", "has_copy_number"),
     ("Every primary tumor has RNA-seq data.", "has_rna"),
 ])
@@ -150,6 +149,15 @@ def test_coverage_every(text, subject):
     c = claim(text)
     assert c.type is ClaimType.COVERAGE
     assert (c.params.unit, c.params.subject) == ("all", subject)
+
+
+def test_all_n_coverage_is_gated_for_its_unchecked_count():
+    """The "every tumor" check does not test the stated 1,101, so the coverage gate gives no verdict."""
+    text = "All 1,101 primary tumors have mutation calls."
+    rules = classify_sentence(SentenceInfo(index=0, text=text, claim_id=None), "C1")
+    assert (rules.type, rules.params.unit, rules.params.subject) == (ClaimType.COVERAGE, "all", "has_mutation")
+    c = claim(text)
+    assert (c.type, c.coverage_gaps) == (ClaimType.UNMAPPED, ["1,101"])
 
 
 def test_coverage_with_a_count():

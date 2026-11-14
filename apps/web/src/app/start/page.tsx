@@ -4,6 +4,7 @@ import { CircleAlert, ClipboardCheck, FileText, LayoutList, Play } from "lucide-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import AiSplitSwitch, { useAiSplit } from "@/components/AiSplitSwitch";
 import AiStatusChip from "@/components/AiStatusChip";
 import ApiStatus from "@/components/ApiStatus";
 import EnvelopeOpener from "@/components/EnvelopeOpener";
@@ -41,19 +42,33 @@ function N({ children }: { children: React.ReactNode }) {
   return <span className="num font-mono text-[0.9em] font-medium">{children}</span>;
 }
 
-function readResult(sentenceCount: number, claims: Claim[]) {
+function readResult(sentenceCount: number, claims: Claim[], split: boolean | null) {
   const fromAi = claims.filter((c) => c.source === "ai").length;
+  const splitCount = claims.filter((c) => (c.parts?.length ?? 0) > 0).length;
   return (
-    <p>
-      <N>{claims.length}</N> checkable {claims.length === 1 ? "claim" : "claims"} in <N>{sentenceCount}</N>{" "}
-      {sentenceCount === 1 ? "sentence" : "sentences"}
-      {fromAi > 0 && (
-        <>
-          , <N>{fromAi}</N> of them flagged by the AI helper
-        </>
+    <div>
+      <p>
+        <N>{claims.length}</N> checkable {claims.length === 1 ? "claim" : "claims"} in <N>{sentenceCount}</N>{" "}
+        {sentenceCount === 1 ? "sentence" : "sentences"}
+        {fromAi > 0 && (
+          <>
+            , <N>{fromAi}</N> of them flagged by the AI helper
+          </>
+        )}
+        .
+      </p>
+      {split !== null && (
+        <p className="mt-1 text-sm text-ink-soft">
+          {split ? (
+            <>
+              AI split on: <N>{splitCount}</N> {splitCount === 1 ? "sentence" : "sentences"} split into parts.
+            </>
+          ) : (
+            "AI split off: half-read sentences stay whole."
+          )}
+        </p>
       )}
-      .
-    </p>
+    </div>
   );
 }
 
@@ -114,6 +129,8 @@ export default function StartPage() {
   const [run, setRun] = useState<Run>({ state: "idle" });
   const [timing, setTiming] = useState<Partial<Record<Stage, number>>>({});
   const [dataNote, setDataNote] = useState<string | null>(null);
+  const [aiSplit, setAiSplit] = useAiSplit();
+  const [readWithSplit, setReadWithSplit] = useState<boolean | null>(null); // the mode the last read in this tab used
 
   const running = run.state === "running";
   const hasReport = reportText.trim().length > 0;
@@ -127,8 +144,9 @@ export default function StartPage() {
     try {
       setRun({ state: "running", stage });
       let t0 = performance.now();
-      const extracted = await extractClaims(text);
+      const extracted = await extractClaims(text, { split: aiSplit });
       setExtract(extracted);
+      setReadWithSplit(aiSplit);
       setTiming({ read: performance.now() - t0 });
       if (stopAfterRead) {
         router.push("/claims");
@@ -196,7 +214,7 @@ export default function StartPage() {
       title: "Read the report",
       does: "Split it into sentences and pick out the ones that state something the data can check.",
       state: readState,
-      result: readState === "done" ? readResult(sentences.length, claims) : undefined,
+      result: readState === "done" ? readResult(sentences.length, claims, readWithSplit) : undefined,
       ms: timing.read,
     },
   ];
@@ -322,6 +340,9 @@ export default function StartPage() {
           </div>
 
           <div className="mt-6 border-t border-rule-strong pt-4">
+            <div className="mb-4">
+              <AiSplitSwitch checked={aiSplit} onChange={setAiSplit} disabled={running} />
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               {auditDone ? (
                 <>

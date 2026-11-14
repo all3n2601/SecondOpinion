@@ -263,9 +263,27 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
    code that reproduces the number, the sample IDs (CSV download), the eight ways of counting and the
    skeptic tests.
 4. **Review:** accept or override each verdict (an override needs a reason and your role).
-   **Continue to decision** unlocks when every claim is reviewed.
+   **Continue to decision** unlocks when every claim is reviewed. The page layout follows the role
+   (see below).
 5. **Decision:** read the suggested decision and who must sign off, choose one, give a reason,
    **Export**, then download `audit.json` and `decision_record.md`.
+
+**Role views.** Each role in `second_opinion/roles.yaml` has a `view` that sets how the Review page
+looks. Every view keeps Accept / Override and the "all reviewed" gate, and every number comes from
+code:
+
+| `view` | Shipped for | What it shows |
+| --- | --- | --- |
+| `story` | Program leader | A short written summary of what held up and what did not |
+| `checklist` | Data-use reviewer | Counts by verdict, then every claim as a tick box that jumps to its row |
+| `evidence` | Researcher | Each claim next to the numbers and checks behind it |
+| `raw` | Data engineer | Plain tables and files, no written summary |
+
+If a role has no `view`, it comes from `detail`: `summary` is `story`, `standard` is `checklist`,
+`full` is `evidence`. The **Add a role** form has a "How it looks" choice for it. The wording in the
+`story` and `checklist` views is template text by default. If an AI helper is configured,
+`POST /ai/narrate` can reword it with named blanks that the browser fills from the audit, so the
+numbers still come from code; anything that fails the checker falls back to the template wording.
 
 The app keeps your work if you refresh the page. It is stored only in that browser tab
 (`sessionStorage`); closing the tab clears it, and **Start over** clears it on demand.
@@ -341,6 +359,7 @@ PORT=3001 UVICORN_PORT=8001 API_ORIGIN=http://127.0.0.1:8001 npm run dev
 
 ```bash
 npm test            # Python: engine, API, export, extraction (real-data tests are skipped by default)
+npm run test:web    # web unit tests (vitest)
 npm run lint
 npm run typecheck
 npm run build
@@ -431,6 +450,7 @@ and Decision Record. No database. The API keeps no session: the browser sends ba
 | `POST /practice-release` | A release-A folder for the practice run (local copy or temporary download) |
 | `POST /decision`, `POST /export` | Suggested decision; `audit.json` and Decision Record (refused until every claim is reviewed) |
 | `GET /roles`, `POST /roles` | Role views |
+| `POST /ai/narrate` | Optional AI wording for a role view, with blanks for the numbers; always answers 200 (AI text or `template`) |
 | `GET /health`, `GET /variants` | Status; the eight ways of counting |
 
 Interactive API docs while running: <http://localhost:3000/api/docs>. See [docs/PLAN.md](docs/PLAN.md)

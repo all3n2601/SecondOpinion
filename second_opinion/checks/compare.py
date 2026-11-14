@@ -1,6 +1,7 @@
 """COMPARISON claims: difference between two group means of one protein measurement."""
 
 import re
+from dataclasses import replace
 
 from second_opinion.checks.base import CannotCheck
 from second_opinion.checks.population import population, population_code, population_noun
@@ -99,14 +100,35 @@ def _find_group(measure: str, raw: str | None, other: str | None) -> str:
     return by_status[status]
 
 
+def _as_attribute_groups(claim: Claim) -> Claim | None:
+    """A protein other than ER-alpha or HER2 compared between two named groups, as attribute groups."""
+    from second_opinion.extract import find_entities
+
+    p = claim.params
+    a = find_entities(p.group_a or "")
+    b = find_entities(p.group_b or "")
+    if len(a) != 1 or len(b) != 1 or a[0].attribute != b[0].attribute or a[0].category == b[0].category:
+        return None
+    return replace(claim, params=replace(p, within_attribute=a[0].attribute, within_category=a[0].category,
+                                         category_b=b[0].category))
+
+
 def check_comparison(claim: Claim, release: Release, variant: Variant) -> Fact:
     """value = mean(group_a) - mean(group_b); the primary variant matches reference analysis A1."""
     if claim.params.attribute:  # "TP53 mutations are more common in Basal-like than in Luminal A tumors"
         from second_opinion.checks.attribute import check_share_comparison
 
         return check_share_comparison(claim, release, variant)
+    if claim.params.measure in ("median_age", "mean_age"):  # "Basal-like patients were diagnosed younger than Luminal A patients"
+        from second_opinion.checks.attribute import check_age_comparison
+
+        return check_age_comparison(claim, release, variant)
     if claim.params.within_attribute:  # "E-cadherin protein was lower in lobular than in ductal tumours"
         return _protein_by_groups(claim, release, variant)
+    if _MEASURE_BY_KEY.get(_name_key(claim.params.measure or "")) is None:
+        grouped = _as_attribute_groups(claim)  # "GATA3 protein in ER-positive tumors exceeds that in ER-negative"
+        if grouped is not None and _has_protein(release, claim.params.measure or ""):
+            return _protein_by_groups(grouped, release, variant)
     measure = _find_measure(claim)
     spec = _MEASURES[measure]
     group_a = _find_group(measure, claim.params.group_a, claim.params.group_b)
@@ -151,13 +173,24 @@ def check_comparison(claim: Claim, release: Release, variant: Variant) -> Fact:
 
 
 def _protein_row(release: Release, measure: str) -> str:
-    key = re.sub(r"[^A-Z0-9]", "", measure.upper()).replace("ALFA", "ALPHA")
+    key = re.sub(r"[^A-Z0-9]", "", re.sub(r"\s+(?:protein|levels?|expression)\b", "", measure, flags=re.IGNORECASE).upper()).replace("ALFA", "ALPHA")
     aliases = {"ESR1": "ERALPHA", "ER": "ERALPHA", "ERBB2": "HER2", "CDH1": "ECADHERIN", "TP53": "P53", "PGR": "PR"}
     key = aliases.get(key, key)
     for name in release.protein.index:
         if re.sub(r"[^A-Z0-9]", "", str(name).upper()) == key:
             return str(name)
     raise CannotCheck(f"this release's protein (RPPA) file has no {measure} measurement")
+
+
+def _has_protein(release: Release, measure: str) -> bool:
+    """The measure names one RPPA protein; a bare receptor name ("ER") is a status, not a protein."""
+    if re.sub(r"[^A-Z0-9]", "", measure.upper()) in ("ER", "PR", "PGR", "HER2", "PROTEIN", ""):
+        return False
+    try:
+        _protein_row(release, measure)
+    except CannotCheck:
+        return False
+    return True
 
 
 def _protein_by_groups(claim: Claim, release: Release, variant: Variant) -> Fact:

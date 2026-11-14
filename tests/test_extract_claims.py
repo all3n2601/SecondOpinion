@@ -296,3 +296,31 @@ def test_a_sentence_about_named_genes_is_not_a_layer_coverage_claim():
 
 def test_layer_coverage_without_a_gene_is_still_coverage():
     assert claim("About 72% of primary tumors have a mutation call.").type is ClaimType.COVERAGE
+
+
+# --- numbers written as words (shared reader: second_opinion/numwords.py) ---------------------
+
+@pytest.mark.parametrize("sentence, value, approximate", [
+    ("Nearly eleven hundred primary tumours are in the release.", 1100, True),
+    ("The release holds one thousand two hundred and forty-seven samples in all.", 1247, False),
+    ("A hundred and thirty-nine samples are normal tissue.", 139, False),
+    ("GATA3 is mutated in ninety-seven tumours.", 97, False),
+    ("Deep PTEN deletions appear in five dozen tumours.", 60, False),
+    ("Men contribute barely a dozen of the primary tumours.", 12, False),
+    ("The cohort spans just over eleven hundred distinct patients.", 1100, False),
+])
+def test_compound_number_words_are_read_whole(sentence, value, approximate):
+    c = claim(sentence)
+    assert c.type in (ClaimType.COUNT, ClaimType.COVERAGE)
+    assert (c.params.stated_value, c.params.approximate) == (value, approximate)
+
+
+@pytest.mark.parametrize("sentence, value", [
+    ("ERBB2 is amplified in one tumour in eight with copy number data.", 12.5),
+    ("Nine in every hundred tumours with mutation data have a KMT2C mutation.", 9.0),
+    ("Under one in fifteen primary tumours with an RNA call are HER2-enriched.", 100 / 15),
+])
+def test_fractions_with_any_number_word_are_shares(sentence, value):
+    c = claim(sentence)
+    assert c.type is ClaimType.SHARE
+    assert c.params.stated_value == pytest.approx(value)

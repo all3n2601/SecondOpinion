@@ -58,6 +58,8 @@ class ClaimParams:
     within_attribute: str | None = None  # the claim is about a subgroup: "among triple-negative tumors"
     within_category: str | None = None
     top_n: int | None = None  # RANK: "the two most frequently mutated genes" -> 2
+    subtype_source: str | None = None  # "study_2012_label" when the sentence says it uses the 2012 study labels
+    attribute_b: str | None = None  # RATIO of two attributes: "HER2-positive tumours outnumber ERBB2-amplified tumours"
 
 
 @dataclass

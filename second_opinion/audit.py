@@ -6,7 +6,7 @@ the pipeline keeps working while those modules do not exist (or fail to import).
 
 import csv
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -229,7 +229,10 @@ def _plain_reason(exc: Exception) -> str:
 def _checked(claim: Claim, check: Callable[..., Fact], release: Release, hooks: _Hooks) -> ClaimResult:
     """Run one claim's check and verdict; expected failures become insufficient_evidence."""
     try:
-        fact = check(claim, release, PRIMARY_VARIANT)
+        variant = PRIMARY_VARIANT
+        if claim.params.subtype_source:  # the sentence names its subtype source ("under the 2012 labels")
+            variant = replace(variant, subtype_source=claim.params.subtype_source)
+        fact = check(claim, release, variant)
     except CannotCheck as exc:
         return _insufficient(claim, str(exc))
     except KeyError as exc:  # e.g. the release lacks a column this check reads

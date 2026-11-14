@@ -289,6 +289,13 @@ def test_empty_span_is_rejected(mini):
         ("There are three primary tumors in all.", "three", "count", {"value": 3}),
         ("Luminal B is the second most common subtype.", "second most common", "rank", {"value": 2}),
         ("Luminal B is the most common subtype.", "most common", "rank", {"value": 1}),
+        ("Men contribute barely a dozen of the primary tumours.", "barely a dozen", "count", {"value": 12}),
+        ("GATA3 is mutated in ninety-seven tumours.", "ninety-seven", "count", {"value": 97}),
+        ("A hundred and thirty-nine samples are normal tissue.", "A hundred and thirty-nine", "count", {"value": 139}),
+        ("Nearly eleven hundred primary tumours are in the release.", "eleven hundred", "count", {"value": 1100}),
+        ("Under one in fifteen tumours are HER2-enriched.", "one in fifteen", "percent", {"value": 6.67}),
+        ("Nine in every hundred tumours are HER2-enriched.", "Nine in every hundred", "percent", {"value": 9}),
+        ("ERBB2 is amplified in one tumour in eight.", "one tumour in eight", "percent", {"value": 12.5}),
     ],
 )
 def test_numbers_derivable_from_the_sentence_are_accepted(mini, sentence, span, kind, extra):
@@ -309,6 +316,9 @@ def test_numbers_derivable_from_the_sentence_are_accepted(mini, sentence, span, 
         ("Basal-like tumors are 55-65% of the total.", "55-65%", "percent", {"value": 55, "high": 70}),
         ("Luminal B is the second most common subtype.", "second most common", "rank", {"value": 3}),
         ("Basal-like tumors are many of the total.", "many", "percent", {"value": 3}),
+        ("GATA3 is mutated in ninety-seven tumours.", "ninety-seven", "count", {"value": 7}),
+        ("GATA3 is mutated in ninety-seven tumours.", "ninety-seven", "count", {"value": 90}),
+        ("Deep PTEN deletions appear in five dozen tumours.", "five dozen", "count", {"value": 5}),
     ],
 )
 def test_invented_numbers_are_rejected(mini, sentence, span, kind, extra):
@@ -577,6 +587,25 @@ def test_judge_percent_range_and_fraction_words():
     assert judge_plan(sixth, share_q("One in six", value=16.7), fact_pct(210, 844))[0] == Verdict.CONTRADICTED
 
 
+def test_judge_percent_bound_comes_from_the_sentences_words():
+    fact = fact_pct(76, 1097)  # 6.93%, just over one in fifteen (6.67%)
+    under = "Under one in fifteen primary tumours come from patients diagnosed before forty."
+    assert judge_plan(under, share_q("Under one in fifteen", value=6.67, relation="less"), fact)[0] == Verdict.CONTRADICTED
+    # the model's relation flag is not what decides: the sentence's own word is
+    assert judge_plan(under, share_q("one in fifteen", value=6.67), fact)[0] == Verdict.CONTRADICTED
+    over = "Over one in fifteen primary tumours come from patients diagnosed before forty."
+    assert judge_plan(over, share_q("one in fifteen", value=6.67, relation="less"), fact)[0] == Verdict.SUPPORTED
+
+
+def test_judge_count_bound_comes_from_the_sentences_words():
+    q = qp(count_plan([f("sample_type", "primary")]), stated_for("300", "count", value=300))
+    fewer = "Fewer than 300 primary tumours come from patients diagnosed before fifty."
+    assert judge_plan(fewer, q, Fact("x", 297, 297, None, [], [], ""))[0] == Verdict.SUPPORTED
+    assert judge_plan(fewer, q, Fact("x", 300, 300, None, [], [], ""))[0] == Verdict.CONTRADICTED
+    at_least = "At least 300 primary tumours come from patients diagnosed before fifty."
+    assert judge_plan(at_least, q, Fact("x", 300, 300, None, [], [], ""))[0] == Verdict.SUPPORTED
+
+
 def test_judge_count_on_a_share_plan_checks_the_stated_total():
     sentence = "535 of 1,101 tumors have all layers."
     q = qp(share_plan([f("has_layer", "protein")]), stated_for("535 of 1,101", "count", value=535, total=1101))
@@ -669,6 +698,14 @@ def test_judge_summary_stat():
     around = "The mean age was around 60 years."
     assert judge_plan(around, stat_q("mean", "around 60 years", 60), stat_fact(59.0))[0] == Verdict.SUPPORTED
     assert judge_plan(around, stat_q("mean", "around 60 years", 60), stat_fact(55.0))[0] == Verdict.CONTRADICTED
+
+
+def test_judge_summary_stat_bound_comes_from_the_sentences_words():
+    over = "The median age at diagnosis was over 55 years."
+    assert judge_plan(over, stat_q("median", "55 years", 55), stat_fact(58.0))[0] == Verdict.SUPPORTED
+    assert judge_plan(over, stat_q("median", "55 years", 55), stat_fact(54.0))[0] == Verdict.CONTRADICTED
+    under = "The youngest patient was under 30 at diagnosis."
+    assert judge_plan(under, stat_q("min", "30", 30), stat_fact(26.0))[0] == Verdict.SUPPORTED
 
 
 # ---------------------------------------------------------------- run_plan on the mini release
@@ -821,3 +858,183 @@ def test_real_case_f_median_age_follows_the_truth(real, real_clin, claimed):
     assert verdict == (Verdict.SUPPORTED if round(truth) == claimed else Verdict.CONTRADICTED)
     if correct:
         assert correct.startswith(f"median {truth:.1f} years (n=")
+
+
+# ---------------------------------------------------------------- attribute filters: every attribute the rules read
+
+
+def af(attribute, value=None, op="eq"):
+    return {"field": "attribute", "attribute": attribute, "op": op, "value": value}
+
+
+def test_attribute_filter_on_a_gene_matches_the_mutation_file(mini):
+    q = qp(share_plan([af("mutation", "TP53")], where=[f("sample_type", "primary"), f("has_layer", "mutation")]),
+           stated_for("50%", "percent", value=50))
+    fact = execute_plan(q, mini)
+    calls = mini.mutation()
+    ids = [i for i in calls.columns if i in set(mini.primary_ids())]
+    assert (fact.numerator, fact.denominator) == (int((calls.loc["TP53", ids] > 0).sum()), len(ids))
+    assert run_code(fact, mini)["n"] == fact.numerator
+
+
+def test_attribute_filter_rejects_what_the_release_lacks(mini):
+    q = qp(count_plan([af("mutation", "NOTAGENE")]), NUM)
+    with pytest.raises(PlanRejected, match="NOTAGENE"):
+        validate_plan(q, "10 tumours carry it.", mini)
+    with pytest.raises(PlanRejected, match="attribute"):
+        validate_plan(qp(count_plan([{"field": "attribute", "op": "eq", "value": "TP53"}]), NUM), "10 tumours.", mini)
+
+
+def test_attribute_filter_names_must_be_on_the_list():
+    with pytest.raises(ValidationError):
+        QueryPlan.model_validate({"answerable": True, "plan": count_plan([af("tumour_size", "big")]), "stated": NUM})
+
+
+@pytest.mark.parametrize("attribute, value, op, expected", [
+    ("stage", ["Stage III", "Stage IV"], "in", 270),
+    ("pr_status", "positive", "eq", 699),
+    ("histology", "lobular", "eq", 203),
+    ("vital_status", "deceased", "eq", 151),
+    ("amplification", "ERBB2", "eq", 133),
+    ("triple_negative", "triple-negative", "eq", 116),
+])
+def test_attribute_filters_on_the_real_release(real, attribute, value, op, expected):
+    q = qp(count_plan([f("sample_type", "primary"), af(attribute, value, op)]), NUM)
+    fact = execute_plan(q, real)
+    assert fact.value == expected
+    assert run_code(fact, real)["n"] == expected
+
+
+# ---------------------------------------------------------------- zero claims and missing values
+
+
+@pytest.mark.parametrize("sentence, span", [
+    ("None of the male patients had a Basal-like tumour.", "None"),
+    ("Not a single primary tumour lacks an age at diagnosis.", "Not a single"),
+    ("No men had a Basal-like tumour.", "No men"),
+])
+def test_a_stated_zero_is_derivable_from_zero_words(mini, sentence, span):
+    validate_plan(qp(count_plan([f("sex", "male")]), stated_for(span, "count", value=0)), sentence, mini)
+
+
+def test_zero_needs_a_zero_word(mini):
+    with pytest.raises(PlanRejected, match="not in the sentence"):
+        validate_plan(qp(count_plan([f("sex", "male")]), stated_for("male", "count", value=0)), "Some male tumours exist.", mini)
+
+
+def test_is_unknown_keeps_rows_without_a_value(mini_age, clin):
+    q = qp(count_plan([f("sample_type", "primary"), f("age_years", op="is_unknown")]), stated_for("Not a single", "count", value=0))
+    fact = execute_plan(q, mini_age)
+    p = primary(mini_age.clinical)
+    assert fact.value == int(pd.to_numeric(p[AGE], errors="coerce").isna().sum()) == 1
+    assert run_code(fact, mini_age)["n"] == fact.value
+
+
+# ---------------------------------------------------------------- numeric fields, group comparisons, group and gene ranks
+
+PRIMARY = f("sample_type", "primary")
+
+
+@pytest.mark.parametrize("field, stat, expected", [
+    ("diagnosis_year", "min", 1988), ("diagnosis_year", "max", 2013), ("positive_lymph_nodes", "median", 1),
+])
+def test_summary_stat_of_other_numeric_fields(real, field, stat, expected):
+    fact = execute_plan(qp({"op": "summary_stat", "field": field, "stat": stat, "where": [PRIMARY]}, NUM), real)
+    assert fact.value == expected
+    assert run_code(fact, real)["result"] == expected
+
+
+def test_range_stat_judges_both_ends(real):
+    sentence = "Diagnoses span the years 1988 to 2013."
+    q = qp({"op": "summary_stat", "field": "diagnosis_year", "stat": "range", "where": [PRIMARY]},
+           stated_for("1988 to 2013", "number", value=1988, high=2013))
+    assert run_plan(sentence, q, real)[1] == Verdict.SUPPORTED
+    wrong = qp(q.plan.model_dump(), stated_for("1988 to 2014", "number", value=1988, high=2014))
+    assert run_plan("Diagnoses span the years 1988 to 2014.", wrong, real)[1] == Verdict.CONTRADICTED
+
+
+def test_numeric_field_filters(real):
+    q = qp(count_plan([PRIMARY, f("diagnosis_year", 1990, "lt")]), NUM)
+    assert execute_plan(q, real).value == 3
+
+
+def subtype(name):
+    return f("subtype_rna", name)
+
+
+def test_compare_groups_by_count(real):
+    q = qp({"op": "compare_groups", "measure": "count", "compare": "difference", "where": [PRIMARY],
+            "group_a": [f("her2_status", "positive")], "group_b": [af("amplification", "ERBB2")]},
+           stated_for("fewer than", "relation", relation="less"))
+    sentence = "HER2-positive tumours by immunohistochemistry are fewer than ERBB2-amplified tumours."
+    fact, verdict, _ = run_plan(sentence, q, real)
+    assert (fact.value, fact.extra["a"], fact.extra["b"], verdict) == (31, 164, 133, Verdict.CONTRADICTED)
+    assert run_code(fact, real)["result"] == 31
+
+
+def test_compare_groups_by_share_as_a_ratio(real):
+    q = qp({"op": "compare_groups", "measure": "share", "compare": "ratio",
+            "where": [PRIMARY, f("has_layer", "mutation")], "numerator": [af("mutation", "TP53")],
+            "group_a": [subtype("Basal-like")], "group_b": [subtype("Luminal A")]},
+           stated_for("roughly eight times", "number", value=8))
+    sentence = "TP53 mutations are roughly eight times as common in Basal-like as in Luminal A tumours."
+    fact, verdict, _ = run_plan(sentence, q, real)
+    assert fact.value == pytest.approx((90 / 106) / (31 / 301))
+    assert verdict == Verdict.SUPPORTED
+    assert run_code(fact, real)["result"] == pytest.approx(fact.value)
+
+
+def test_compare_groups_by_median(real):
+    q = qp({"op": "compare_groups", "measure": "stat", "field": "age_years", "stat": "median", "compare": "difference",
+            "where": [PRIMARY], "group_a": [subtype("Basal-like")], "group_b": [subtype("Luminal A")]},
+           stated_for("younger", "direction", relation="less"))
+    fact, verdict, _ = run_plan("Basal-like patients were diagnosed younger than Luminal A patients.", q, real)
+    assert (fact.value, verdict) == (-7, Verdict.SUPPORTED)
+
+
+@pytest.mark.parametrize("sentence, span, order, verdict", [
+    ("Basal-like patients were the youngest at diagnosis of any RNA subtype.", "youngest", "lowest", Verdict.CONTRADICTED),
+    ("Normal-like patients were the youngest at diagnosis of any RNA subtype.", "youngest", "lowest", Verdict.SUPPORTED),
+    ("Luminal A patients were the oldest at diagnosis of any RNA subtype.", "oldest", "highest", Verdict.SUPPORTED),
+])
+def test_rank_groups_by_median_age(real, sentence, span, order, verdict):
+    category = sentence.split(" patients")[0]
+    q = qp({"op": "rank_groups", "measure": "stat", "field": "age_years", "stat": "median", "order": order,
+            "where": [PRIMARY], "category_field": "subtype_rna", "category": category},
+           stated_for(span, "rank", value=1))
+    fact, got, _ = run_plan(sentence, q, real)
+    assert got == verdict
+    assert run_code(fact, real)["rank"] == fact.value
+
+
+def test_rank_groups_by_share(real):
+    q = qp({"op": "rank_groups", "measure": "share", "order": "lowest", "where": [PRIMARY, f("has_layer", "mutation")],
+            "numerator": [af("mutation", "PIK3CA")], "category_field": "subtype_rna", "category": "Basal-like"},
+           stated_for("rarest", "rank", value=1))
+    assert run_plan("PIK3CA mutations are rarest in Basal-like tumours.", q, real)[1] == Verdict.SUPPORTED
+
+
+def test_rank_of_a_mutated_gene(real):
+    q = qp({"op": "rank", "category_field": "mutated_gene", "category": "TTN", "where": [PRIMARY]},
+           stated_for("third", "rank", value=3))
+    fact, verdict, _ = run_plan("TTN ranks third among mutated genes.", q, real)
+    assert (fact.value, verdict) == (3, Verdict.SUPPORTED)
+    assert run_code(fact, real)["rank"] == 3
+
+
+@pytest.mark.parametrize("value", ["IV", "stage iv", "Stage 4", "4"])
+def test_stage_values_are_normalised(real, value):
+    q = qp(count_plan([PRIMARY, af("stage", value)]), NUM)
+    assert execute_plan(q, real).value == 20
+
+
+@pytest.mark.parametrize("sentence, span, value, fact, verdict", [
+    ("Most tumors in the release were diagnosed in 2010 or later.", "Most", 50, fact_pct(484, 1095), Verdict.CONTRADICTED),
+    ("Most tumors in the release were diagnosed before 2013.", "Most", 50, fact_pct(900, 1095), Verdict.SUPPORTED),
+    ("Nearly all lobular tumours are ER-positive.", "Nearly all", 90, fact_pct(190, 198), Verdict.SUPPORTED),
+    ("A minority of tumours are ER-negative.", "A minority", 50, fact_pct(238, 1046), Verdict.SUPPORTED),
+])
+def test_vague_amounts_are_quotable_with_their_bound(mini, sentence, span, value, fact, verdict):
+    q = share_q(span, value=value)
+    validate_plan(q, sentence, mini)
+    assert judge_plan(sentence, q, fact)[0] == verdict

@@ -1,0 +1,15 @@
+[
+  {"claim_contains": "positive in 77%", "verdict": "supported", "why": "ER 808 of 1046 (77.25%); PR 699 of 1043 (67.02%)"},
+  {"claim_contains": "close to a quarter", "verdict": "contradicted", "why": "HER2 positive 164 of 728 Positive+Negative (22.53%), 2.5 points below a quarter"},
+  {"claim_contains": "Triple-negative disease accounts for 116", "verdict": "supported", "why": "116 of 722 with all three known (16.07%)"},
+  {"claim_contains": "numbering 61", "verdict": "contradicted", "stated": 61, "why": "16 primary tumours are ER-negative and PR-positive"},
+  {"claim_contains": "nearly universal among lobular", "verdict": "supported", "stated": 96, "why": "ER positive in 190 of 198 lobular carcinomas (95.96%)"},
+  {"claim_contains": "includes 698 primary tumors", "verdict": "supported", "stated": 698, "why": "698 primary tumours have RPPA and ER Positive/Negative"},
+  {"claim_contains": "a gap of about three units", "verdict": "supported", "why": "mean ERALPHA 2.179 (ER+) vs -0.872 (ER-), difference 3.051"},
+  {"claim_contains": "lower in HER2-enriched tumors than in Luminal B", "verdict": "contradicted", "why": "mean HER2 protein HER2-enriched 2.02 (n=61) vs Luminal B 0.62 (n=162): HER2-enriched is higher"},
+  {"claim_contains": "more than two units", "verdict": "contradicted", "stated": 2, "why": "mean GATA3 protein ER+ 2.36 vs ER- 0.74: difference 1.62"},
+  {"claim_contains": "agree for 90%", "verdict": "supported", "stated": 90, "why": "456 of 508 primary tumours with both labels agree (89.76%)"},
+  {"claim_contains": "trastuzumab", "verdict": "insufficient_evidence", "why": "the release has no drug-level treatment or response data"},
+  {"claim_contains": "Smoking history", "verdict": "insufficient_evidence", "why": "the release has no smoking field"},
+  {"claim_contains": "2010 or later", "verdict": "contradicted", "stated": 50, "why": "484 of 1095 with a year (44.2%), a minority"}
+]

@@ -17,10 +17,23 @@ from pydantic import BaseModel, ConfigDict, Field
 #   er_status / her2_status   "positive" | "negative"   (clinical IHC status columns)
 #   has_layer     survival | mutation | copy_number | protein | rna  (the sample appears in that file)
 #   age_years     number (age at initial diagnosis)
+#   diagnosis_year        number (year of initial diagnosis)
+#   positive_lymph_nodes  number (lymph nodes positive by H&E)
+#   attribute     any attribute the rules read (checks/attributes.py), named in `attribute`, with its value:
+#                 pr_status / hr_status "positive" | "negative"; triple_negative "triple-negative";
+#                 stage "Stage I" ... "Stage IV" (or "Stage IIA"); histology "ductal" | "lobular" | "mucinous" | ...;
+#                 menopause "pre" | "peri" | "post"; vital_status "deceased" | "living"; dss_status "deceased";
+#                 pfi_status "event"; mutation / amplification / deletion / gain / loss: a gene symbol ("TP53")
 FilterField = Literal[
-    "sample_type", "sex", "subtype_rna", "subtype_2012", "er_status", "her2_status", "has_layer", "age_years"
+    "sample_type", "sex", "subtype_rna", "subtype_2012", "er_status", "her2_status", "has_layer", "age_years",
+    "diagnosis_year", "positive_lymph_nodes", "attribute",
 ]
-FilterOp = Literal["eq", "in", "gt", "gte", "lt", "lte", "is_known"]
+NumericField = Literal["age_years", "diagnosis_year", "positive_lymph_nodes"]
+AttributeName = Literal[
+    "er_status", "pr_status", "her2_status", "hr_status", "triple_negative", "stage", "histology", "menopause",
+    "vital_status", "dss_status", "pfi_status", "mutation", "amplification", "deletion", "gain", "loss",
+]
+FilterOp = Literal["eq", "in", "gt", "gte", "lt", "lte", "is_known", "is_unknown"]  # is_unknown: no recorded value
 
 
 class Filter(BaseModel):
@@ -29,6 +42,7 @@ class Filter(BaseModel):
     field: FilterField
     op: FilterOp = "eq"
     value: str | float | list[str] | None = None  # None only for op "is_known"
+    attribute: AttributeName | None = None  # only with field "attribute"
 
 
 class _Plan(BaseModel):
@@ -65,15 +79,17 @@ class SummaryStatPlan(_Plan):
     """A summary statistic of a numeric field over the rows kept by `where`."""
 
     op: Literal["summary_stat"] = "summary_stat"
-    field: Literal["age_years"]
-    stat: Literal["median", "mean", "min", "max"]
+    field: NumericField
+    stat: Literal["median", "mean", "min", "max", "range"] = Field(
+        description="range: the smallest and largest value, stated as value and high (\"1988 to 2013\").")
 
 
 class RankPlan(_Plan):
     """Where one category ranks by size among the rows kept by `where` that have a call (1 = most common)."""
 
     op: Literal["rank"] = "rank"
-    category_field: Literal["subtype_rna", "subtype_2012"]
+    category_field: Literal["subtype_rna", "subtype_2012", "mutated_gene"] = Field(
+        description="mutated_gene: rank a gene among all genes by how many primary tumors carry a mutation in it.")
     category: str
 
 
@@ -86,8 +102,36 @@ class OrderPlan(_Plan):
     category_b: str
 
 
+class CompareGroupsPlan(_Plan):
+    """Group A against group B (both inside `where`): their count, their share with `numerator`, or a statistic of
+    a numeric field. `compare` gives A minus B (difference) or A divided by B (ratio, for "eight times as common")."""
+
+    op: Literal["compare_groups"] = "compare_groups"
+    measure: Literal["count", "share", "stat"]
+    compare: Literal["difference", "ratio"] = "difference"
+    group_a: list[Filter] = Field(min_length=1)
+    group_b: list[Filter] = Field(min_length=1)
+    numerator: list[Filter] = Field(default_factory=list, description="For measure share.")
+    field: NumericField | None = Field(default=None, description="For measure stat.")
+    stat: Literal["median", "mean"] | None = Field(default=None, description="For measure stat.")
+
+
+class RankGroupsPlan(_Plan):
+    """Where one subtype ranks among all subtypes by a share with `numerator`, or by a statistic of a numeric
+    field; order highest (1 = highest, "most common in", "oldest") or lowest (1 = lowest, "rarest in", "youngest")."""
+
+    op: Literal["rank_groups"] = "rank_groups"
+    measure: Literal["share", "stat"]
+    order: Literal["highest", "lowest"] = "highest"
+    category_field: Literal["subtype_rna", "subtype_2012"]
+    category: str
+    numerator: list[Filter] = Field(default_factory=list, description="For measure share.")
+    field: NumericField | None = Field(default=None, description="For measure stat.")
+    stat: Literal["median", "mean"] | None = Field(default=None, description="For measure stat.")
+
+
 Plan = Annotated[
-    CountPlan | SharePlan | CompareMeansPlan | SummaryStatPlan | RankPlan | OrderPlan,
+    CountPlan | SharePlan | CompareMeansPlan | SummaryStatPlan | RankPlan | OrderPlan | CompareGroupsPlan | RankGroupsPlan,
     Field(discriminator="op"),
 ]
 

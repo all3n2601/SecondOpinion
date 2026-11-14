@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, replace
 
 from second_opinion.model import Claim, ClaimParams, ClaimType, ExtractResult, SentenceInfo
+from second_opinion.numwords import WORDS, fraction_amounts, number_value, word_numbers
 from second_opinion.unanswerable import detect_unanswerable
 from second_opinion.variants import normalise_subtype
 
@@ -58,12 +59,17 @@ def split_sentences(report_text: str) -> list[SentenceInfo]:
     return sentences
 
 
+_PERCENT_HEADER = re.compile(r"%|\bpercent|\bper\s+cent|\bshare\b|\bproportion\b", re.IGNORECASE)
+
+
 def _blocks(report_text: str) -> list[str]:
     """Group lines into paragraphs, bullets and table rows; drop headings, rules and code."""
     blocks: list[str] = []
     current: list[str] = []
     in_fence = False
     in_bullet = False
+    header: list[str] | None = None  # the open table's header cells, to give bare numbers their unit
+    last_cells: list[str] | None = None
 
     def flush() -> None:
         nonlocal in_bullet
@@ -82,15 +88,25 @@ def _blocks(report_text: str) -> list[str]:
 
         line = _BLOCKQUOTE.sub("", raw)
         stripped = line.strip()
+        if _TABLE_SEPARATOR.match(line) and stripped.startswith("|"):
+            flush()
+            header = last_cells  # the row above "|---|---|" names the columns
+            continue
         if not stripped or _HEADING.match(line) or _RULE.match(line) or _TABLE_SEPARATOR.match(line):
             flush()
+            header = None
             continue
 
         if stripped.startswith("|"):
             flush()
             cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            last_cells = cells
+            if header and len(header) == len(cells):  # "| Basal-like | 141 | 12.8 |" under "| Group | n | % |"
+                cells = [c + "%" if _PERCENT_HEADER.search(h) and re.fullmatch(r"\d+(?:\.\d+)?", c) else c
+                         for h, c in zip(header, cells)]
             blocks.append(" | ".join(cell for cell in cells if cell))
             continue
+        header = None
 
         bullet = _BULLET.match(line)
         if bullet:
@@ -229,6 +245,7 @@ COUNT_FILTERS = {
     "metastatic": r"\bmetasta\w*",
     "diagnostic": r"\bdiagnostic\b|\bFFPE\b",
     "frozen": r"\bfrozen\b",
+    "unknown_age": r"\b(?:lacks?|lacking|without|missing|has\s+no|have\s+no)\s+(?:an?\s+)?(?:recorded\s+)?age\b",
 }
 # Data layers, as they may be written. The key is the `has_<layer>` subject name.
 LAYERS = {
@@ -302,15 +319,26 @@ REFERENCE_WORDS = re.compile(
 )
 # A parenthesis that defines a call, not data: "(GISTIC value of 2)", "(GISTIC 1 or 2)", "(GISTIC -1 or -2)".
 _DEFINITION = re.compile(r"\((?:[^()]*?\b(?:GISTIC|value|values|score|code|threshold|cut-?off)\b[^()]*)\)", re.IGNORECASE)
-# An age threshold: "patients over 60", "older than 65", "diagnosed under 40", "aged 70 or older", "65+".
+# An age threshold: "patients over 60", "older than 65", "diagnosed under 40", "aged 70 or older", "65+",
+# with the age in digits or words ("aged seventy or more", "diagnosed before forty").
+_AGE_WORD = r"(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[\s-](?:one|two|three|four|five|six|seven|eight|nine))?"
 AGE_THRESHOLD = re.compile(
-    r"\b(?:aged?\s+)?(?P<op>over|older\s+than|above|at\s+least|under|younger\s+than|below)\s+(?:the\s+age\s+of\s+)?(?P<age>\d{2})"
+    r"\b(?:aged?\s+)?(?P<op>over|older\s+than|above|at\s+least|under|younger\s+than|below|diagnosed\s+before)\s+(?:(?:the\s+)?age\s+(?:of\s+)?)?"
+    r"(?P<age>\d{2}|" + _AGE_WORD + r"\b)"
     r"(?!\d|[,.]\d|\s*%|\s*per\s*cent|\s+(?:primary\s+)?(?:tumou?rs?|samples?|patients?|cases?|women|men|deaths?)\b)"
     r"(?:\s*(?:years?|yrs?)(?:\s+(?:old|of\s+age))?)?"
-    r"|\baged?\s+(?P<age2>\d{2})\s*(?:years?\s+)?(?:or|and)\s+(?P<op2>older|over|above|younger|under|below)\b"
+    r"|\b(?:aged?|(?:diagnosed\s+)?at(?:\s+age)?)\s+(?P<age2>\d{2}|" + _AGE_WORD + r")\s*(?:years?\s+)?(?:or|and)\s+(?P<op2>older|over|above|more|younger|under|below)\b"
     r"|\b(?P<age3>\d{2})\s*\+",
     re.IGNORECASE,
 )
+
+
+def age_of(match: re.Match[str]) -> int:
+    """The age in an AGE_THRESHOLD match, written as digits or words."""
+    raw = match.group("age") or match.group("age2") or match.group("age3")
+    return int(raw) if raw.isdigit() else int(number_value(raw))
+
+
 _AGE_CONTEXT = re.compile(r"\b(?:age[sd]?|older|younger|years?|diagnos\w*|patients?|women|men)\b", re.IGNORECASE)
 
 
@@ -318,13 +346,7 @@ def age_thresholds(text: str) -> list[re.Match[str]]:
     """Age cut-offs in the sentence; their numbers are part of a group's name, never a stated figure."""
     if not _AGE_CONTEXT.search(text):
         return []
-    return [m for m in AGE_THRESHOLD.finditer(text) if 10 <= int(m.group("age") or m.group("age2") or m.group("age3")) <= 100]
-WORD_NUMBERS = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
-    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
-    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
-}
-
+    return [m for m in AGE_THRESHOLD.finditer(text) if 10 <= age_of(m) <= 100]
 _NUM = r"(?<![\w.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?!\w|,\d|\.\d)"
 _NUMBER = re.compile(_NUM)
 _PERCENT_AFTER = re.compile(r"\s*(?:%|percent\b|per\s+cent\b)", re.IGNORECASE)
@@ -335,9 +357,11 @@ _RANGE = re.compile(
     r"(?P<hi>\d{1,3}(?:,\d{3})+|\d+)(?:\.(?P<hidec>\d+))?(?!\w|,\d|\.\d)",
     re.IGNORECASE,
 )
-_WORD_NUMBER = re.compile(
-    r"\b(" + "|".join(WORD_NUMBERS) + r")\b(?=(?:\s+[\w-]+){0,2}?\s+(?:" + "|".join(sorted(COUNT_NOUNS, key=len, reverse=True)) + r")\b"
-    r"|\s+of\s+(?:the\s+)?[\d,]+\b)",  # "Fifteen of the 20 stage IV patients"
+# After a number written as words: a counted noun ("ninety-seven tumours", "a dozen of the primary tumours")
+# or a total ("Fifteen of the 20 stage IV patients").
+_WORD_NUMBER_AFTER = re.compile(
+    r"(?:\s+of(?:\s+the)?)?(?:\s+[\w-]+){0,2}?\s+(?:" + "|".join(sorted(COUNT_NOUNS, key=len, reverse=True)) + r")\b"
+    r"|\s+of\s+(?:the\s+)?[\d,]+\b",
     re.IGNORECASE,
 )
 _TOTAL_BEFORE = re.compile(r"(?:\b(?:of|out\s+of|among)\s+(?:the\s+|all\s+|these\s+)?|\d\s*/\s*)$", re.IGNORECASE)
@@ -351,6 +375,13 @@ _BOUND_BEFORE = re.compile(
 _YEAR = re.compile(r"^(?:19|20)\d\d$")
 # "58 years", "6-month": an age or a duration, not a count of tumors, samples or patients.
 _TIME_UNIT_AFTER = re.compile(r"[\s-]*(?:years?|yrs?|months?|weeks?|days?)\b(?:[\s-]*old)?", re.IGNORECASE)
+
+
+_RATIO_NUMBERS = re.compile(r"(?<![\w.,])\d+(?:\.\d+)?\s*(?:to|:)\s*(?:1|one)\b(?!\s*%|\.\d|,\d)", re.IGNORECASE)
+
+
+_AGE_NUMBER_AFTER = re.compile(r"\s*(?:years?\s+old\s+)?(?:at|when)\s+(?:first\s+)?diagnos", re.IGNORECASE)
+_AGE_NUMBER_BEFORE = re.compile(r"\bdiagnosed\s+at\s+(?:the\s+age\s+of\s+)?$|\bat\s+the\s+age\s+of\s+$", re.IGNORECASE)
 
 
 @dataclass
@@ -377,6 +408,7 @@ def find_numbers(text: str) -> list[StatedNumber]:
     taken: list[tuple[int, int]] = [m.span() for m in _DEFINITION.finditer(text)]
     taken += [m.span() for m in age_thresholds(text)]
     taken += [m.span() for m in AGE_RANGE.finditer(text)]  # "between the ages of 26 and 89": read by _rule_statistic
+    taken += [m.span() for m in _RATIO_NUMBERS.finditer(text)]  # "3:1", "2.5 to 1": a ratio, read by _rule_ratio
 
     def context(start: int) -> tuple[bool, bool, bool]:
         before = text[:start]
@@ -415,22 +447,22 @@ def find_numbers(text: str) -> list[StatedNumber]:
         tail = _PERCENT_AFTER.match(text, m.end())
         if _YEAR.match(whole) and not frac and not tail and not _counted_noun_follows(text, m.end()):
             continue
+        if not tail and (_AGE_NUMBER_AFTER.match(text, m.end()) or _AGE_NUMBER_BEFORE.search(before)):
+            continue  # "was 90 at diagnosis", "diagnosed at 26": an age, read by _rule_statistic
         approx, bound, total = context(m.start())
         found.append(StatedNumber(
             m.start(), tail.end() if tail else m.end(), _to_float(whole, frac), len(frac or ""),
             bool(tail), approx, bound, None, total,
         ))
 
-    for m in _WORD_NUMBER.finditer(text):
-        if any(a <= m.start() < b for a, b in taken):
+    taken += [(f.start, f.end) for f in fraction_amounts(text)]  # "one tumour in eight" is a share, read by find_amounts
+    for w in word_numbers(text):
+        if any(a <= w.start < b for a, b in taken) or not _WORD_NUMBER_AFTER.match(text, w.end):
             continue
-        if re.match(r"\s+(?:in|out\s+of)\s+\w+", text[m.end():], re.IGNORECASE) or re.search(
-                r"\b(?:one|two|three|four|five|six|seven|eight|nine|a|\d+)\s+(?:in|out\s+of)\s+$", text[: m.start()], re.IGNORECASE):
-            continue  # "one in five tumors" is a share, read by find_amounts
-        if m.group(1).lower() == "one" and re.search(r"\b(?:at\s+least|only|a\s+single|just)\s+$", text[: m.start()], re.IGNORECASE):
-            continue  # "at least one diagnostic slide" names a condition, not a stated count
-        approx, bound, total = context(m.start())
-        found.append(StatedNumber(m.start(), m.end(), float(WORD_NUMBERS[m.group(1).lower()]), 0, False, approx, bound, None, total))
+        if w.value == 1 and re.search(r"\b(?:at\s+least|only|a\s+single|just|every|each|any)\s+$", text[: w.start], re.IGNORECASE):
+            continue  # "at least one diagnostic slide", "every one of the 742": a condition, not a stated count
+        approx, bound, total = context(w.start)
+        found.append(StatedNumber(w.start, w.end, w.value, 0, False, approx, bound, None, total))
 
     return sorted(found, key=lambda n: n.start)
 
@@ -565,7 +597,31 @@ def _rule_comparison(info: SentenceInfo, claim_id: str, numbers: list[StatedNumb
         direction=direction, measure=measure,
         group_a=groups[0], group_b=groups[1] if len(groups) > 1 else None,
     )
+    by = _BY_DIFFERENCE.search(info.text)
+    if by:  # "higher ... by about 3 units": the size of the difference is part of the claim
+        raw = by.group("n")
+        params.unit, params.stated_value = "difference", float(raw) if raw[0].isdigit() else number_value(raw)
+        params.stated_high = float(by.group("hi")) if by.group("hi") else None
+        params.decimals = len(raw.split(".")[1]) if "." in raw else 0
+        params.bound = bound_op(info.text[: by.start("n")])
+        params.approximate = not params.bound and bool(_APPROX_BEFORE.search(info.text[: by.start("n")]))
     return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COMPARISON, params=params)
+
+
+_BY_DIFFERENCE = re.compile(
+    r"\b(?:by|(?:difference|gap)\s+of)\s+(?:(?:about|roughly|nearly|around|approximately|almost|some|more\s+than|less\s+than|over|under"
+    r"|at\s+least|at\s+most)\s+)?(?P<n>\d+(?:\.\d+)?|" + "|".join(sorted(WORDS, key=len, reverse=True)) + r")"
+    r"(?:\s*(?:–|—|-|to)\s*(?P<hi>\d+(?:\.\d+)?))?\s*(?:units?|points?)\b",
+    re.IGNORECASE,
+)
+
+
+_KNOWN_STATUS = re.compile(
+    r"\b(?:and|with)\s+(?:an?\s+)?(?:definitive|known|recorded|conclusive|valid|positive\s+or\s+negative)\s+"
+    r"(?P<rec>ER|PR|HER2)\s+(?:results?|status(?:es)?|calls?)\b",
+    re.IGNORECASE,
+)
+_KNOWN_STATUS_ATTRIBUTE = {"ER": "er_status", "PR": "pr_status", "HER2": "her2_status"}
 
 
 def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
@@ -577,6 +633,9 @@ def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
     if len(layers) != 1:
         return None
     params = ClaimParams(subject=f"has_{layers[0]}")
+    known = _KNOWN_STATUS.search(info.text)
+    if known:  # "... with both RPPA data and a definitive ER result": among tumours with a known status
+        params.within_attribute, params.within_category = _KNOWN_STATUS_ATTRIBUTE[known.group("rec").upper()], "any"
     usable = [n for n in numbers if not n.bound]
     percents = [n for n in usable if n.percent]
     words = [a for a in find_amounts(info.text) if a.words]
@@ -593,7 +652,7 @@ def _rule_coverage(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
             return None
         params.unit = "percent" if bounded[0].percent else "count"
         _stated(params, bounded[0], next((n for n in numbers if n.is_total), None))
-        params.bound = _bound_op(info.text[: bounded[0].start])
+        params.bound = bound_op(info.text[: bounded[0].start])
     else:
         value, total = _value_and_total(usable)
         if value is None or _count_subject(info.text) not in ("primary_tumors", None):
@@ -621,6 +680,132 @@ UNREAD_QUALIFIER = re.compile(
 )
 
 
+# "131 proteins", "more than 40,000 genes": what a file measures, not how many tumours it covers.
+_FEATURE_AFTER = re.compile(r"\s+(?:[a-z-]+\s+)?(?P<noun>genes|proteins|antibodies)\b", re.IGNORECASE)
+
+
+def feature_layer(text: str, end: int) -> str | None:
+    """The file a feature count right after `end` is about: proteins -> protein; genes -> the layer the sentence names."""
+    m = _FEATURE_AFTER.match(text, end)
+    if m is None:
+        return None
+    if m.group("noun").lower() in ("proteins", "antibodies"):
+        return "protein"
+    named = [layer for layer in ("mutation", "copy_number", "rna") if re.search(LAYERS[layer], text, re.IGNORECASE)]
+    return named[0] if len(named) == 1 else None
+
+
+_AGE_COMPARE = re.compile(
+    r"\b(?:were|was|are|is)\s+(?:diagnosed\s+)?(?:(?P<approx>about|roughly|nearly|around|some|approximately|almost)\s+)?"
+    r"(?:(?P<n>\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+years?\s+)?"
+    r"(?P<dir>younger|older|later|earlier)\b(?P<avg>\s+on\s+average)?(?:\s+(?:at|when)\s+(?:first\s+)?diagnos\w*)?"
+    r"(?P<avg2>\s+on\s+average)?\s+than\b",
+    re.IGNORECASE,
+)
+_AGE_SUPERLATIVE = re.compile(r"\b(?:were|was|are|is)\s+(?:the\s+)?(?P<sup>youngest|oldest)\b", re.IGNORECASE)
+
+
+def _rule_age_groups(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"Basal-like patients were diagnosed younger than Luminal A patients" (median ages compared) and
+    "Basal-like patients were the youngest at diagnosis of any subtype" (median ages ranked). No numbers stated."""
+    text = info.text
+    if [n for n in numbers if not n.is_total and not _AGE_COMPARE.search(text, max(0, n.start - 40))]:
+        return None  # with the ages written, _rule_statistic checks each one
+    groups = [e for e in find_entities(text) if e.attribute in GROUP_ATTRIBUTES]
+    compare = _AGE_COMPARE.search(text)
+    if compare:
+        before = [e for e in groups if e.end <= compare.start()]
+        after = [e for e in groups if e.start >= compare.end()]
+        if not before or not after or before[-1].attribute != after[0].attribute or before[-1].category == after[0].category:
+            return None
+        a, b = before[-1], after[0]
+        mean = bool(compare.group("avg") or compare.group("avg2") or re.search(r"\b(?:mean|average)\b", text, re.IGNORECASE))
+        params = ClaimParams(measure="mean_age" if mean else "median_age",
+                             direction="lower" if compare.group("dir").lower() in ("younger", "earlier") else "higher",
+                             within_attribute=a.attribute, within_category=a.category, category_b=b.category,
+                             group_a=a.category, group_b=b.category)
+        if compare.group("n"):  # "about six years later": the size of the gap is part of the claim
+            raw = compare.group("n")
+            params.unit, params.stated_value = "difference", float(raw) if raw[0].isdigit() else number_value(raw)
+            params.approximate = bool(compare.group("approx"))
+        return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COMPARISON, params=params)
+    sup = _AGE_SUPERLATIVE.search(text)
+    if sup and re.search(r"\bdiagnos|\bage\b", text, re.IGNORECASE):
+        before = [e for e in groups if e.end <= sup.start()]
+        if not before:
+            return None
+        params = ClaimParams(measure="median_age", unit="rank", stated_value=1.0, subject="primary_tumors",
+                             direction="lower" if sup.group("sup").lower() == "youngest" else None,
+                             within_attribute=before[-1].attribute, within_category=before[-1].category)
+        return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RANK, params=params)
+    return None
+
+
+_AGREE = re.compile(r"\b(?:agree\w*|concordan\w*|disagree\w*|discordan\w*|match(?:es|ed)?|same\s+subtype)\b", re.IGNORECASE)
+_STUDY_LABEL = re.compile(r"\b2012\b|\bconsortium\b|\bstudy\s+labels?\b|\bnature\s*2012\b", re.IGNORECASE)
+
+
+def _rule_agreement(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"The RNA-seq call and the 2012 label agree for 90% of tumours": the two subtype sources compared."""
+    text = info.text
+    if not (_AGREE.search(text) and _STUDY_LABEL.search(text) and re.search(r"\bRNA|\bPAM50|\bcall", text, re.IGNORECASE)):
+        return None
+    amounts = [a for a in find_amounts(text) if a.percent and not a.is_total]
+    if len(amounts) != 1:
+        return None
+    params = ClaimParams(subject="subtype_sources")
+    _stated_amount(params, amounts[0])
+    if re.search(r"\bdisagree\w*|\bdiscordan\w*", text, re.IGNORECASE):
+        params.stated_value = 100 - params.stated_value  # "disagree for 10%": agree for 90%
+    return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.AGREEMENT, params=params)
+
+
+_RNA_SOURCE = re.compile(r"\bRNA[\s-]?seq\b|\bRNA\s+calls?\b|\bPAM50Call", re.IGNORECASE)
+_LARGEST_DISAGREEMENT = re.compile(r"\b(?:largest|biggest|commonest|most\s+common)\s+(?:single\s+)?(?:disagreement|discordance|mismatch)", re.IGNORECASE)
+
+
+def _rule_label_pair(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"31 tumors that the 2012 study placed in LumB and that RNA-seq calls LumA": one cell of the two labels' table,
+    and with "the largest single disagreement", its place among the cells where the labels differ."""
+    text = info.text
+    study, rna = _STUDY_LABEL.search(text), _RNA_SOURCE.search(text)
+    stated = [n for n in numbers if not n.percent]  # "a group of 31 tumors": one number, read as a total
+    subtypes = [e for e in find_entities(text) if e.attribute == "subtype"]
+    if not (study and rna and len(stated) == 1 and len(subtypes) == 2) or subtypes[0].category == subtypes[1].category:
+        return None
+
+    def source(e: Entity) -> str:  # the label source named closest before the subtype
+        last_study = max((m.start() for m in _STUDY_LABEL.finditer(text, 0, e.start)), default=-1)
+        last_rna = max((m.start() for m in _RNA_SOURCE.finditer(text, 0, e.start)), default=-1)
+        return "study" if last_study > last_rna else "rna"
+
+    by = {source(e): e.category for e in subtypes}
+    if set(by) != {"study", "rna"}:
+        return None
+    params = ClaimParams(unit="count", subject=f"label_pair:{by['study']}:{by['rna']}", stated_value=stated[0].value, decimals=0)
+    count = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COUNT, params=params)
+    if not _LARGEST_DISAGREEMENT.search(text):
+        return count
+    rank = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RANK,
+                 params=ClaimParams(unit="rank", stated_value=1.0, subject=params.subject, measure="label_pair"))
+    return _compound(info, claim_id, [_part(count, text[stated[0].start:stated[0].end], 1),
+                                      _part(rank, "the largest disagreement", 2)])
+
+
+def _rule_features(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"The mutation file lists more than 40,000 genes": a count of the file's rows."""
+    stated = [n for n in numbers if not n.is_total]
+    if len(stated) != 1 or stated[0].percent:
+        return None
+    layer = feature_layer(info.text, stated[0].end)
+    if layer is None:
+        return None
+    params = ClaimParams(unit="count", subject=f"features:{layer}")
+    _stated(params, stated[0])
+    params.bound = bound_op(info.text[: stated[0].start]) if stated[0].bound else None
+    return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COUNT, params=params)
+
+
 def _rule_count(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     usable = [
         n for n in numbers
@@ -632,8 +817,17 @@ def _rule_count(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) 
                    and not _TIME_UNIT_AFTER.match(info.text, n.end)]
         if bounded:
             usable = [bounded[0]] + [n for n in usable if n.is_total]
-            bound = _bound_op(info.text[: bounded[0].start])
+            bound = bound_op(info.text[: bounded[0].start])
     value, total = _value_and_total(usable)
+    which = _OF_WHICH.search(info.text)
+    if which:  # "the 1,101 primary tumors ..., of which 535 (48.6%) carry all five layers": 535 of 1,101
+        after = [n for n in usable if n.start >= which.end()]
+        before = [n for n in usable if n.end <= which.start() and not _in_parentheses(info.text, n.start)]
+        if after and before:
+            value, total = after[0], before[0]
+    zero = ZERO_AMOUNT.search(info.text) if value is None else None
+    if zero:  # "Not a single primary tumour lacks an age": a count of 0
+        value = StatedNumber(zero.start(), zero.end(), 0.0, 0, False, False, False)
     if value is None:
         return None
     layers = _layers(info.text)
@@ -658,7 +852,24 @@ def _rule_count(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) 
                 # is never counted as everyone; the claim stays insufficient_evidence for a person or the AI
     params = ClaimParams(unit="count", subject=subject, bound=bound)
     _stated(params, value, total)
-    return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COUNT, params=params)
+    claim = Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COUNT, params=params)
+    pct = _PAREN_PERCENT.match(info.text, value.end)
+    if pct and total is not None:  # "535 (48.6%)": the percent of the same total is a second figure to check
+        share = ClaimParams(unit="percent", subject=subject, stated_value=float(pct.group(1)),
+                            decimals=len(pct.group(1).split(".")[1]) if "." in pct.group(1) else 0)
+        return _compound(info, claim_id, [
+            _part(claim, info.text[value.start:value.end], 1),
+            _part(Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COUNT, params=share),
+                  pct.group(0).strip(" ()"), 2)])
+    return claim
+
+
+_OF_WHICH = re.compile(r"\b(?:of|among)\s+(?:which|whom|these|them)\b", re.IGNORECASE)
+_PAREN_PERCENT = re.compile(r"\s*\(\s*(\d+(?:\.\d+)?)\s*%\s*\)")
+
+
+def _in_parentheses(text: str, at: int) -> bool:
+    return text.rfind("(", 0, at) > text.rfind(")", 0, at)
 
 
 def _rule_unmapped(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
@@ -703,7 +914,7 @@ SURVIVAL_COMPARISON = re.compile(
     r"(?:overall\s+|disease[\s-]free\s+|progression[\s-]free\s+|disease[\s-]specific\s+|long[\s-]term\s+)?(?:survival|prognosis|outcomes?)\b"
     r"|\b(?:survival|prognosis|outcomes?)\s+(?:is|was|were|are)\s+(?:significantly\s+)?(?:better|worse|poorer|longer|shorter|improved|reduced|inferior|superior)\b"
     r"|\bprognos\w*|\bhazard\s+ratios?\b|\bKaplan[\s-]Meier\b|\blog[\s-]rank\b|\bCox\s+(?:model|regression)\b"
-    r"|\b(?:higher|lower|greater|increased|reduced|elevated)\s+(?:risk\s+of\s+(?:death|dying|relapse|recurrence)|mortality|death\s+rates?)\b"
+    r"|\b(?:higher|lower|greater|increased|reduced|elevated)\s+(?:risk\s+of\s+(?:death|dying|relapse|recurrence)|mortality)\b"
     r"|\b(?:more|less)\s+likely\s+to\s+(?:die|survive|relapse|recur)\b",
     re.IGNORECASE,
 )
@@ -726,6 +937,42 @@ _RECEPTOR = {"er": "er_status", "estrogen": "er_status", "oestrogen": "er_status
 TRIPLE_NEGATIVE = re.compile(r"\btriple[\s-]+negative\b|\bTNBCs?\b", re.IGNORECASE)
 STAGE_ENTITY = re.compile(r"\bstage[\s-]+(IV|III|II|I|[1-4])([ABC])?(?![\w])", re.IGNORECASE)
 _ROMAN = {"1": "I", "2": "II", "3": "III", "4": "IV"}
+_STAGES = ("I", "II", "III", "IV")
+# "stage III or IV", "stage III or higher", "stages I to III": one group made of every stage it spans.
+STAGE_UNION = re.compile(
+    r"\bstages?[\s-]+(?P<lo>IV|III|II|I|[1-4])\s*(?:(?:or|and|to|through|–|-)\s*(?:stage\s+)?(?P<hi>IV|III|II|I|[1-4])(?![\w])"
+    r"|(?:or|and)\s+(?P<dir>higher|above|later|greater|more\s+advanced|lower|below|earlier|less\s+advanced)\b)",
+    re.IGNORECASE,
+)
+
+
+YEAR_GROUP = re.compile(
+    r"\bdiagnosed\s+(?:in\s+)?(?P<y>(?:19|20)\d\d)\s+or\s+(?P<op>later|after|earlier|before)\b"
+    r"|\bdiagnosed\s+(?P<op2>before|after|since|from|prior\s+to)\s+(?P<y2>(?:19|20)\d\d)\b",
+    re.IGNORECASE,
+)
+# "Diagnoses span the years 1988 to 2013": the first and last year of diagnosis
+YEAR_SPAN = re.compile(r"\bdiagnos\w*\b[^.;]*?\b((?:19|20)\d\d)\s*(?:to|-|–|through|and)\s*((?:19|20)\d\d)\b", re.IGNORECASE)
+_BUSIEST_YEAR = re.compile(
+    r"\b(?P<y>(?:19|20)\d\d)\s+(?:is|was)\s+the\s+(?:busiest|most\s+common|peak|commonest)\s+(?:single\s+)?year"
+    r"(?:\s+(?:with|at)\s+(?P<n>[\d,]+)\s+(?:diagnoses|tumou?rs|patients|cases))?",
+    re.IGNORECASE,
+)
+_NODES = re.compile(r"\b(?:positive\s+)?lymph\s+nodes?\b", re.IGNORECASE)
+
+
+def stage_union(lo: str, hi: str | None, direction: str | None) -> str | None:
+    """"III", "IV" -> "Stage III or IV"; "III" and "higher" -> "Stage III or IV"; "I", "III" -> "Stage I, II or III"."""
+    a = _STAGES.index(_ROMAN.get(lo, lo.upper()))
+    if hi is not None:
+        b = _STAGES.index(_ROMAN.get(hi, hi.upper()))
+    else:
+        b = len(_STAGES) - 1 if re.match(r"higher|above|later|greater|more", direction, re.IGNORECASE) else 0
+    a, b = min(a, b), max(a, b)
+    if a == b:
+        return None
+    names = _STAGES[a:b + 1]
+    return "Stage " + (", ".join(names[:-1]) + " or " + names[-1])
 HISTOLOGY_ENTITY = re.compile(r"\b(ductal|lobular|mucinous|metaplastic|medullary)\b", re.IGNORECASE)
 MENOPAUSE_ENTITY = re.compile(r"\b(pre|peri|post)[\s-]?menopausal\b", re.IGNORECASE)
 DEATH_ENTITY = re.compile(r"\b(?:deaths?|died|deceased|dead|death\s+events?)\b", re.IGNORECASE)
@@ -742,6 +989,11 @@ PFI_WORDS = re.compile(
 SLIDE_KIND_ENTITY = re.compile(r"\b(diagnostic|FFPE|frozen)\b", re.IGNORECASE)
 ALIVE_ENTITY = re.compile(r"\b(?:alive|still\s+living|living\s+patients|survivors)\b", re.IGNORECASE)
 SEX_ENTITY = re.compile(r"\b(?:are|were|is|was)\s+(?:female|women|male|men)\b", re.IGNORECASE)
+SEX_GROUP = re.compile(
+    r"\b(?:of|among|in|no|none\s+of\s+the)\s+(?:the\s+|all\s+)?(?:[\d,]+\s+)?(?P<w>male|female)\s+(?:patients?|tumou?rs?|samples?|cases?)\b"
+    r"|\b(?:of|among)\s+(?:the\s+)?(?P<w2>men|women)\b",
+    re.IGNORECASE,
+)
 MUTATION_WORDS = re.compile(
     r"\b(?:mutat\w*|harbou?r(?:s|ed|ing)?|carr(?:y|ies|ied|ying)|altered|alterations?|variants?|mutants?)\b", re.IGNORECASE
 )
@@ -762,16 +1014,29 @@ RANK_PHRASE = re.compile(
     r"|least\s+(?:common(?:ly)?|frequent(?:ly)?|prevalent|often)|smallest|rarest)\b",
     re.IGNORECASE,
 )
+# "TTN ranks third", "Luminal B comes in second": a place among the groups, most common first
+RANK_PLACE = re.compile(
+    r"\b(?:ranks?|ranked|comes?|came|places?|placed|sits?|stands?)\s+(?:in\s+|at\s+)?(?:the\s+)?"
+    r"(?P<ord>first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\b(?P<sup>)",
+    re.IGNORECASE,
+)
 TOP_N_PHRASE = re.compile(
     r"\b(?:the\s+)?(?P<n>two|three|four|five|2|3|4|5)\s+(?:most\s+(?:common(?:ly)?|frequent(?:ly)?|prevalent)|largest)\b",
     re.IGNORECASE,
 )
-_ORDINAL_WORDS = {"second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "fifth": 5, "5th": 5}
+_ORDINAL_WORDS = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "fifth": 5, "5th": 5}
 _SMALL_NUMBERS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 RATIO_PHRASE = re.compile(
     r"(?P<n>\d+(?:\.\d+)?|two|three|four|five|six|seven|eight|nine|ten)\s*(?:-|\s)?(?:to|:)(?:-|\s)?\s*(?:1|one)\b"
-    r"|(?P<times>twice|double|(?:\d+(?:\.\d+)?|two|three|four|five)[\s-]*(?:times|-?fold))\s+(?:as\s+)?(?:many|more|common|frequent|numerous|often)"
+    r"|(?P<times>twice|double|(?:\d+(?:\.\d+)?|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)"
+    r"[\s-]*(?:times|-?fold))\s+(?:as\s+)?(?:many|more|common|frequent|numerous|often|likely)"
     r"|(?P<outnumber>outnumber(?:s|ed|ing)?)",
+    re.IGNORECASE,
+)
+# The ratio stated after "outnumber": "about three to one", "by more than 2:1", "ten to one".
+_OUTNUMBER_RATIO = re.compile(
+    r"(?P<n>\d+(?:\.\d+)?|(?:" + "|".join(sorted(WORDS, key=len, reverse=True)) + r")(?:[\s-]+(?:"
+    + "|".join(sorted(WORDS, key=len, reverse=True)) + r"))?)\s*(?:to|:)\s*(?:1|one)\b",
     re.IGNORECASE,
 )
 # Amount words that are not digits. Value is a percent; "bound" makes it one-sided.
@@ -787,8 +1052,6 @@ WORD_AMOUNTS: tuple[tuple[str, float, str | None], ...] = (
     (r"\b(?:a|one)[\s-]fifth\b", 20.0, None),
     (r"\b(?:a|one)[\s-]tenth\b", 10.0, None),
     (r"\b(?:one[\s-])?half\b", 50.0, None),
-    (r"\b(?P<num>one|two|three|four|five|six|seven|eight|nine|\d+)\s+(?:in|out\s+of)\s+"
-     r"(?P<den>two|three|four|five|six|seven|eight|nine|ten|\d+)\b(?!\s*(?:%|per\s*cent))", None, None),
 )
 _WORD_AMOUNTS = [(re.compile(p, re.IGNORECASE), v, b) for p, v, b in WORD_AMOUNTS]
 ZERO_AMOUNT = re.compile(
@@ -824,7 +1087,7 @@ class Entity:
     category: str
 
 
-def _bound_op(before: str) -> str | None:
+def bound_op(before: str) -> str | None:
     for pattern, op in _BOUND_OPS:
         if pattern.search(before):
             return op
@@ -884,6 +1147,9 @@ def find_entities(text: str) -> list[Entity]:
     her2_amp = re.search(r"\bHER-?2\s+(?:gene\s+)?amplif\w*|\bamplif\w*\s+(?:of\s+)?HER-?2\b", text, re.IGNORECASE)
     if her2_amp:
         add(her2_amp.start(), her2_amp.end(), "amplification", "ERBB2")
+    her2_over = re.search(r"\bHER-?2(?:/neu)?\s+(?:protein\s+)?over-?expressi\w*|\bover-?expressi\w*\s+(?:of\s+)?HER-?2\b", text, re.IGNORECASE)
+    if her2_over:  # "HER2 overexpression by immunohistochemistry": HER2-positive status, not the HER2-enriched subtype
+        add(her2_over.start(), her2_over.end(), "her2_status", "positive")
     for m in STATUS_ENTITY.finditer(text):
         rec = m.group("rec").lower().replace("-", "")
         key = "her2" if rec.startswith("her2") else rec.split()[0].replace("receptors", "").replace("receptor", "")
@@ -898,17 +1164,28 @@ def find_entities(text: str) -> list[Entity]:
         add(m.start(), m.end(), attribute, sign)
     for m in age_thresholds(text):
         op = (m.group("op") or m.group("op2") or "over").lower().split()[0]
-        age = m.group("age") or m.group("age2") or m.group("age3")
+        age = age_of(m)
         if m.group("age3"):  # "65+"
             code = "gte"
-        elif m.group("op2"):  # "aged 70 or older"
-            code = "gte" if op in ("older", "over", "above") else "lte"
+        elif m.group("op2"):  # "aged 70 or older", "aged seventy or more"
+            code = "gte" if op in ("older", "over", "above", "more") else "lte"
         else:
-            code = {"over": "gt", "older": "gt", "above": "gt", "at": "gte", "under": "lt", "younger": "lt", "below": "lt"}[op]
+            code = {"over": "gt", "older": "gt", "above": "gt", "at": "gte", "under": "lt", "younger": "lt", "below": "lt",
+                    "diagnosed": "lt"}[op]
         add(m.start(), m.end(), "age_group", f"{code}{age}")
     union = LUMINAL_UNION.search(text)
     if union:  # "Luminal tumours (Luminal A and Luminal B together)": one group, A and B
         add(union.start(), union.end(), "subtype", "Luminal")
+    for m in YEAR_GROUP.finditer(text):  # "diagnosed in 2010 or later", "diagnosed before 1990"
+        if m.group("op"):  # "in 2010 or later": the year itself is in the group
+            code = "gte" if m.group("op").lower() in ("later", "after") else "lte"
+        else:
+            code = {"before": "lt", "prior": "lt", "after": "gt", "since": "gte", "from": "gte"}[m.group("op2").lower().split()[0]]
+        add(m.start(), m.end(), "diagnosis_year", f"{code}{m.group('y') or m.group('y2')}")
+    for m in STAGE_UNION.finditer(text):
+        union_name = stage_union(m.group("lo"), m.group("hi"), m.group("dir"))
+        if union_name:
+            add(m.start(), m.end(), "stage", union_name)
     for m in STAGE_ENTITY.finditer(text):
         roman = _ROMAN.get(m.group(1), m.group(1).upper())
         add(m.start(), m.end(), "stage", f"Stage {roman}{(m.group(2) or '').upper()}")
@@ -957,6 +1234,11 @@ def find_entities(text: str) -> list[Entity]:
     if sex:
         word = sex.group(0).split()[-1].lower()
         add(sex.start(), sex.end(), "sex", "female" if word in ("female", "women") else "male")
+    group = SEX_GROUP.search(text)
+    if group and not sex:  # "None of the male patients had ...": a group named by sex
+        word = (group.group("w") or group.group("w2")).lower()
+        add(group.start("w") if group.group("w") else group.start("w2"),
+            group.end("w") if group.group("w") else group.end("w2"), "sex", "female" if word in ("female", "women") else "male")
     found.sort(key=lambda e: e.start)
     # "Triple-negative tumours (ER-, PR-, HER2-)": a parenthesis right after an entity defines it.
     defined: list[tuple[int, int]] = []
@@ -985,27 +1267,19 @@ def find_amounts(text: str) -> list[Amount]:
     """Digits (with their bounds) plus amount words ("a third", "most", "one in ten")."""
     amounts: list[Amount] = []
     taken: list[tuple[int, int]] = []
-    # Amount words first, "one in ten" before the rest: its "ten" must not be read as a count of ten tumors.
-    for pattern, value, bound in _WORD_AMOUNTS[-1:] + _WORD_AMOUNTS[:-1]:
-        for m in pattern.finditer(text):
-            if any(a < m.end() and m.start() < b for a, b in taken):
-                continue
-            if value is None:
-                den, num = m.group("den").lower(), m.group("num").lower()
-                den_value = float(_SMALL_NUMBERS.get(den, den)) if not den.isdigit() else float(den)
-                num_value = 1.0 if num == "one" else float(_SMALL_NUMBERS.get(num, num)) if not num.isdigit() else float(num)
-                if den_value <= 0 or num_value > den_value or (num.isdigit() and den.isdigit() and den_value > 20):
-                    continue  # "5 in 1,000" style numbers are counts, read elsewhere
-                value_here = 100.0 * num_value / den_value
-            else:
-                value_here = value
-            before = text[: m.start()]
-            op = bound or _bound_op(before)
-            approx = bool(_APPROX_BEFORE.search(before)) or bound is None
-            if bound is None and op is not None:
-                approx = False
-            taken.append((m.start(), m.end()))
-            amounts.append(Amount(m.start(), m.end(), value_here, True, approx, op, None, 1, False, True))
+    # Fractions first, "one in ten" before the rest: its "ten" must not be read as a count of ten tumors.
+    words = [(f.start, f.end, f.value, None) for f in fraction_amounts(text)]
+    words += [(m.start(), m.end(), value, bound) for pattern, value, bound in _WORD_AMOUNTS for m in pattern.finditer(text)]
+    for start, end, value_here, bound in words:
+        if any(a < end and start < b for a, b in taken):
+            continue
+        before = text[:start]
+        op = bound or bound_op(before)
+        approx = bool(_APPROX_BEFORE.search(before)) or bound is None
+        if bound is None and op is not None:
+            approx = False
+        taken.append((start, end))
+        amounts.append(Amount(start, end, value_here, True, approx, op, None, 1, False, True))
     for m in ZERO_AMOUNT.finditer(text):  # "Not a single tumour carried a BRCA1 mutation": a count of 0
         if not any(a < m.end() and m.start() < b for a, b in taken):
             taken.append(m.span())
@@ -1016,7 +1290,7 @@ def find_amounts(text: str) -> list[Amount]:
         if _TIME_UNIT_AFTER.match(text, n.end) and not n.percent:
             continue
         before = text[: n.start]
-        op = _bound_op(before) if n.bound or re.search(r"\b(?:no|not)\s+(?:more|fewer|less)\s+than\s*$", before, re.IGNORECASE) else None
+        op = bound_op(before) if n.bound or re.search(r"\b(?:no|not)\s+(?:more|fewer|less)\s+than\s*$", before, re.IGNORECASE) else None
         amounts.append(Amount(n.start, n.end, n.value, n.percent, n.approximate, op, n.high, n.decimals, n.is_total))
     return sorted(amounts, key=lambda a: a.start)
 
@@ -1063,6 +1337,12 @@ _POPULATION_AFTER = re.compile(
     r"(?:tumou?rs?|samples?|patients?|cases?|women|cancers?|carcinomas?|specimens?|subgroup|group|disease)\b",
     re.IGNORECASE,
 )
+# "of the tumors scored HER2-positive": the group's noun comes before its status
+_SCORED_BEFORE = re.compile(
+    r"\b(?:of|among|in|within)\s+(?:the\s+|all\s+|these\s+)?(?:primary\s+)?(?:tumou?rs|patients|samples|cases|women)\s+"
+    r"(?:scored|classed|classified|called|recorded|labell?ed|deemed|that\s+(?:are|were)|which\s+(?:are|were)|who\s+(?:are|were))\s+(?:as\s+)?$",
+    re.IGNORECASE,
+)
 _SUBGROUP_BEFORE = re.compile(
     r"\b(?:of|among|in|within|across|for)\s+(?:the\s+|all\s+|these\s+|those\s+)?(?:[\d,]+\s+)?(?:primary\s+)?"
     r"(?:infiltrating\s+|invasive\s+)?$", re.IGNORECASE
@@ -1092,6 +1372,12 @@ def _split_subgroup(text: str, entities: list[Entity]) -> tuple[list[Entity], En
         rest = [e for e in entities if not group_start <= e.start < group_end]
         if len(in_group) == 1 and rest:
             return rest, in_group[0]
+    scored = [e for e in entities if e.attribute in GROUP_ATTRIBUTES and _SCORED_BEFORE.search(text[: e.start])]
+    if len(scored) == 1 and len(entities) == 2:  # "of the tumors scored HER2-positive by IHC, ... ERBB2 amplification"
+        return [e for e in entities if e is not scored[0]], scored[0]
+    sexes = [e for e in entities if e.attribute == "sex"]
+    if len(sexes) == 1 and len(entities) == 2 and SEX_GROUP.search(text):  # "No male patient had a Basal-like tumour"
+        return [e for e in entities if e is not sexes[0]], sexes[0]
     groups = [e for e in entities if _POPULATION_AFTER.match(text[e.end:])]
     introduced = [e for e in groups if _SUBGROUP_BEFORE.search(text[: e.start])]
     pick = introduced[0] if introduced else (groups[0] if len(groups) == 1 else None)
@@ -1139,7 +1425,7 @@ def _amount_for_claim(text: str, amounts: list[Amount]) -> tuple[Amount | None, 
 def _rule_rank(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     text = info.text
     top = TOP_N_PHRASE.search(text)
-    m = RANK_PHRASE.search(text)
+    m = RANK_PHRASE.search(text) or RANK_PLACE.search(text)
     if not (m or top):
         return None
     entities = [e for e in find_entities(text) if e.attribute not in ("vital_status", "sex")]
@@ -1165,6 +1451,28 @@ def _rule_rank(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -
     return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RANK, params=params)
 
 
+_COUNT_AGAINST = re.compile(
+    r"\b(?P<more>outnumber(?:s|ed|ing)?)\b|\b(?:are|were)\s+(?P<word>fewer|more)\s+than\b|^\s*(?P<lead>more|fewer)\s+(?:primary\s+)?(?:tumou?rs|patients|samples|cases)\s+(?:are|were)\b",
+    re.IGNORECASE,
+)
+
+
+def _rule_count_against(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"HER2-positive tumours are fewer than ERBB2-amplified tumours": two different attributes, counted."""
+    text = info.text
+    m = _COUNT_AGAINST.search(text)
+    if m is None or [n for n in numbers if not n.is_total]:
+        return None
+    entities = [e for e in find_entities(text) if e.attribute != "sex"]
+    if len(entities) != 2 or entities[0].attribute == entities[1].attribute:
+        return None  # two values of one attribute is _rule_ratio's
+    a, b = entities
+    more = bool(m.group("more")) or (m.group("word") or m.group("lead") or "").lower() == "more"
+    params = ClaimParams(attribute=a.attribute, category=a.category, attribute_b=b.attribute, category_b=b.category,
+                         unit="ratio", stated_value=1.0, bound="gt" if more else "lt", subject="primary_tumors")
+    return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RATIO, params=params)
+
+
 def _rule_ratio(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     text = info.text
     m = RATIO_PHRASE.search(text)
@@ -1180,12 +1488,17 @@ def _rule_ratio(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) 
     a, b = pair[0], next(x for x in pair if x.category != pair[0].category)
     params = ClaimParams(attribute=a.attribute, category=a.category, category_b=b.category, unit="ratio",
                          subject="primary_tumors")
+    target = next((e for e in entities if e.attribute != a.attribute), None)
+    if m.group("times") and target is not None:  # "TP53 mutations are eight times as common in Basal-like as in Luminal A"
+        params = ClaimParams(attribute=target.attribute, category=target.category, within_attribute=a.attribute,
+                             within_category=a.category, category_b=b.category, measure="rate", unit="ratio",
+                             subject="primary_tumors")
     before = text[: m.start()]
     params.approximate = bool(_APPROX_BEFORE.search(before)) or bool(re.search(r"\b(?:about|roughly|nearly|around|approximately|almost)\b", text[max(0, m.start() - 25): m.start()], re.IGNORECASE))
     if m.group("n"):
         raw = m.group("n").lower()
         params.stated_value = float(_SMALL_NUMBERS.get(raw, raw))
-        params.bound = _bound_op(before)  # "by more than two to one"
+        params.bound = bound_op(before)  # "by more than two to one"
         if params.bound:
             params.approximate = False
     elif m.group("times"):
@@ -1194,14 +1507,18 @@ def _rule_ratio(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) 
             params.stated_value = 2.0
         else:
             first = re.match(r"(\d+(?:\.\d+)?|\w+)", raw).group(1)
-            params.stated_value = float(_SMALL_NUMBERS.get(first, first)) if not first.replace(".", "").isdigit() else float(first)
+            params.stated_value = float(first) if first.replace(".", "").isdigit() else number_value(first)
         if re.search(r"\b(?:more|over)\s+than\s*$", before, re.IGNORECASE):
             params.bound = "gt"
-    else:  # "A outnumber B" with no number: more A than B
-        ratio_number = re.search(r"\bby\s+(?:about\s+|roughly\s+|nearly\s+|around\s+)?(\d+(?:\.\d+)?|two|three|four|five)\s*(?:to|:)\s*(?:1|one)\b", text, re.IGNORECASE)
-        if ratio_number:
-            raw = ratio_number.group(1).lower()
-            params.stated_value = float(_SMALL_NUMBERS.get(raw, raw))
+    else:  # "A outnumber B", alone (more A than B) or with the ratio after it ("about three to one")
+        stated = _OUTNUMBER_RATIO.search(text, m.end())
+        value = stated and (float(stated.group("n")) if stated.group("n")[0].isdigit() else number_value(stated.group("n")))
+        if value:
+            near = text[m.end(): stated.start("n")]
+            params.stated_value = value
+            params.bound = bound_op(near)
+            params.approximate = not params.bound and bool(re.search(
+                r"\b(?:about|roughly|nearly|around|approximately|almost|some)\s*$", near, re.IGNORECASE))
         else:
             params.stated_value, params.bound = 1.0, "gt"
     return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RATIO, params=params)
@@ -1209,7 +1526,7 @@ def _rule_ratio(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) 
 
 _COMPARE_SHARE = re.compile(
     r"\b(?:more|less|fewer)\s+(?:common(?:ly)?|frequent(?:ly)?|often|likely|prevalent)\b|\b(?:higher|lower|greater|smaller)\s+"
-    r"(?:share|proportion|percentage|fraction|rate|frequency|prevalence)\b|\b(?:enriched|depleted|rarer|commoner)\s+(?:in|among)\b"
+    r"(?:death\s+|mutation\s+|event\s+|amplification\s+)?(?:share|proportion|percentage|fraction|rate|frequency|prevalence)\b|\b(?:enriched|depleted|rarer|commoner)\s+(?:in|among)\b"
     r"|\bconcentrated\s+(?:in|among)\b",
     re.IGNORECASE,
 )
@@ -1249,16 +1566,48 @@ def _rule_share_comparison(info: SentenceInfo, claim_id: str, numbers: list[Stat
     return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COMPARISON, params=params)
 
 
+def _rule_group_shares(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """One thing in two groups, a figure for each: "TP53 mutations are concentrated in basal-like tumors, where 85% carry
+    one, against roughly one in ten Luminal A tumors". Each figure belongs to the group nearest it."""
+    text = info.text
+    entities = find_entities(text)
+    groups = [e for e in entities if e.attribute in GROUP_ATTRIBUTES]
+    targets = [e for e in entities if e not in groups or e.attribute == "vital_status"]
+    groups = [e for e in groups if e not in targets]
+    if len(targets) != 1 or len(groups) != 2 or groups[0].attribute != groups[1].attribute \
+            or groups[0].category == groups[1].category:
+        return None
+    amounts = [a for a in find_amounts(text) if a.percent and not a.is_total]
+    if len(amounts) != 2 or re.search(r"\b(?:each|both|together|combined)\b", text, re.IGNORECASE):
+        return None
+
+    def gap(a: "Amount", g: Entity) -> int:
+        return g.start - a.end if a.end <= g.start else a.start - g.end
+
+    first = min(groups, key=lambda g: gap(amounts[0], g))
+    second = next(g for g in groups if g is not first)
+    if gap(amounts[1], second) > gap(amounts[1], first):
+        return None  # both figures sit by the same group: not one figure per group
+    parts = []
+    for k, (amount, group) in enumerate(((amounts[0], first), (amounts[1], second)), start=1):
+        part = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.SHARE,
+                     params=_params_for(targets[0], amount, group, text))
+        parts.append(_part(part, f"{group.category}: {text[amount.start:amount.end]}", k))
+    return _compound(info, claim_id, parts)
+
+
 def _rule_attribute(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     """A share or count of samples with an attribute: "77% are ER-positive", "TP53 is mutated in a third"."""
     text = info.text
     entities = find_entities(text)
-    if not entities or len(entities) == 1 and entities[0].attribute == "subtype" and entities[0].category != "Luminal":
-        return None  # a subtype on its own is _rule_share's
+    if not entities:
+        return None
     amounts = find_amounts(text)
     value, total = _amount_for_claim(text, amounts)
     if value is None:
         return None
+    if len(entities) == 1 and entities[0].attribute == "subtype" and entities[0].category != "Luminal" and value.percent:
+        return None  # a subtype's share on its own is _rule_share's; its count ("421 Luminal A tumours") is ours
     about, subgroup = _split_subgroup(text, entities)
     if not about:
         return None
@@ -1332,7 +1681,7 @@ AGE_RANGE = re.compile(
 )
 _OS_TIME = re.compile(r"\b(?:overall\s+)?survival\s+time|\bfollow[\s-]?up(?:\s+time)?|\bOS\s+time|\btime\s+to\s+death", re.IGNORECASE)
 _YEARS_VALUE = re.compile(
-    r"(?<![\w.])(?P<n>\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:-\s*(?P<hi>\d+(?:\.\d+)?)\s*)?"
+    r"(?<![\w.])(?P<n>\d+(?:\.\d+)?|" + _AGE_WORD + r"|one|two|three|four|five|six|seven|eight|nine|ten)\b\s*(?:-\s*(?P<hi>\d+(?:\.\d+)?)\s*)?"
     r"(?P<unit>years?|yrs?|months?|days?)?",
     re.IGNORECASE,
 )
@@ -1344,6 +1693,36 @@ def _rule_statistic(info: SentenceInfo, claim_id: str, numbers: list[StatedNumbe
     Ages are years at diagnosis; "median survival time / follow-up" reads survival.tsv OS.time in years.
     """
     text = info.text
+    years = YEAR_SPAN.search(text)
+    if years and not find_entities(text):
+        parts = []
+        for stat, raw in (("year_min", years.group(1)), ("year_max", years.group(2))):
+            params = ClaimParams(unit="years", measure=stat, stated_value=float(raw), decimals=0, subject="primary_tumors")
+            parts.append(_part(Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.STATISTIC,
+                                     params=params), f"{'first' if stat == 'year_min' else 'last'} year {raw}", len(parts) + 1))
+        busiest = _BUSIEST_YEAR.search(text)
+        if busiest:  # "2010 is the busiest single year with 225 diagnoses"
+            year = busiest.group("y")
+            params = ClaimParams(unit="years", measure="year_mode", stated_value=float(year), decimals=0, subject="primary_tumors")
+            parts.append(_part(Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.STATISTIC,
+                                     params=params), f"busiest year {year}", len(parts) + 1))
+            if busiest.group("n"):
+                params = ClaimParams(unit="count", subject="primary_tumors", attribute="diagnosis_year", category=f"eq{year}",
+                                     stated_value=float(busiest.group("n").replace(",", "")), decimals=0)
+                parts.append(_part(Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COUNT,
+                                         params=params), f"{busiest.group('n')} diagnosed in {year}", len(parts) + 1))
+        return _compound(info, claim_id, parts)
+    nodes = _NODES.search(text)
+    stat_word = _STAT_WORD.search(text)
+    if nodes and stat_word and stat_word.group("w").lower() in ("median", "mean", "average"):
+        value = next((v for v in _YEARS_VALUE.finditer(text, stat_word.end()) if not (v.group("unit") or "")), None)
+        if value is not None:  # "The median number of positive lymph nodes was one."
+            raw = value.group("n")
+            stat = {"average": "mean"}.get(stat_word.group("w").lower(), stat_word.group("w").lower())
+            params = ClaimParams(unit="years", measure=f"nodes_{stat}", subject="primary_tumors",
+                                 stated_value=float(raw) if raw[0].isdigit() else number_value(raw),
+                                 decimals=len(raw.split(".")[1]) if "." in raw else 0)
+            return Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.STATISTIC, params=params)
     span = AGE_RANGE.search(text)
     if span is not None and not _STAT_WORD.search(text) and not find_entities(text):
         # "Patients were diagnosed between the ages of 26 and 89": the youngest and the oldest
@@ -1357,7 +1736,7 @@ def _rule_statistic(info: SentenceInfo, claim_id: str, numbers: list[StatedNumbe
     if not _STAT_WORD.search(text):
         return None
     os_time = bool(_OS_TIME.search(text))
-    if not os_time and not re.search(r"\bage|\baged|\byears?\s+old\b|\byears\b", text, re.IGNORECASE):
+    if not os_time and not re.search(r"\bage|\baged|\byears?\s+old\b|\byears\b|\bdiagnos", text, re.IGNORECASE):
         return None
     entities = [e for e in find_entities(text) if e.attribute != "vital_status"]
     pair = [e for e in entities if e.attribute == (entities[0].attribute if entities else None)]
@@ -1391,25 +1770,31 @@ def _rule_statistic(info: SentenceInfo, claim_id: str, numbers: list[StatedNumbe
         value = None
         for v in _YEARS_VALUE.finditer(text, segment_start, stop):
             raw = v.group("n").lower()
-            if raw.isalpha() and not v.group("unit"):
-                continue  # a word number only counts with its unit: "under three years"
+            if not raw[0].isdigit() and not v.group("unit") and (number_value(raw) or 0) < 18:
+                continue  # a small word number only counts with its unit: "under three years"; "ninety" is an age
             if any(a <= v.start() < b for a, b in [m.span() for m in _DEFINITION.finditer(text)]):
                 continue
             value = v
             break
+        if value is None and len(marks) == 1:  # "diagnosed at fifty-eight, going by the median": the age comes first
+            value = next((v for v in _YEARS_VALUE.finditer(text, 0, mark.start())
+                          if not v.group("n")[0].isdigit() or _AGE_NUMBER_BEFORE.search(text[: v.start()])), None)
+            if value is not None and not value.group("n")[0].isdigit() and (number_value(value.group("n")) or 0) < 18:
+                value = None
         if value is None:
             continue
         word = mark.group("w").lower()
-        number = float(_SMALL_NUMBERS.get(value.group("n").lower(), value.group("n"))) if value.group("n").isalpha() else float(value.group("n"))
+        raw_n = value.group("n")
+        number = float(raw_n) if raw_n[0].isdigit() else number_value(raw_n)
         decimals = len(value.group("n").split(".")[1]) if "." in value.group("n") else 0
         unit = (value.group("unit") or "years").lower()
-        if unit.startswith("month"):
-            number, decimals = number / 12, max(decimals, 1)
-        elif unit.startswith("day"):
-            number, decimals = number / 365.25, max(decimals, 1)
+        if unit.startswith("month") or unit.startswith("day"):
+            # "843 days" holds when our time is 843 days: keep the precision written, in years (4 more places ~ 0.04 day)
+            decimals += 4 if unit.startswith("day") else 3
+            number = round(number / (365.25 if unit.startswith("day") else 12), decimals)
         before = text[segment_start:value.start()]
         approx = bool(re.search(r"\b(?:about|roughly|around|approximately|nearly|almost|~)\s*$", before, re.IGNORECASE))
-        bound = _bound_op(text[: value.start()])
+        bound = bound_op(text[: value.start()])
         if word.startswith("rang"):
             if not value.group("hi"):
                 continue
@@ -1544,7 +1929,8 @@ def _rule_compound(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
     same_as_previous = [
         k > 0 and (
             amounts[k].percent and not amounts[k - 1].percent
-            and re.fullmatch(r"\s*\(\s*", text[amounts[k - 1].end:amounts[k].start]) is not None
+            # "264 (33%)", "124 of 136 with a known ER status (91.2%)": the percent of that count, in brackets
+            and re.fullmatch(r"(?:\s+of\s+[\d,]+)?[^\d;()]{0,60}\(\s*", text[amounts[k - 1].end:amounts[k].start]) is not None
             # "16.1% of the 722 tumours with all three receptors known (n = 116)": the count of the same group
             or not amounts[k].percent and amounts[k - 1].percent
             and re.search(r"\(\s*n\s*=\s*$", text[amounts[k - 1].end:amounts[k].start], re.IGNORECASE) is not None
@@ -1620,6 +2006,9 @@ def _rule_compound(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
             if totals and not amount.percent:
                 params.stated_total = totals[0].value
             part = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COVERAGE, params=params)
+        elif not amount.percent and feature_layer(text, amount.end):  # "... measured across 131 proteins"
+            params = ClaimParams(unit="count", subject=f"features:{feature_layer(text, amount.end)}", **stated)
+            part = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.COUNT, params=params)
         elif not amount.percent:
             subject = _count_window_subject(text, amount.end, nxt, amount.start)
             if subject is None:
@@ -1727,7 +2116,12 @@ def _rule_clauses(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]
 
 
 _PROTEIN_WORDS = re.compile(r"\bprotein\b|\bRPPA\b|\blevels?\b|\babundance\b|\bexpression\b", re.IGNORECASE)
-_SIGNED_PAIR = re.compile(r"(?<![\w.])(-?\d+(?:\.\d+)?)\s*(?:vs\.?|versus|compared\s+with|and)\s*(-?\d+(?:\.\d+)?)(?![\w.])", re.IGNORECASE)
+# Two means: "2.18 vs -0.87", "2.18 in ER-positive tumors against -0.87 in ER-negative tumors".
+_SIGNED_PAIR = re.compile(
+    r"(?<![\w.])(-?\d+(?:\.\d+)?)\s*(?:(?:in|among|for)\s+[\w+-]+(?:\s+[\w+,-]+){0,8}?\s+)?"
+    r"(?:vs\.?|versus|compared\s+with|against|and)\s*(-?\d+(?:\.\d+)?)(?![\w.])",
+    re.IGNORECASE,
+)
 
 
 def protein_key(name: str) -> str:
@@ -1745,6 +2139,12 @@ def _rule_protein_comparison(info: SentenceInfo, claim_id: str, numbers: list[St
     if name is None:
         return None
     measure = (name.group(1) or name.group(2)).replace("α", "alpha")
+    rppa = re.search(r"\(RPPA\s+([A-Z][A-Z0-9]{2,})\)", text)  # "cyclin B1 protein (RPPA CYCLINB1)": the file's own name
+    two_words = re.search(r"\b([a-z]+[\s-][A-Z0-9]+)\s+(?:\(RPPA[^)]*\)\s+)?protein\b", text)  # "cyclin B1 protein"
+    if rppa:
+        measure = rppa.group(1)
+    elif two_words and len(measure) <= 3:
+        measure = two_words.group(1)
     entities = [e for e in find_entities(text) if e.attribute not in ("mutation", "amplification", "deletion", "gain", "loss")]
     groups: dict[str, list[Entity]] = {}
     for e in entities:
@@ -1866,7 +2266,7 @@ def _rule_every_slide(info: SentenceInfo, claim_id: str, numbers: list[StatedNum
 
 
 LAYER_SUBSET = re.compile(
-    r"\b(?:every|each|all(?:\s+of\s+the)?|any)\s+(?:primary\s+)?(?:tumou?rs?|samples?|patients?|cases?)\s+(?:that\s+(?:has|have)|with)\s+(?P<a>.+?)"
+    r"\b(?:every|each|all(?:\s+of\s+the)?|any)(?:\s+one\s+of\s+the|\s+of\s+the)?\s+(?P<n>[\d,]+\s+)?(?:primary\s+)?(?:tumou?rs?|samples?|patients?|cases?)\s+(?:that\s+(?:has|have)|with)\s+(?P<a>.+?)"
     r"\s+(?:data\s+|profiles?\s+|measurements?\s+)?(?:also\s+)?(?:has|have|had|is\s+in|are\s+in)\s+(?P<b>.+?)\s*(?:data|profiles?|measurements?)?\s*[.!]?$",
     re.IGNORECASE,
 )
@@ -1875,14 +2275,20 @@ LAYER_SUBSET = re.compile(
 def _rule_layer_subset(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
     """"Every primary tumor with protein data also has RNA data": coverage of one layer among samples with another."""
     m = LAYER_SUBSET.search(info.text)
-    if m is None or numbers:
+    if m is None or [x for x in numbers if not (m.group("n") and m.start("n") <= x.start < m.end("n"))]:
         return None
     a = [layer for layer, pattern in LAYERS.items() if re.search(pattern, m.group("a"), re.IGNORECASE)]
     b = [layer for layer, pattern in LAYERS.items() if re.search(pattern, m.group("b"), re.IGNORECASE)]
     if len(a) != 1 or len(b) != 1 or a == b:
         return None
     params = ClaimParams(subject=f"has_{b[0]}", unit="all", within_attribute="layer", within_category=a[0])
-    return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COVERAGE, params=params)
+    subset = Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COVERAGE, params=params)
+    if not m.group("n"):
+        return subset
+    size = float(m.group("n").replace(",", ""))  # "Every one of the 742 primary tumors with protein data ...": 742 too
+    count = Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COVERAGE,
+                  params=ClaimParams(subject=f"has_{a[0]}", unit="count", stated_value=size, decimals=0))
+    return _compound(info, claim_id, [_part(count, m.group("n").strip(), 1), _part(subset, f"all have {b[0]} data", 2)])
 
 
 def _rule_protein_first(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
@@ -2027,7 +2433,7 @@ def _rule_all_of_them(info: SentenceInfo, claim_id: str, numbers: list[StatedNum
 
 
 MOST_IN = re.compile(
-    r"\b(?:was|were|is|are)\s+(?:the\s+)?(?P<sup>most|least)\s+(?:common(?:ly)?|frequent(?:ly)?|prevalent|often)\s+"
+    r"\b(?:was|were|is|are)\s+(?:the\s+)?(?:(?P<sup>most|least)\s+(?:common(?:ly)?|frequent(?:ly)?|prevalent|often)|(?P<rare>rarest)|commonest)\s+"
     r"(?:seen\s+|found\s+|observed\s+|recorded\s+)?(?:in|among)\s+",
     re.IGNORECASE,
 )
@@ -2051,7 +2457,7 @@ def _rule_most_in(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]
     rank = Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.RANK,
                  params=ClaimParams(attribute=target.attribute, category=target.category, within_attribute=group.attribute,
                                     within_category=group.category, measure="rate", unit="rank", stated_value=1.0,
-                                    direction="lower" if m.group("sup").lower() == "least" else None,
+                                    direction="lower" if m.group("rare") or (m.group("sup") or "").lower() == "least" else None,
                                     subject="primary_tumors"))
     rest = text[group.end:]
     rest_amounts = [a for a in find_amounts(rest) if not a.words]
@@ -2073,7 +2479,7 @@ def _rule_most_in(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]
 
 
 SUBTYPE_CALLS = re.compile(
-    r"\b(?:PAM50|(?:intrinsic|molecular|RNA)[\s-]+subtype)\b(?:[\s-]+(?:RNA[\s-]?seq|mRNA))?(?:\s+subtype)?\s+"
+    r"\b(?:PAM50|(?:intrinsic|molecular|RNA(?:[\s-]?seq)?)[\s-]+subtype)\b(?:[\s-]+(?:RNA[\s-]?seq|mRNA))?(?:\s+subtype)?\s+"
     r"(?:calls?|labels?|assignments?|classifications?)\b",
     re.IGNORECASE,
 )
@@ -2183,12 +2589,12 @@ def _rule_speculation(info: SentenceInfo, claim_id: str, numbers: list[StatedNum
 
 
 RULES = (
-    _rule_not_answerable_first, _rule_speculation, _rule_protein_first, _rule_protein_rank, _rule_rate_rank,
+    _rule_not_answerable_first, _rule_speculation, _rule_agreement, _rule_label_pair, _rule_features, _rule_protein_first, _rule_protein_rank, _rule_rate_rank,
     _rule_most_in, _rule_every_slide, _rule_layer_subset, _rule_subtype_calls, _rule_all_of_them, _rule_only_in, _rule_clauses,
     _rule_of_them, _rule_compound,
     _rule_share_alone, _rule_rank,
-    _rule_ratio, _rule_comparison, _rule_share_comparison, _rule_subgroup_coverage, _rule_attribute,
-    _rule_coverage, _rule_count, _rule_statistic, _rule_readiness, _rule_unmapped,
+    _rule_count_against, _rule_ratio, _rule_comparison, _rule_share_comparison, _rule_subgroup_coverage, _rule_group_shares, _rule_attribute,
+    _rule_coverage, _rule_count, _rule_statistic, _rule_age_groups, _rule_readiness, _rule_unmapped,
 )
 
 
@@ -2205,8 +2611,19 @@ def classify_sentence(info: SentenceInfo, claim_id: str) -> Claim | None:
         except Exception:  # noqa: BLE001 - an odd sentence skips one rule; it never stops the report
             continue
         if claim is not None:
+            if _STUDY_SOURCE.search(info.text):  # "Under the 2012 consortium labels, ...": read the second source
+                for c in (claim, *(claim.parts or [])):
+                    if "subtype" in (c.params.attribute, c.params.within_attribute) or c.params.subtype:
+                        c.params.subtype_source = "study_2012_label"
             return claim
     return None
+
+
+_STUDY_SOURCE = re.compile(
+    r"\b(?:under|by|using|with|per|according\s+to|in)\s+(?:the\s+)?(?:2012\s+(?:TCGA\s+|consortium\s+|study\s+)?(?:labels?|calls?|"
+    r"classification|assignments?)|consortium(?:'s)?\s+(?:2012\s+)?labels?|PAM50_mRNA_nature2012)\b",
+    re.IGNORECASE,
+)
 
 
 def extract_claims(report_text: str) -> ExtractResult:

@@ -1,0 +1,14 @@
+[
+  {"claim_contains": "139 normal tissue samples", "verdict": "supported", "why": "1247 samples, 1101 patients; 1101 primary, 139 normal, 7 metastatic"},
+  {"claim_contains": "present in the expression file", "verdict": "supported", "stated": 1097, "why": "1097 of 1,101 primary tumours are columns of rna_hiseq"},
+  {"claim_contains": "or 99% of the cohort", "verdict": "contradicted", "why": "1080 of 1,101 primary tumours have copy number (98.09%), which rounds to 98%, not 99%"},
+  {"claim_contains": "RPPA measurements for 747", "verdict": "contradicted", "stated": 747, "why": "742 primary tumours have protein data; 747 is all RPPA columns including 5 metastases"},
+  {"claim_contains": "both mutation and copy-number", "verdict": "supported", "stated": 785, "why": "785 primary tumours are in both the mutation and copy-number files"},
+  {"claim_contains": "at 49.9% of primary tumors", "verdict": "supported", "stated": 49.9, "why": "Luminal A 421 of 844 calls (49.882%), the largest"},
+  {"claim_contains": "ranks second at 22.8%", "verdict": "contradicted", "stated": 22.8, "why": "Luminal B is second with 192 of 844 (22.7488%), which rounds to 22.7%"},
+  {"claim_contains": "about two to one", "verdict": "supported", "why": "Basal-like 141 of 844 (16.7%, one in six is 16.7%); Basal-like 141 vs HER2-enriched 67 = 2.10 to 1"},
+  {"claim_contains": "231 primary tumors are Luminal A", "verdict": "contradicted", "stated": 231, "why": "the RNA-seq call has 421 Luminal A; 231 is the 2012 label (PAM50_mRNA_nature2012) count"},
+  {"claim_contains": "Normal-like is the rarest group", "verdict": "supported", "stated": 2, "why": "2012 labels: Normal-like 8 of 522 (1.53%), the fewest"},
+  {"claim_contains": "RNA quality was too low", "verdict": "insufficient_evidence", "why": "257 primary tumours lack a call (true count), but the release records no RNA quality or reason for missing calls"},
+  {"claim_contains": "Black and Hispanic", "verdict": "insufficient_evidence", "why": "the release has no race or ethnicity field"}
+]

@@ -1,0 +1,16 @@
+[
+  {"claim_contains": "ranged from 26 to 90", "verdict": "supported", "why": "median 58.0, min 26.0, max 90.0 over 1097 primary tumours with an age"},
+  {"claim_contains": "diagnosed before age 50", "verdict": "supported", "stated": 27, "why": "297 of 1097 (27.07%)"},
+  {"claim_contains": "roughly 35% of the cohort", "verdict": "contradicted", "stated": 35, "why": "344 of 1097 aged 65+ (31.36%), more than 2 points below 35%"},
+  {"claim_contains": "More than two-thirds of patients", "verdict": "supported", "stated": 66.67, "why": "705 of 1007 with a status (70.0%; 72.5% if Indeterminate is excluded)"},
+  {"claim_contains": "about six years later", "verdict": "contradicted", "stated": 6, "why": "mean age lobular 61.63 (n=203) vs ductal 57.45 (n=784): 4.18 years (medians 61.0 vs 58.0), more than 1 year from six"},
+  {"claim_contains": "Family history", "verdict": "insufficient_evidence", "why": "the release has no family-history field"},
+  {"claim_contains": "covering 58% of staged", "verdict": "supported", "stated": 58, "why": "Stage II 622 of 1075 staged (57.86%), the largest group"},
+  {"claim_contains": "about a third of staged", "verdict": "contradicted", "stated": 33.33, "why": "Stage III or IV 270 of 1075 staged (25.12%)"},
+  {"claim_contains": "202 deaths", "verdict": "contradicted", "stated": 202, "why": "151 deaths (OS=1) among 1097 primary tumours in survival.tsv; 202 counts every survival row (all 1236 samples, incl. normals)"},
+  {"claim_contains": "overall death rate was 13.8%", "verdict": "supported", "stated": 13.8, "why": "151 of 1097 (13.76%)"},
+  {"claim_contains": "843 days", "verdict": "supported", "stated": 843, "why": "median OS.time 843.0 days (2.31 years) over 1096 primary tumours"},
+  {"claim_contains": "Three in four stage IV", "verdict": "supported", "why": "stage IV 15 of 20 died (75.0%); stage I 16 of 183 (8.7%)"},
+  {"claim_contains": "lower death rate than Luminal A", "verdict": "contradicted", "why": "HER2-enriched 14 of 67 died (20.9%) vs Luminal A 55 of 420 (13.1%): HER2-enriched is higher"},
+  {"claim_contains": "radiation therapy cut the risk", "verdict": "insufficient_evidence", "why": "a treatment effect is causal; the release has no randomized treatment comparison"}
+]

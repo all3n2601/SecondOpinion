@@ -59,6 +59,13 @@ KEYWORD_GROUPS: dict[str, tuple[str, tuple[str, ...]]] = {
             "improve survival", "prolongs survival", "prolonged survival",
         ),
     ),
+    "sample_quality": (
+        "sample-quality records (the release does not say why a sample has no call)",
+        (
+            "rna quality", "sample quality", "tissue quality", "poor quality", "low quality", "low-quality",
+            "quality was too low", "quality control", "failed qc",
+        ),
+    ),
     "diagnosis": (
         "clinical diagnostic data; and this tool never makes diagnostic or risk statements about individuals",
         (
@@ -85,6 +92,10 @@ _PATTERNS = [
     for group, (_, phrases) in KEYWORD_GROUPS.items()
     for phrase in phrases
 ]
+# "Diagnoses span the years 1988 to 2013": the cohort's diagnoses (a noun with a date), not a test that diagnoses.
+_COHORT_DIAGNOSES = re.compile(
+    r"\s+(?:span\w*|ran\b|range\w*|were|was|occurred|date\w*|took\s+place|between|from|in\s+(?:19|20)\d\d)", re.IGNORECASE
+)
 
 
 def detect_unanswerable(sentence: str) -> Unanswerable | None:
@@ -93,6 +104,9 @@ def detect_unanswerable(sentence: str) -> Unanswerable | None:
     groups: set[str] = set()
     for group, phrase, pattern in _PATTERNS:
         for match in pattern.finditer(sentence):
+            if phrase == "diagnoses" and (_COHORT_DIAGNOSES.match(sentence, match.end())
+                                          or re.search(r"\d[\d,]*\s+$", sentence[: match.start()])):
+                continue  # "Diagnoses span ...", "225 diagnoses": the cohort's diagnoses, counted or dated
             hits.append((match.start(), -len(phrase), phrase))
             groups.add(group)
     if not hits:

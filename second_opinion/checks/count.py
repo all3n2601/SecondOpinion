@@ -2,6 +2,8 @@
 
 from dataclasses import replace
 
+import pandas as pd
+
 from second_opinion.checks.base import CannotCheck
 from second_opinion.checks.population import population, population_code
 from second_opinion.model import Claim, Fact
@@ -23,6 +25,8 @@ _FILTERS: dict[str, tuple[str, str, object]] = {
     "normal_tissue": ("normal-tissue", 'pop.sampleID.str[13:15] == "11"  # solid tissue normal',
                       lambda pop: pop["sampleID"].astype(str).str[13:15] == "11"),
     "unknown_sex": ("sex-unrecorded", "pop.gender.isna()  # no recorded sex", lambda pop: pop["gender"].isna()),
+    "unknown_age": ("age-unrecorded", 'pd.to_numeric(pop.age_at_initial_pathologic_diagnosis, errors="coerce").isna()',
+                    lambda pop: pd.to_numeric(pop["age_at_initial_pathologic_diagnosis"], errors="coerce").isna()),
     "metastatic": ("metastatic", 'pop.sampleID.str[13:15] == "06"  # metastasis',
                    lambda pop: pop["sampleID"].astype(str).str[13:15] == "06"),
 }
@@ -51,6 +55,12 @@ def check_count(claim: Claim, release: Release, variant: Variant) -> Fact:
     subject = claim.params.subject
     if subject == "all_five_layers":
         return _all_layers(release, variant)
+    if subject and subject.startswith("label_pair:"):
+        from second_opinion.checks.agreement import check_label_pair
+
+        return check_label_pair(claim, release, variant)
+    if subject and subject.startswith("features:"):
+        return _features(release, subject.split(":", 1)[1])
     if subject and subject.startswith("layers:"):
         return _some_layers(release, variant, subject.split(":", 1)[1].split("+"))
     filters, noun = _split_subject(subject)
@@ -136,6 +146,29 @@ def _all_layers(release: Release, variant: Variant) -> Fact:
         value=len(have), numerator=len(have), denominator=len(primary),
         sample_ids=have, files=files, code=code, extra=extra,
     )
+
+
+_FEATURE_WORDS = {"protein": "proteins", "mutation": "genes", "copy_number": "genes", "rna": "genes"}
+
+
+def _features(release: Release, layer: str) -> Fact:
+    """Rows of one data file: the proteins or genes it measures."""
+    if layer == "protein":
+        n, code = len(release.protein.index), "n = len(r.protein.index)"
+    elif layer == "mutation":
+        n, code = len(release.mutation().index), "n = len(r.mutation().index)"
+    elif layer == "copy_number":
+        n, code = len(release.copy_number().index), "n = len(r.copy_number().index)"
+    elif layer == "rna":
+        if release.rna_ids is None:
+            raise CannotCheck("no RNA file in this release")
+        n = release.rna_gene_count()
+        code = "n = r.rna_gene_count()  # rows of the RNA file, header left out"
+    else:
+        raise CannotCheck(f"cannot count the features of {layer!r}")
+    file = RNA_FILE if layer == "rna" else RELEASE_FILES[layer]
+    return Fact(label=f"{_FEATURE_WORDS[layer]} in {file}", value=n, numerator=n, denominator=None,
+                sample_ids=[], files=[file], code=code)
 
 
 def _slides(release: Release, filters: list[str]) -> Fact:

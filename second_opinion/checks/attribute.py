@@ -9,6 +9,8 @@ from __future__ import annotations
 import pandas as pd
 
 from second_opinion.checks.attributes import (
+    NODES_COLUMN,
+    YEAR_COLUMN,
     ATTRIBUTE_NOUNS,
     CLINICAL,
     age_values,
@@ -43,11 +45,13 @@ def scoped(claim: Claim, release: Release, variant: Variant, within_category: st
     words = _noun(variant)
     category = within_category if within_category is not None else p.within_category
     if p.within_attribute:
-        w = attribute_values(release, frame, p.within_attribute, category, variant)
-        keep = (w.values == w.hit).reindex(frame.index, fill_value=False).astype(bool)
+        anyone = category == "any"  # "with a definitive ER result": every sample with a recorded value
+        w = attribute_values(release, frame, p.within_attribute, None if anyone else category, variant)
+        keep = (w.values.notna() if anyone else (w.values == w.hit)).reindex(frame.index, fill_value=False).astype(bool)
         frame = frame[keep.values]
-        code += "\n" + w.code.replace("vals", "group") + f'\npop = pop[group == "{w.hit}"]'
-        words = f"{describe(p.within_attribute, category)} {words}"
+        code += "\n" + w.code.replace("vals", "group") + ("\npop = pop[group.notna()]" if anyone else f'\npop = pop[group == "{w.hit}"]')
+        words = (f"{words} with a recorded {ATTRIBUTE_NOUNS.get(p.within_attribute, p.within_attribute)}" if anyone
+                 else f"{describe(p.within_attribute, category)} {words}")
     frame.attrs["excluded_unknown_sex"] = pop.attrs.get("excluded_unknown_sex", 0)
     return frame, code, words
 
@@ -130,6 +134,12 @@ def check_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
     p = claim.params
     if p.measure == "rate":
         return _rate_rank(claim, release, variant)
+    if p.measure == "median_age":
+        return _age_rank(claim, release, variant)
+    if p.measure == "label_pair":  # "the largest single disagreement" between the 2012 label and the RNA-seq call
+        from second_opinion.checks.agreement import check_label_pair
+
+        return check_label_pair(claim, release, variant)
     if p.measure and not p.attribute and p.within_attribute:  # "Mean HER2 protein was highest in HER2-enriched"
         return _protein_rank(claim, release, variant)
     if p.attribute in ("mutation", "amplification", "deletion", "gain", "loss"):
@@ -226,6 +236,10 @@ def check_ratio(claim: Claim, release: Release, variant: Variant) -> Fact:
                   f'\na, b = (kind == "{p.category}").sum(), (kind == "{p.category_b}").sum()\nratio = a / b'),
             extra={"n_a": a, "n_b": b},
         )
+    if p.measure == "rate":  # "eight times as common in Basal-like as in Luminal A": one rate over the other
+        return _rate_ratio(claim, release, variant)
+    if p.attribute_b and p.attribute_b != p.attribute:  # "HER2-positive tumours outnumber ERBB2-amplified tumours"
+        return _attribute_ratio(claim, release, variant)
     frame, code, words, av, hits, known = _tally(claim, release, variant)
     if p.attribute in ("mutation", "amplification", "deletion", "gain", "loss"):  # two genes: each has its own calls
         _, _, _, av_b, hits_b, _ = _tally(claim, release, variant, category=p.category_b)
@@ -268,6 +282,24 @@ def check_statistic(claim: Claim, release: Release, variant: Variant) -> Fact:
             files=[CLINICAL, "survival.tsv"], code=code, unknown_count=len(frame) - len(known),
             extra={"no_age_word": 1, **_sex_extra(frame)},
         )
+    if stat.startswith(("year_", "nodes_")):  # "Diagnoses span 1988 to 2013", "the median number of positive nodes"
+        what, stat = stat.split("_", 1)
+        col = YEAR_COLUMN if what == "year" else NODES_COLUMN
+        if col not in release.clinical.columns:
+            raise CannotCheck(f"this release's clinical file has no {col} column")
+        known = pd.to_numeric(frame[col], errors="coerce").dropna()
+        noun = "year of diagnosis" if what == "year" else "number of positive lymph nodes (H&E)"
+        if known.empty:
+            raise CannotCheck(f"no {words} have a recorded {noun}")
+        value = {"median": known.median, "mean": known.mean, "min": known.min, "max": known.max,
+                 "mode": lambda: known.mode().iloc[0]}[stat]()
+        code += (f'\nvalues = pd.to_numeric(pop["{col}"], errors="coerce").dropna()'
+                 + ("\nvalue = values.mode().iloc[0]  # the most common" if stat == "mode" else f"\nvalue = values.{stat}()"))
+        return Fact(
+            label=f"{stat} {noun} of {words} (read from {col})", value=float(value), numerator=None,
+            denominator=int(len(known)), sample_ids=[], files=[CLINICAL], code=code,
+            unknown_count=len(frame) - len(known), extra={"plain": noun, **_sex_extra(frame)},
+        )
     ages, col = age_values(release, frame, variant)
     known = ages.dropna()
     if known.empty:
@@ -304,6 +336,104 @@ def check_share_comparison(claim: Claim, release: Release, variant: Variant) -> 
         value=pa - pb, numerator=None, denominator=None, sample_ids=[], files=av.files, code=code,
         extra={"n_a": ta, "n_b": tb, "hits_a": na, "hits_b": nb, "share_a": round(pa, 1), "share_b": round(pb, 1),
                "group_a": wa, "group_b": wb},
+    )
+
+
+def _attribute_ratio(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Samples with one attribute's value against samples with another's (each among the whole population)."""
+    p = claim.params
+    frame, code, words = scoped(claim, release, variant)
+    av_a = attribute_values(release, frame, p.attribute, p.category, variant)
+    av_b = attribute_values(release, frame, p.attribute_b, p.category_b, variant)
+    a, b = int((av_a.values == av_a.hit).sum()), int((av_b.values == av_b.hit).sum())
+    if b == 0:
+        raise CannotCheck(f"no {describe(p.attribute_b, p.category_b)} {words} to compare with")
+    code += ("\n" + av_a.code.replace("vals", "vals_a") + "\n" + av_b.code.replace("vals", "vals_b")
+             + f'\na, b = int((vals_a == "{av_a.hit}").sum()), int((vals_b == "{av_b.hit}").sum())\nratio = a / b')
+    return Fact(
+        label=f"{describe(p.attribute, p.category)} vs {describe(p.attribute_b, p.category_b)} {words}",
+        value=a / b, numerator=a, denominator=b, sample_ids=[], files=sorted(set(av_a.files) | set(av_b.files)), code=code,
+        extra={"n_a": a, "n_b": b, **_sex_extra(frame)},
+    )
+
+
+def _rate_ratio(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """The share of the claimed value in group A divided by its share in group B."""
+    p = claim.params
+    sides = []
+    for group in (p.within_category, p.category_b):
+        frame, code, words, av, hits, known = _tally(claim, release, variant, within=group)
+        n, total = int(hits.sum()), int(known.sum())
+        if total == 0:
+            raise CannotCheck(f"no {words} have a recorded {ATTRIBUTE_NOUNS.get(p.attribute, p.attribute)}")
+        sides.append((n, total, words, av, code))
+    (na, ta, wa, av, code_a), (nb, tb, wb, _, _) = sides
+    if nb == 0:
+        raise CannotCheck(f"no {wb} are {describe(p.attribute, p.category)}, so there is no ratio")
+    ra, rb = 100 * na / ta, 100 * nb / tb
+    code = code_a.replace(f'== "{p.within_category}"', "== GROUP") + "\n" + av.code + (
+        f'\nshare = lambda g: 100 * (vals[group == g] == "{av.hit}").sum() / vals[group == g].notna().sum()'
+        f'\nratio = share("{p.within_category}") / share("{p.category_b}")'
+    )
+    return Fact(
+        label=f"share {describe(p.attribute, p.category)}: {wa} divided by {wb} (read from {av.source})",
+        value=ra / rb, numerator=None, denominator=None, sample_ids=[], files=av.files, code=code,
+        extra={"rate_a": round(ra, 1), "rate_b": round(rb, 1), "hits_a": na, "n_a": ta, "hits_b": nb, "n_b": tb,
+               "group_a": wa, "group_b": wb},
+    )
+
+
+def _median_ages(claim: Claim, release: Release, variant: Variant):
+    """Median age at diagnosis of every group of the claim's grouping attribute, and the code that computes it."""
+    p = claim.params
+    pop = population(release, variant)
+    frame = clinical_frame(pop)
+    groups = attribute_values(release, frame, p.within_attribute, p.within_category, variant)
+    ages, col = age_values(release, frame, variant)
+    known = ages.notna() & groups.values.notna()
+    stat = "mean" if p.measure == "mean_age" else "median"
+    medians = ages[known].groupby(groups.values[known]).agg(stat)
+    sizes = ages[known].groupby(groups.values[known]).size()
+    code = (population_code(variant) + '\npop = pop.drop_duplicates("sampleID").set_index("sampleID", drop=False)\n'
+            + groups.code.replace("vals", "group")
+            + f'\nage = pd.to_numeric(pop["{col}"], errors="coerce")\nmedians = age.groupby(group).{stat}()')
+    return groups, medians, sizes, code
+
+
+def check_age_comparison(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Median age at diagnosis of group A minus group B: "Basal-like patients were diagnosed younger than Luminal A"."""
+    p = claim.params
+    groups, medians, sizes, code = _median_ages(claim, release, variant)
+    hit_b = _label(release, clinical_frame(population(release, variant)), p.within_attribute, p.category_b, variant)
+    for hit in (groups.hit, hit_b):
+        if hit not in medians.index:
+            raise CannotCheck(f"no {describe(p.within_attribute, hit)} {_noun(variant)} have a recorded age")
+    a, b = float(medians[groups.hit]), float(medians[hit_b])
+    code += f'\ndifference = medians["{groups.hit}"] - medians["{hit_b}"]  # years'
+    return Fact(
+        label=f"{p.measure.split('_')[0]} age at diagnosis: {describe(p.within_attribute, groups.hit)} minus {describe(p.within_attribute, hit_b)} (years)",
+        value=a - b, numerator=None, denominator=None, sample_ids=[], files=groups.files, code=code,
+        extra={"n_a": int(sizes[groups.hit]), "n_b": int(sizes[hit_b]), "median_a": a, "median_b": b, "what": f"{p.measure.split('_')[0]} age"},
+    )
+
+
+def _age_rank(claim: Claim, release: Release, variant: Variant) -> Fact:
+    """Where one group's median age at diagnosis ranks among all groups ("the youngest", "the oldest")."""
+    p = claim.params
+    groups, medians, sizes, code = _median_ages(claim, release, variant)
+    if groups.hit not in medians.index:
+        raise CannotCheck(f"no {describe(p.within_attribute, p.within_category)} {_noun(variant)} have a recorded age")
+    least = p.direction == "lower"
+    ordered = medians.sort_values(ascending=least, kind="stable")
+    mine = medians[groups.hit]
+    rank = int((ordered < mine).sum() if least else (ordered > mine).sum()) + 1
+    lead = str(ordered.index[0])
+    lines = "; ".join(f"{k} {ordered[k]:g} (n={int(sizes[k]):,})" for k in ordered.index)
+    code += f'\nrank = medians.rank(ascending={least}, method="min")["{groups.hit}"]  # 1 = the {"youngest" if least else "oldest"}'
+    return Fact(
+        label=f"rank of {groups.hit} by median age at diagnosis among {ATTRIBUTE_NOUNS.get(p.within_attribute)} groups",
+        value=float(rank), numerator=None, denominator=None, sample_ids=[], files=groups.files, code=code,
+        extra={"leader": f"{lead} ({ordered[lead]:g})", "ranks": lines, "least": 1 if least else 0, "age": 1},
     )
 
 

@@ -1,0 +1,15 @@
+[
+  {"claim_contains": "535 (48.6%)", "verdict": "supported", "why": "535 of 1,101 primary tumors have all five layers (48.6%); 1,247 samples in total"},
+  {"claim_contains": "n = 421", "verdict": "supported", "why": "Luminal A 421 (49.9%), Luminal B 192 (22.7%), Basal-like 141 (16.7%) of 844 calls; Luminal A largest"},
+  {"claim_contains": "57.0%", "verdict": "contradicted", "why": "ER 808/1046 = 77.2% holds, but PR is 699/1043 = 67.0%, not 57.0%"},
+  {"claim_contains": "15–17%", "verdict": "supported", "why": "HER2 164/728 = 22.5%; triple-negative 116/722 = 16.1%, inside 15–17%"},
+  {"claim_contains": "range 26–90", "verdict": "supported", "why": "median age 58 (n = 1097), min 26, max 90; 76 of 1097 under 40 (6.9%)"},
+  {"claim_contains": "n = 622", "verdict": "supported", "why": "stage II 622 of 1075 staged (57.9%); stage IV 20 (1.9%); 'most' = over 50%"},
+  {"claim_contains": "34.5% of 791", "verdict": "supported", "why": "PIK3CA mutated in 273 of 791 (34.5%), the top gene; TP53 264 (33.4%) is second"},
+  {"claim_contains": "90 of 106", "verdict": "supported", "why": "TP53 mutated in 90 of 106 sequenced Basal-like (84.9%) vs 10.3% of sequenced Luminal A"},
+  {"claim_contains": "n = 229", "verdict": "supported", "why": "of 1080 primary tumors with copy number: MYC amplified (GISTIC 2) in 229 (21.2%), ERBB2 in 133 (12.3%)"},
+  {"claim_contains": "roughly double", "verdict": "supported", "why": "151 of 1097 primary tumors with survival died (13.8%); stage III 45/250 = 18.0%, stage I 16/183 = 8.7%; ratio 2.06"},
+  {"claim_contains": "2.0–2.5 units", "verdict": "contradicted", "why": "mean ERALPHA difference ER-positive minus ER-negative is 3.051 (n = 698), outside 2.0–2.5"},
+  {"claim_contains": "95% of tumors labelled by both", "verdict": "contradicted", "stated": 95, "why": "456 of 508 (89.8%) agree, not 95%"},
+  {"claim_contains": "Ki-67", "verdict": "insufficient_evidence", "why": "the release has no Ki-67 measurement (no clinical field and no Ki-67 antibody in the RPPA panel); the numbers cannot be checked"}
+]

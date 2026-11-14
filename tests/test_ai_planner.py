@@ -55,7 +55,7 @@ def test_schema_summary_mini(mini):
     assert summary["protein_names"] == ["ERALPHA", "HER2", "AKT"]
     # the mini release has no HER2 status or age column
     assert "her2_status" not in fields and "age_years" not in fields
-    assert set(summary["unavailable_fields"]) == {"her2_status", "age_years"}
+    assert set(summary["unavailable_fields"]) == {"her2_status", "age_years", "diagnosis_year", "positive_lymph_nodes"}
 
 
 def test_schema_summary_has_no_row_data_mini(mini):

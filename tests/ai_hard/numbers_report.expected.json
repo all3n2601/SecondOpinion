@@ -1,0 +1,21 @@
+[
+  {"claim_contains": "Nearly eleven hundred", "verdict": "supported", "stated": 1100, "why": "1,101 primary tumours; nearly 1,100 is within 2%"},
+  {"claim_contains": "one thousand two hundred and forty-seven", "verdict": "supported", "stated": 1247, "why": "1,247 samples in clinical.tsv"},
+  {"claim_contains": "A hundred and thirty-nine", "verdict": "supported", "stated": 139, "why": "139 normal tissue samples (code 11)"},
+  {"claim_contains": "Seven samples are metastases", "verdict": "supported", "stated": 7, "why": "7 metastatic samples (code 06)"},
+  {"claim_contains": "Twelve men", "verdict": "supported", "stated": 12, "why": "12 primary tumours from men"},
+  {"claim_contains": "Roughly a third of primary tumours with a mutation call", "verdict": "supported", "stated": 33.33, "why": "TP53 mutated in 264 of 791 (33.4%)"},
+  {"claim_contains": "PIK3CA is mutated in about a third", "verdict": "supported", "stated": 33.33, "why": "273 of 791 (34.5%), within 2 points"},
+  {"claim_contains": "Fewer than one in ten", "verdict": "supported", "stated": 10, "why": "PTEN mutated in 48 of 791 (6.1%)"},
+  {"claim_contains": "In 2.8% of tumours", "verdict": "supported", "stated": 2.8, "why": "BRCA1 mutated in 22 of 791 (2.78%)"},
+  {"claim_contains": "12.9 per cent", "verdict": "supported", "stated": 12.9, "why": "CDH1 mutated in 102 of 791 (12.9%)"},
+  {"claim_contains": "ninety-seven tumours", "verdict": "supported", "stated": 97, "why": "GATA3 mutated in 97 tumours"},
+  {"claim_contains": "Nine in every hundred", "verdict": "supported", "stated": 9, "why": "KMT2C mutated in 77 of 791 (9.7%), within 2 points of 9%"},
+  {"claim_contains": "roughly eight times", "verdict": "supported", "stated": 8, "why": "TP53 84.9% of Basal-like (90/106) vs 10.3% of Luminal A (31/301): 8.2 times"},
+  {"claim_contains": "more than two to one", "verdict": "supported", "stated": 2, "why": "Basal-like 141 vs HER2-enriched 67: 2.10 to 1"},
+  {"claim_contains": "three times as common", "verdict": "supported", "stated": 3, "why": "Luminal A 421 vs Basal-like 141: 2.99 to 1"},
+  {"claim_contains": "Half of ER-negative", "verdict": "contradicted", "stated": 50, "why": "124 of 183 (67.8%) are Basal-like"},
+  {"claim_contains": "one tumour in eight", "verdict": "supported", "stated": 12.5, "why": "ERBB2 amplified (GISTIC 2) in 133 of 1,080 (12.3%)"},
+  {"claim_contains": "Twice as many tumours carry a MYC", "verdict": "contradicted", "stated": 2, "why": "MYC amplified in 229, ERBB2 in 133: 1.72 to 1, not twice"},
+  {"claim_contains": "five dozen", "verdict": "contradicted", "stated": 60, "why": "PTEN deep deletion (GISTIC -2) in 56 tumours, not 60"}
+]

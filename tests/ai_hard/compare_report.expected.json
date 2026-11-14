@@ -1,0 +1,17 @@
+[
+  {"claim_contains": "diagnosed younger than Luminal A", "verdict": "supported", "why": "median age Basal-like 54, Luminal A 61"},
+  {"claim_contains": "Basal-like patients were the youngest", "verdict": "contradicted", "why": "Normal-like median 53 is younger than Basal-like 54"},
+  {"claim_contains": "Luminal A patients were the oldest", "verdict": "supported", "why": "median ages: Luminal A 61, Luminal B 58, HER2-enriched 56, Basal-like 54, Normal-like 53"},
+  {"claim_contains": "share the cohort's median age", "verdict": "supported", "stated": 58, "why": "Luminal B median 58; all primary tumours median 58"},
+  {"claim_contains": "TP53 is mutated more often than PIK3CA", "verdict": "contradicted", "why": "TP53 264 vs PIK3CA 273 of 791"},
+  {"claim_contains": "PIK3CA is the most frequently mutated gene", "verdict": "supported", "why": "PIK3CA 273, TP53 264, TTN 137"},
+  {"claim_contains": "TTN ranks third", "verdict": "supported", "stated": 3, "why": "PIK3CA 273, TP53 264, TTN 137, CDH1 102"},
+  {"claim_contains": "TP53 mutations are most common in Basal-like", "verdict": "supported", "why": "Basal-like 84.9%, HER2-enriched 76.2%, Luminal B 36.8%, Luminal A 10.3%"},
+  {"claim_contains": "PIK3CA mutations are rarest in Basal-like", "verdict": "supported", "why": "Basal-like 6.6%, lowest of the subtypes"},
+  {"claim_contains": "fewer than ERBB2-amplified", "verdict": "contradicted", "why": "164 HER2-positive by IHC vs 133 ERBB2-amplified (GISTIC 2)"},
+  {"claim_contains": "lobular carcinoma is the second most common", "verdict": "supported", "stated": 2, "why": "ductal 784, lobular 203, other 46"},
+  {"claim_contains": "Stage II is the most common stage", "verdict": "supported", "why": "stage II 622 of 1,075 staged"},
+  {"claim_contains": "about three to one", "verdict": "supported", "stated": 3, "why": "705 post vs 229 pre: 3.08 to 1"},
+  {"claim_contains": "by about 3 units", "verdict": "supported", "stated": 3, "why": "mean ERALPHA difference 3.05 (529 vs 169 samples)"},
+  {"claim_contains": "about 2.3 years", "verdict": "supported", "stated": 2.3, "why": "median OS.time 843 days = 2.31 years"}
+]

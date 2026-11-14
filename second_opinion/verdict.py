@@ -28,6 +28,10 @@ def format_fact(fact: Fact, unit: str | None) -> str:
     if unit == "ratio":
         if fact.value is None:
             raise ValueError("fact has no value to format")
+        x = fact.extra
+        if "rate_a" in x:  # a ratio of two rates
+            return (f"{fact.value:.2f} to 1 ({x['rate_a']:.1f}% vs {x['rate_b']:.1f}%: "
+                    f"{x['hits_a']:,} of {x['n_a']:,} vs {x['hits_b']:,} of {x['n_b']:,})")
         return f"{fact.value:.2f} to 1 ({fact.numerator:,} vs {fact.denominator:,})"
     if unit == "rank":
         ranks = fact.extra.get("ranks")
@@ -35,6 +39,8 @@ def format_fact(fact: Fact, unit: str | None) -> str:
         which = "least" if fact.extra.get("least") else "most"
         if fact.extra.get("protein"):
             return f"{leader} has the {'lowest' if fact.extra.get('least') else 'highest'} {fact.extra['protein']} level; {ranks}"
+        if fact.extra.get("age"):
+            return f"{leader} has the {'youngest' if fact.extra.get('least') else 'oldest'} median age at diagnosis; {ranks}"
         if fact.extra.get("rate"):
             return f"{leader} has the {'lowest' if fact.extra.get('least') else 'highest'} rate; {ranks}"
         text = f"{leader} is the {which} common ({int(fact.extra.get('leader_count', 0)):,} of {int(fact.extra.get('total', 0)):,})"
@@ -42,6 +48,8 @@ def format_fact(fact: Fact, unit: str | None) -> str:
     if unit == "years":
         if fact.value is None:
             raise ValueError("fact has no value to format")
+        if fact.extra.get("plain"):  # a year of diagnosis or a lymph-node count: no "years"
+            return f"{fact.value:g} ({fact.denominator:,} with a recorded {fact.extra['plain']})"
         what = "a recorded survival time" if fact.extra.get("no_age_word") else "a recorded age"
         return f"{fact.value:.1f} years ({fact.denominator:,} with {what})"
     has_counts = fact.numerator is not None and fact.denominator is not None
@@ -212,7 +220,7 @@ def _judge_comparison(claim: Claim, fact: Fact) -> tuple[Verdict, str | None]:
         raise ValueError(f"claim {claim.id} has no direction")
     ok = fact.value != 0 and (fact.value > 0) == (p.direction == "higher")
     x = fact.extra
-    if ok and p.stated_value is not None and p.stated_high is not None and "mean_a" in x:
+    if ok and p.stated_value is not None and p.stated_high is not None and "mean_a" in x and p.unit != "difference":
         # "2.18 vs -0.87": each stated mean must match after rounding to the precision written
         decimals = p.decimals if p.decimals is not None else 2
         ok = (_round_half_up(float(x["mean_a"]), decimals) == _round_half_up(p.stated_value, decimals)
@@ -221,15 +229,25 @@ def _judge_comparison(claim: Claim, fact: Fact) -> tuple[Verdict, str | None]:
             return Verdict.CONTRADICTED, (
                 f"mean {x['mean_a']:.{decimals}f} vs {x['mean_b']:.{decimals}f} ({int(x['n_a']):,} vs {int(x['n_b']):,} samples)"
             )
+    if ok and p.unit == "difference" and p.stated_value is not None:  # "higher ... by about 3 units"
+        size, stated = _dec(abs(float(fact.value))), _dec(p.stated_value)
+        if p.bound:
+            ok = _bounded(size, stated, p.bound)
+        elif p.stated_high is not None:  # "a difference of 2.0–2.5 units"
+            ok = stated <= size <= _dec(p.stated_high)
+        elif p.approximate and (p.measure or "").endswith("_age"):  # "about six years older": ages within a year
+            ok = abs(size - stated) <= _dec(AGE_TOLERANCE_YEARS)
+        else:
+            ok = _round_half_up(size, p.decimals or 0) == stated
     if ok:
         return Verdict.SUPPORTED, None
     group = p.group_a or str(x.get("group_a_words") or "Group A")
     diff = f"{round(fact.value, 3):g}"
     if fact.value == 0:
-        text = f"{group} mean is the same: difference {diff}"
+        text = f"{group} {x.get('what', 'mean')} is the same: difference {diff}"
     else:
         actual = "higher" if fact.value > 0 else "lower"
-        text = f"{group} mean is {actual}: difference {diff}"
+        text = f"{group} {x.get('what', 'mean')} is {actual}: difference {diff}"
     n_a, n_b = fact.extra.get("n_a"), fact.extra.get("n_b")
     if n_a is not None and n_b is not None:
         text += f" ({int(n_a):,} vs {int(n_b):,} samples)"

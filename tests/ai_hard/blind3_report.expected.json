@@ -1,0 +1,15 @@
+[
+  {"claim_contains": "altered in 34.5%", "verdict": "supported", "stated": 34.5, "why": "PIK3CA 273 of 791 (34.51%), the most mutated gene"},
+  {"claim_contains": "more than twice as often", "verdict": "contradicted", "why": "TP53 264 of 791 (33.38%) holds, but third-ranked TTN has 137: ratio 1.93, not more than 2"},
+  {"claim_contains": "CDH1 mutations appear in 102", "verdict": "supported", "why": "CDH1 102 of 791 (12.90%)"},
+  {"claim_contains": "GATA3 is mutated in 12.9%", "verdict": "contradicted", "stated": 12.9, "why": "GATA3 97 of 791 (12.26%); 12.9% is CDH1's rate"},
+  {"claim_contains": "where 85% carry one", "verdict": "supported", "why": "TP53 in Basal-like 90 of 106 (84.9%); Luminal A 31 of 301 (10.3%)"},
+  {"claim_contains": "about seven times", "verdict": "supported", "stated": 7, "why": "PIK3CA Luminal A 146/301 (48.5%) vs Basal-like 7/106 (6.6%): 7.35x"},
+  {"claim_contains": "59% carry a CDH1", "verdict": "supported", "why": "CDH1 lobular 85 of 144 (59.03%); ductal 9 of 560 (1.61%)"},
+  {"claim_contains": "better response to endocrine therapy", "verdict": "insufficient_evidence", "why": "the release has no treatment-response data; prediction is not checkable"},
+  {"claim_contains": "MYC amplification is present in 21.2%", "verdict": "supported", "stated": 21.2, "why": "MYC amplified (2) in 229 of 1080 (21.20%)"},
+  {"claim_contains": "between 17% and 20%", "verdict": "contradicted", "why": "CCND1 amplified in 177 of 1080 (16.39%), just under 17%"},
+  {"claim_contains": "deeply deleted in 56%", "verdict": "contradicted", "stated": 56, "why": "PTEN deep deletion in 56 tumours (5.19% of 1080); 56 is the count, not the percent"},
+  {"claim_contains": "carry an ERBB2 amplification", "verdict": "supported", "why": "ERBB2 amplified in 87 of 162 HER2 IHC-positive tumours with copy number (53.7%)"},
+  {"claim_contains": "aggressive clinical course", "verdict": "insufficient_evidence", "why": "a causal claim; the data show association only"}
+]

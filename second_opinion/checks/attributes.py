@@ -28,7 +28,7 @@ import pandas as pd
 from second_opinion.checks.base import CannotCheck
 from second_opinion.checks.population import subtype_column
 from second_opinion.release import RELEASE_FILES, Release
-from second_opinion.variants import Variant, normalise_subtype
+from second_opinion.variants import PRIMARY_VARIANT, Variant, normalise_subtype
 
 CLINICAL = RELEASE_FILES["clinical"]
 SECOND_SOURCE = "study_2012_label"
@@ -42,6 +42,8 @@ STAGE_COLUMNS = ("pathologic_stage", "AJCC_Stage_nature2012")
 HISTOLOGY_COLUMN = "histological_type"
 MENOPAUSE_COLUMN = "menopause_status"
 AGE_COLUMNS = ("age_at_initial_pathologic_diagnosis", "Age_at_Initial_Pathologic_Diagnosis_nature2012")
+YEAR_COLUMN = "year_of_initial_pathologic_diagnosis"
+NODES_COLUMN = "number_of_lymphnodes_positive_by_he"
 GENE_ALIASES = {"HER2": "ERBB2", "HER-2": "ERBB2", "ER": "ESR1"}
 
 HISTOLOGY_WORDS = {  # label -> words in histological_type
@@ -58,7 +60,7 @@ ATTRIBUTE_NOUNS = {
     "menopause": "menopause status", "subtype": "PAM50 subtype", "vital_status": "vital status",
     "mutation": "mutation call", "amplification": "copy-number call", "deletion": "copy-number call",
     "dss_status": "disease-specific survival status", "pfi_status": "progression-free interval status",
-    "slide_kind": "slide record", "age_group": "age at diagnosis", "gain": "copy-number call", "loss": "copy-number call",
+    "slide_kind": "slide record", "age_group": "age at diagnosis", "diagnosis_year": "year of diagnosis", "gain": "copy-number call", "loss": "copy-number call",
 }
 
 
@@ -100,6 +102,10 @@ def describe(attribute: str, category: str | None) -> str:
         return f"{category}-gained"
     if attribute == "loss":
         return f"{category}-lost"
+    if attribute == "diagnosis_year":
+        m = re.fullmatch(r"(gt|gte|lt|lte|eq)(\d{4})", category)
+        if m:
+            return "diagnosed " + {"gt": "after", "gte": "in or after", "lt": "before", "lte": "in or before", "eq": "in"}[m.group(1)] + f" {m.group(2)},"
     if attribute == "age_group":
         m = re.fullmatch(r"(gt|gte|lt|lte)(\d+)", category)
         if m:
@@ -164,6 +170,23 @@ def clinical_frame(pop: pd.DataFrame) -> pd.DataFrame:
     return frame.set_index("sampleID", drop=False)
 
 
+def attribute_mask(release: Release, pop: pd.DataFrame, attribute: str, categories: list[str]) -> pd.Series:
+    """True for each row of `pop` whose sample has one of `categories` (an AI plan's filter); aligned with pop."""
+    frame = clinical_frame(pop)
+    hit = pd.Series(False, index=frame.index)
+    for category in categories:
+        av = attribute_values(release, frame, attribute, category, PRIMARY_VARIANT)
+        hit |= (av.values == av.hit).astype(bool)
+    return pop["sampleID"].astype(str).map(hit).fillna(False).astype(bool)
+
+
+def attribute_known(release: Release, pop: pd.DataFrame, attribute: str, category: str | None) -> pd.Series:
+    """True for each row of `pop` whose sample has any recorded value for `attribute`; aligned with pop."""
+    frame = clinical_frame(pop)
+    av = attribute_values(release, frame, attribute, category, PRIMARY_VARIANT)
+    return pop["sampleID"].astype(str).map(av.values.notna()).fillna(False).astype(bool)
+
+
 def attribute_values(
     release: Release, pop: pd.DataFrame, attribute: str, category: str | None, variant: Variant
 ) -> AttributeValues:
@@ -190,6 +213,16 @@ def _attribute_values(
         vals = words.where(words.isin(["positive", "negative", "equivocal", "indeterminate"]))
         code = f'vals = pop["{col}"].str.strip().str.lower()  # Positive / Negative / Equivocal / Indeterminate'
         return AttributeValues(vals, category.lower(), [CLINICAL], code, col)
+
+    if attribute == "diagnosis_year":  # "diagnosed in 2010 or later"
+        col = _column(release, YEAR_COLUMN, None, variant)
+        years = pd.to_numeric(frame[col], errors="coerce")
+        op, cut = _age_cut(category or "")
+        test = {"gt": years > cut, "gte": years >= cut, "lt": years < cut, "lte": years <= cut, "eq": years == cut}[op]
+        vals = pd.Series("in group", index=frame.index, dtype="object").where(test, "not in group").where(years.notna())
+        sign = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "=="}[op]
+        code = f'year = pd.to_numeric(pop["{col}"], errors="coerce")\nvals = (year {sign} {cut:g}).where(year.notna())'
+        return AttributeValues(vals, "in group", [CLINICAL], code, col)
 
     if attribute == "age_group":
         ages, col = age_values(release, frame, variant)
@@ -236,6 +269,14 @@ def _attribute_values(
                 'vals[(er == "Negative") & (pr == "Negative") & (her2 == "Negative")] = "triple-negative"')
         return AttributeValues(vals, "triple-negative", [CLINICAL], code, "ER, PR and HER2 status columns")
 
+    if attribute == "stage" and category and " or " in category:  # "Stage III or IV": every stage it names
+        stages = re.findall(r"IV|III|II|I", category)
+        av = _attribute_values(release, pop, "stage", f"Stage {stages[0]}", variant)
+        union = {f"Stage {s}": category for s in stages}
+        av.values = av.values.replace(union)
+        av.code += f"\nvals = vals.map(lambda s: \"{category}\" if s in {sorted(stages)!r} else s)  # one group"
+        av.hit = category
+        return av
     if attribute == "stage":
         col = _column(release, STAGE_COLUMNS[0], STAGE_COLUMNS[1], variant)
         detail = bool(category and category[-1:].upper() in ("A", "B", "C"))
@@ -378,8 +419,8 @@ _GENE_TESTS = {  # attribute -> (word, test on the value, the test as code)
 
 
 def _age_cut(category: str) -> tuple[str, float]:
-    """"gt60" -> ("gt", 60.0)."""
-    m = re.fullmatch(r"(gt|gte|lt|lte)(\d+(?:\.\d+)?)", category)
+    """"gt60" -> ("gt", 60.0); "eq2010" -> ("eq", 2010.0) for a single year."""
+    m = re.fullmatch(r"(gt|gte|lt|lte|eq)(\d+(?:\.\d+)?)", category)
     if m is None:
         raise CannotCheck(f"'{category}' is not an age group this tool reads")
     return m.group(1), float(m.group(2))

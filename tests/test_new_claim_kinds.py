@@ -274,3 +274,358 @@ def test_slide_counts_use_the_slide_manifest_when_there_is_one(tmp_path):
     with_manifest = audit_claims(claims, folder).claims[0]
     assert with_manifest.verdict is Verdict.SUPPORTED
     assert [p.fact.numerator for p in with_manifest.parts] == [2, 1]
+
+
+# --- category unions: "stage III or IV", "stage III or higher" ---------------------------------------------
+
+@pytest.mark.parametrize("sentence, category", [
+    ("Between 20% and 25% of staged tumours are stage III or IV.", "Stage III or IV"),
+    ("Over a quarter of staged tumours are stage III or higher.", "Stage III or IV"),
+    ("About 25% of staged tumours are stage III or above.", "Stage III or IV"),
+    ("Three quarters of staged tumours are stage II or lower.", "Stage I or II"),
+    ("About 74% of staged tumours are stage I or II.", "Stage I or II"),
+])
+def test_stage_unions_are_one_group(sentence, category):
+    c = claim(sentence)
+    assert (c.type, c.params.attribute, c.params.category) == (ClaimType.SHARE, "stage", category)
+
+
+def test_stage_union_counts_every_stage_in_it(release_dir):
+    over = claim("Over a quarter of staged tumours are stage III or higher.")
+    between = claim("Between 20% and 25% of staged tumours are stage III or IV.")
+    [a, b] = audit_claims([over, between], release_dir).claims
+    assert (a.fact.numerator, a.fact.denominator) == (270, 1075)  # III 250 + IV 20, of 1,075 staged
+    assert (a.verdict, b.verdict) == (Verdict.SUPPORTED, Verdict.CONTRADICTED)
+
+
+# --- "outnumber" with a stated ratio: the ratio is the claim, not just "more" ------------------------------
+
+@pytest.mark.parametrize("sentence, value, bound, approximate", [
+    ("Postmenopausal women outnumber premenopausal women about three to one.", 3, None, True),
+    ("Basal-like tumours outnumber HER2-enriched tumours by more than two to one.", 2, "gt", False),
+    ("Luminal A tumours outnumber Basal-like tumours ten to one.", 10, None, False),
+    ("Luminal A tumours outnumber Basal-like tumours by roughly 3:1.", 3, None, True),
+    ("Luminal A tumours outnumber Basal-like tumours.", 1, "gt", False),
+])
+def test_outnumber_keeps_the_stated_ratio(sentence, value, bound, approximate):
+    c = claim(sentence)
+    assert c.type is ClaimType.RATIO
+    assert (c.params.stated_value, c.params.bound, c.params.approximate) == (value, bound, approximate)
+
+
+# --- the size of a stated difference: "higher ... by about 3 units" ------------------------------------------
+
+@pytest.mark.parametrize("sentence, value, bound, approximate", [
+    ("Mean ERALPHA protein is higher in ER-positive than in ER-negative tumours by about 3 units.", 3, None, True),
+    ("ERALPHA protein is higher in ER-positive tumours by 3.1 units.", 3.1, None, False),
+    ("ERALPHA protein is higher in ER-positive tumours by more than 2 units.", 2, "gt", False),
+])
+def test_comparison_keeps_the_stated_difference(sentence, value, bound, approximate):
+    c = claim(sentence)
+    assert c.type is ClaimType.COMPARISON
+    assert (c.params.unit, c.params.stated_value, c.params.bound, c.params.approximate) == ("difference", value, bound, approximate)
+
+
+def _diff_fact(value):
+    return Fact("x", value, None, None, [], [], "", extra={"n_a": 529, "n_b": 169})
+
+
+@pytest.mark.parametrize("sentence, difference, verdict", [
+    ("ERALPHA protein is higher in ER-positive tumours by about 3 units.", 3.05, Verdict.SUPPORTED),
+    ("ERALPHA protein is higher in ER-positive tumours by about 30 units.", 3.05, Verdict.CONTRADICTED),
+    ("ERALPHA protein is higher in ER-positive tumours by 3.1 units.", 3.05, Verdict.SUPPORTED),
+    ("ERALPHA protein is higher in ER-positive tumours by 3.2 units.", 3.05, Verdict.CONTRADICTED),
+    ("ERALPHA protein is higher in ER-positive tumours by more than 2 units.", 3.05, Verdict.SUPPORTED),
+    ("ERALPHA protein is higher in ER-positive tumours by more than 4 units.", 3.05, Verdict.CONTRADICTED),
+    ("ERALPHA protein is higher in ER-positive tumours by about 3 units.", -3.05, Verdict.CONTRADICTED),
+])
+def test_comparison_judges_the_stated_difference(sentence, difference, verdict):
+    assert judge(claim(sentence), _diff_fact(difference))[0] == verdict
+
+
+# --- facts about the files themselves: genes and proteins measured --------------------------------------------
+
+@pytest.mark.parametrize("sentence, layer, value, bound", [
+    ("The mutation file lists more than 40,000 genes.", "mutation", 40000, "gt"),
+    ("Copy number calls are given for 24,776 genes.", "copy_number", 24776, None),
+    ("The protein panel measures 131 proteins.", "protein", 131, None),
+    ("RNA expression is reported for about 20,000 genes.", "rna", 20000, None),
+])
+def test_feature_counts_are_about_the_file(sentence, layer, value, bound):
+    c = claim(sentence)
+    assert (c.type, c.params.subject, c.params.stated_value, c.params.bound) == (ClaimType.COUNT, f"features:{layer}", value, bound)
+
+
+def test_feature_count_in_a_coverage_sentence_is_its_own_part():
+    c = claim("Protein data cover 742 primary tumours measured across 131 proteins.")
+    assert [(p.type, p.params.subject, p.params.stated_value) for p in c.parts] == [
+        (ClaimType.COVERAGE, "has_protein", 742), (ClaimType.COUNT, "features:protein", 131)]
+
+
+def test_feature_count_reads_the_files_rows(tmp_path):
+    folder = make_mini_release(tmp_path / "r")
+    protein = pd.read_csv(folder / "protein_rppa.tsv.gz", sep="\t", index_col=0)
+    mutation = pd.read_csv(folder / "mutation_gene_level.tsv.gz", sep="\t", index_col=0)
+    claims = [claim(f"The protein panel measures {len(protein)} proteins."),
+              claim(f"The mutation file lists {len(mutation) + 1} genes.")]
+    [a, b] = audit_claims(claims, folder).claims
+    assert (a.verdict, a.fact.value) == (Verdict.SUPPORTED, len(protein))
+    assert (b.verdict, b.fact.value) == (Verdict.CONTRADICTED, len(mutation))
+
+
+@pytest.mark.parametrize("sentence, direction", [
+    ("PIK3CA mutations are rarest in Basal-like tumours.", "lower"),
+    ("TP53 mutations are commonest in Basal-like tumours.", None),
+    ("PIK3CA mutations were least frequent among Basal-like tumours.", "lower"),
+])
+def test_rarest_in_a_group_ranks_the_groups_by_rate(sentence, direction):
+    c = claim(sentence)
+    assert c.type is ClaimType.RANK
+    assert (c.params.measure, c.params.within_attribute, c.params.within_category, c.params.direction) == (
+        "rate", "subtype", "Basal-like", direction)
+
+
+# --- ages written as words, and "diagnosed before forty" ----------------------------------------------------------
+
+@pytest.mark.parametrize("sentence, ctype, category, value, bound", [
+    ("Patients aged seventy or more account for over a third of primary tumours.", ClaimType.SHARE, "gte70", 100 / 3, "gt"),
+    ("Under one in fifteen primary tumours come from patients diagnosed before forty.", ClaimType.SHARE, "lt40", 100 / 15, "lt"),
+    ("Fewer than 300 primary tumours come from patients diagnosed before fifty.", ClaimType.COUNT, "lt50", 300, "lt"),
+])
+def test_word_ages_name_an_age_group(sentence, ctype, category, value, bound):
+    c = claim(sentence)
+    assert (c.type, c.params.attribute, c.params.category, c.params.bound) == (ctype, "age_group", category, bound)
+    assert c.params.stated_value == pytest.approx(value)
+
+
+def test_word_age_groups_on_the_real_release(release_dir):
+    claims = [claim("Patients aged seventy or more account for over a third of primary tumours."),
+              claim("Under one in fifteen primary tumours come from patients diagnosed before forty."),
+              claim("Fewer than 300 primary tumours come from patients diagnosed before fifty.")]
+    verdicts = [r.verdict for r in audit_claims(claims, release_dir).claims]
+    assert verdicts == [Verdict.CONTRADICTED, Verdict.CONTRADICTED, Verdict.SUPPORTED]  # 21.0%, 6.9%, 297
+
+
+# --- ratios of two rates: "eight times as common in Basal-like as in Luminal A" ------------------------------------
+
+@pytest.mark.parametrize("sentence, attribute, category, group_a, group_b, value", [
+    ("TP53 mutations are roughly eight times as common in Basal-like as in Luminal A tumours.",
+     "mutation", "TP53", "Basal-like", "Luminal A", 8),
+    ("TP53 mutations are 8 times more common in Basal-like than in Luminal A tumours.",
+     "mutation", "TP53", "Basal-like", "Luminal A", 8),
+    ("PIK3CA is mutated twice as often in Luminal A as in Basal-like tumours.",
+     "mutation", "PIK3CA", "Luminal A", "Basal-like", 2),
+    ("Lobular carcinomas are three times as likely to be Luminal A as ductal carcinomas.",
+     "subtype", "Luminal A", "lobular", "ductal", 3),
+])
+def test_ratio_of_rates_compares_the_rate_in_each_group(sentence, attribute, category, group_a, group_b, value):
+    c = claim(sentence)
+    p = c.params
+    assert (c.type, p.measure, p.attribute, p.category) == (ClaimType.RATIO, "rate", attribute, category)
+    assert (p.within_category, p.category_b, p.stated_value) == (group_a, group_b, value)
+
+
+def test_ratio_of_rates_on_the_real_release(release_dir):
+    claims = [claim("TP53 mutations are 8 times more common in Basal-like than in Luminal A tumours."),
+              claim("TP53 mutations are four times as common in Basal-like as in Luminal A tumours.")]
+    eight, four = audit_claims(claims, release_dir).claims
+    assert eight.fact.value == pytest.approx((90 / 106) / (31 / 301))
+    assert (eight.verdict, four.verdict) == (Verdict.SUPPORTED, Verdict.CONTRADICTED)
+    assert four.correct_value.startswith("8.24 to 1 (84.9% vs 10.3%")
+
+
+# --- ages as statistics, not counts: "the oldest patient was 90 at diagnosis" ----------------------------------------
+
+@pytest.mark.parametrize("sentence, stat, value", [
+    ("The oldest patient was 90 at diagnosis.", "max", 90),
+    ("The youngest patient was diagnosed at 26.", "min", 26),
+    ("The oldest patient at diagnosis was ninety.", "max", 90),
+    ("The typical patient was diagnosed at fifty-eight, going by the median.", "median", 58),
+    ("The median age at diagnosis was fifty-eight years.", "median", 58),
+])
+def test_ages_are_statistics(sentence, stat, value):
+    c = claim(sentence)
+    assert (c.type, c.params.measure, c.params.stated_value) == (ClaimType.STATISTIC, stat, value)
+
+
+# --- groups compared and ranked by median age, without numbers --------------------------------------------------
+
+@pytest.mark.parametrize("sentence, direction, group_a, group_b", [
+    ("Basal-like patients were diagnosed younger than Luminal A patients.", "lower", "Basal-like", "Luminal A"),
+    ("Luminal A patients were older at diagnosis than Basal-like patients.", "higher", "Luminal A", "Basal-like"),
+    ("Lobular carcinomas were diagnosed older than ductal carcinomas.", "higher", "lobular", "ductal"),
+])
+def test_median_age_comparison(sentence, direction, group_a, group_b):
+    c = claim(sentence)
+    p = c.params
+    assert (c.type, p.measure, p.direction, p.within_category, p.category_b) == (
+        ClaimType.COMPARISON, "median_age", direction, group_a, group_b)
+
+
+@pytest.mark.parametrize("sentence, category, direction", [
+    ("Basal-like patients were the youngest at diagnosis of any RNA subtype.", "Basal-like", "lower"),
+    ("Luminal A patients were the oldest at diagnosis of any RNA subtype.", "Luminal A", None),
+])
+def test_median_age_rank(sentence, category, direction):
+    c = claim(sentence)
+    p = c.params
+    assert (c.type, p.measure, p.within_category, p.direction, p.stated_value) == (
+        ClaimType.RANK, "median_age", category, direction, 1)
+
+
+def test_median_age_groups_on_the_real_release(release_dir):
+    claims = [claim("Basal-like patients were diagnosed younger than Luminal A patients."),
+              claim("Basal-like patients were the youngest at diagnosis of any RNA subtype."),
+              claim("Luminal A patients were the oldest at diagnosis of any RNA subtype.")]
+    younger, youngest, oldest = audit_claims(claims, release_dir).claims
+    assert (younger.verdict, younger.fact.value) == (Verdict.SUPPORTED, -7)  # 54 vs 61
+    assert youngest.verdict == Verdict.CONTRADICTED and "Normal-like" in youngest.correct_value  # 53 < 54
+    assert oldest.verdict == Verdict.SUPPORTED
+
+
+# --- agreement between the RNA-seq call and the 2012 study label --------------------------------------------------
+
+@pytest.mark.parametrize("sentence, value", [
+    ("Where both the RNA-seq call and the 2012 label exist, the two agree for 90% of tumors.", 90),
+    ("The RNA-seq PAM50 call and the 2012 consortium label are concordant in about nine in ten tumours.", 90),
+])
+def test_label_agreement_is_its_own_claim(sentence, value):
+    c = claim(sentence)
+    assert (c.type, c.params.subject, c.params.stated_value) == (ClaimType.AGREEMENT, "subtype_sources", value)
+
+
+def test_label_agreement_counts_tumours_with_both_labels(tmp_path):
+    folder = make_mini_release(tmp_path / "r")
+    clin = pd.read_csv(folder / "clinical.tsv", sep="\t")
+    p = clin[clin.sampleID.str[13:15] == "01"]
+    both = p[p.PAM50Call_RNAseq.notna() & p.PAM50_mRNA_nature2012.notna()]
+    from second_opinion.variants import normalise_subtype
+    agree = int((both.PAM50Call_RNAseq.map(normalise_subtype) == both.PAM50_mRNA_nature2012.map(normalise_subtype)).sum())
+    [r] = audit_claims([claim("Where both the RNA-seq call and the 2012 label exist, the two agree for 90% of tumors.")], folder).claims
+    assert (r.fact.numerator, r.fact.denominator) == (agree, len(both))
+
+
+@pytest.mark.parametrize("sentence", [
+    "Under the 2012 consortium labels, Normal-like is the rarest group, at under 2% of labelled tumors.",
+    "By the 2012 study labels, Luminal A accounts for 231 tumours.",
+])
+def test_the_2012_labels_pick_the_second_subtype_source(sentence):
+    c = claim(sentence)
+    assert all(p.params.subtype_source == "study_2012_label" for p in (c.parts or [c]))
+
+
+def test_rna_calls_stay_the_default_source():
+    assert claim("Luminal A accounts for 421 primary tumours.").params.subtype_source is None
+
+
+# --- a count of one subtype is a count of that subtype, never of every tumour ------------------------------------
+
+@pytest.mark.parametrize("sentence, category, value", [
+    ("There are 421 Luminal A tumours.", "Luminal A", 421),
+    ("141 primary tumours are Basal-like.", "Basal-like", 141),
+    ("Luminal A accounts for 421 primary tumours.", "Luminal A", 421),
+    ("By the 2012 study labels, Luminal A accounts for 231 tumours.", "Luminal A", 231),
+])
+def test_a_subtype_count_names_the_subtype(sentence, category, value):
+    c = claim(sentence)
+    assert (c.type, c.params.attribute, c.params.category, c.params.stated_value) == (ClaimType.COUNT, "subtype", category, value)
+
+
+def test_subtype_counts_on_the_real_release(release_dir):
+    claims = [claim("There are 421 Luminal A tumours."), claim("By the 2012 study labels, Luminal A accounts for 231 tumours."),
+              claim("There are 425 Luminal A tumours.")]
+    assert [r.verdict for r in audit_claims(claims, release_dir).claims] == [Verdict.SUPPORTED, Verdict.SUPPORTED, Verdict.CONTRADICTED]
+
+
+# --- one value in two groups, each with its own figure; a subgroup named "of the tumours scored X" --------------------
+
+@pytest.mark.parametrize("sentence, target, parts", [
+    ("TP53 mutations are concentrated in basal-like tumors, where 85% carry one, against roughly one in ten Luminal A tumors.",
+     ("mutation", "TP53"), [("Basal-like", 85.0), ("Luminal A", 10.0)]),
+    ("Three in four stage IV patients died during follow-up, compared with fewer than one in ten stage I patients.",
+     ("vital_status", "deceased"), [("Stage IV", 75.0), ("Stage I", 10.0)]),
+])
+def test_a_figure_for_each_group(sentence, target, parts):
+    c = claim(sentence)
+    got = [((p.params.attribute, p.params.category), p.params.within_category, p.params.stated_value) for p in c.parts]
+    assert got == [(target, group, value) for group, value in parts]
+
+
+def test_a_subgroup_named_before_its_status():
+    c = claim("Just over half of the tumors scored HER2-positive by immunohistochemistry carry an ERBB2 amplification.")
+    p = c.params
+    assert (p.attribute, p.category, p.within_attribute, p.within_category, p.bound) == (
+        "amplification", "ERBB2", "her2_status", "positive", "gt")
+
+
+def test_coverage_among_tumours_with_a_known_status():
+    c = claim("The ER protein comparison includes 698 primary tumors with both RPPA data and a definitive ER result.")
+    p = c.params
+    assert (c.type, p.subject, p.within_attribute, p.within_category, p.stated_value) == (
+        ClaimType.COVERAGE, "has_protein", "er_status", "any", 698)
+
+
+# --- years of diagnosis and lymph-node counts ------------------------------------------------------------------
+
+@pytest.mark.parametrize("sentence, category", [
+    ("Most tumors in the release were diagnosed in 2010 or later.", "gte2010"),
+    ("Less than 1% of primary tumours were diagnosed before 1990.", "lt1990"),
+    ("About 44% of tumours were diagnosed since 2010.", "gte2010"),
+])
+def test_year_of_diagnosis_groups(sentence, category):
+    c = claim(sentence)
+    assert (c.type, c.params.attribute, c.params.category) == (ClaimType.SHARE, "diagnosis_year", category)
+
+
+def test_year_range_and_node_statistics_on_the_real_release(release_dir):
+    claims = [claim("Diagnoses span the years 1988 to 2013."), claim("Most tumors in the release were diagnosed in 2010 or later."),
+              claim("Less than 1% of primary tumours were diagnosed before 1990."),
+              claim("The median number of positive lymph nodes was one."),
+              claim("The median number of positive lymph nodes was three.")]
+    verdicts = [r.verdict for r in audit_claims(claims, release_dir).claims]
+    assert verdicts == [Verdict.SUPPORTED, Verdict.CONTRADICTED, Verdict.SUPPORTED, Verdict.SUPPORTED, Verdict.CONTRADICTED]
+
+
+@pytest.mark.parametrize("sentence", [
+    "None of the male patients had a Basal-like tumour.",
+    "No male patient had a Basal-like tumour.",
+])
+def test_zero_inside_a_group(sentence, release_dir):
+    c = claim(sentence)
+    assert (c.params.attribute, c.params.category, c.params.within_attribute, c.params.within_category, c.params.stated_value) == (
+        "subtype", "Basal-like", "sex", "male", 0)
+    [r] = audit_claims([c], release_dir).claims
+    assert r.verdict == Verdict.SUPPORTED  # male primary tumours: Luminal B 5, Luminal A 4, no call 3
+
+
+@pytest.mark.parametrize("sentence, attribute, category, position", [
+    ("TTN ranks third among mutated genes.", "mutation", "TTN", 3),
+    ("Luminal B comes in second among the RNA subtypes.", "subtype", "Luminal B", 2),
+    ("Lobular carcinoma ranks second among histological types.", "histology", "lobular", 2),
+])
+def test_placement_words_are_ranks(sentence, attribute, category, position):
+    c = claim(sentence)
+    assert (c.type, c.params.attribute, c.params.category, c.params.stated_value) == (ClaimType.RANK, attribute, category, position)
+
+
+def test_tumours_without_a_recorded_age(release_dir):
+    c = claim("Not a single primary tumour lacks an age at diagnosis.")
+    assert (c.type, c.params.subject, c.params.stated_value) == (ClaimType.COUNT, "unknown_age_primary_tumors", 0)
+    [r] = audit_claims([c], release_dir).claims
+    assert (r.verdict, r.fact.value) == (Verdict.CONTRADICTED, 4)
+
+
+# --- counts of two different attributes against each other ------------------------------------------------------
+
+@pytest.mark.parametrize("sentence, bound, verdict", [
+    ("HER2-positive tumours by immunohistochemistry are fewer than ERBB2-amplified tumours.", "lt", Verdict.CONTRADICTED),
+    ("HER2-positive tumours outnumber ERBB2-amplified tumours.", "gt", Verdict.SUPPORTED),
+    ("More tumours are HER2-positive by IHC than ERBB2-amplified.", "gt", Verdict.SUPPORTED),
+])
+def test_two_attributes_counted_against_each_other(sentence, bound, verdict, release_dir):
+    c = claim(sentence)
+    p = c.params
+    assert (c.type, p.attribute, p.category, p.attribute_b, p.category_b, p.bound) == (
+        ClaimType.RATIO, "her2_status", "positive", "amplification", "ERBB2", bound)
+    [r] = audit_claims([c], release_dir).claims
+    assert (r.verdict, r.fact.numerator, r.fact.denominator) == (verdict, 164, 133)

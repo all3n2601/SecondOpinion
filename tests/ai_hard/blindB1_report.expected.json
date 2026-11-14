@@ -1,0 +1,17 @@
+[
+  {"claim_contains": "139 normal", "verdict": "supported", "why": "1,247 samples, 1,101 distinct patients; 1,101 primary, 139 normal, 7 metastatic"},
+  {"claim_contains": "Luminal A", "verdict": "supported", "why": "Luminal A 421 of 844 RNA subtype calls (49.9%)"},
+  {"claim_contains": "Luminal B", "verdict": "supported", "why": "Luminal B 192 of 844 (22.7%)"},
+  {"claim_contains": "Basal-like", "verdict": "contradicted", "why": "Basal-like 141 of 844 calls is 16.7%, not 12.8% (12.8% is 141 of all 1,101 primary tumors, the wrong denominator for a table of 844)"},
+  {"claim_contains": "HER2-enriched", "verdict": "supported", "why": "HER2-enriched 67 of 844 (7.9%)"},
+  {"claim_contains": "Normal-like", "verdict": "contradicted", "why": "Normal-like is 23 of 844 (2.7%), not 32 (3.8%)"},
+  {"claim_contains": "456 (89.8%)", "verdict": "supported", "why": "508 primary tumors have both PAM50Call_RNAseq and PAM50_mRNA_nature2012; 456 agree (89.8%)"},
+  {"claim_contains": "31 tumors", "verdict": "supported", "stated": 31, "why": "largest off-diagonal cell of the 2012-vs-RNA-seq crosstab is 2012 LumB -> RNA LumA (31 tumors); next largest 7"},
+  {"claim_contains": "ER-positive", "verdict": "supported", "why": "ER Positive 808 of 1046 Positive+Negative (77.2%)"},
+  {"claim_contains": "PR-positive", "verdict": "supported", "why": "PR Positive 699 of 1043 (67.0%)"},
+  {"claim_contains": "HER2-positive (IHC)", "verdict": "supported", "why": "HER2 IHC Positive 164 of 728 Positive+Negative (22.5%)"},
+  {"claim_contains": "Triple-negative", "verdict": "contradicted", "why": "116 of 722 tumors with ER, PR and HER2 all known are triple-negative (16.1%), not 141 (19.5%); 141 is the Basal-like count"},
+  {"claim_contains": "gap of about 3.1", "verdict": "supported", "why": "mean ERALPHA 2.179 in 529 ER-positive vs -0.872 in 169 ER-negative primary tumors with protein data; difference 3.051"},
+  {"claim_contains": "nearly all HER2 IHC-positive", "verdict": "contradicted", "why": "87 of 162 HER2 IHC-positive primary tumors with copy-number data have ERBB2 GISTIC = 2 (53.7%), well short of 'nearly all' (>= 90%)"},
+  {"claim_contains": "benefited most from platinum", "verdict": "insufficient_evidence", "why": "the release has no drug-level treatment or response data, and 'benefited most' is a causal treatment claim"}
+]

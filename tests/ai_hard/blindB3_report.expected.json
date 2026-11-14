@@ -1,0 +1,19 @@
+[
+  {"claim_contains": "535 of the 1,247 primary tumors", "verdict": "contradicted", "why": "535 is right but the denominator is wrong: there are 1,101 primary tumors (1,247 is all samples); 535 of 1,101 primaries have all five layers"},
+  {"claim_contains": "742 primary tumors with protein", "verdict": "supported", "stated": 742, "why": "742 primary tumors have protein data; 0 of them lack RNA"},
+  {"claim_contains": "202 deaths", "verdict": "contradicted", "why": "202 of 1,236 counts every survival row including normal-tissue and metastatic samples; among primary tumors it is 151 of 1,097 (13.8%)"},
+  {"claim_contains": "Mean overall-survival follow-up", "verdict": "contradicted", "stated": 843, "why": "843 is the median OS.time (n = 1096); the mean is 1245.6 days"},
+  {"claim_contains": "highest crude death rate", "verdict": "contradicted", "why": "HER2-enriched 14/67 = 20.9%, but Normal-like is higher at 5/23 = 21.7%"},
+  {"claim_contains": "119 tumors", "verdict": "contradicted", "why": "119 (12.4% of 956) counts all samples, mostly normal tissue; among primary tumors Normal-like is 23 of 844 (2.7%)"},
+  {"claim_contains": "124 of 136", "verdict": "supported", "why": "Basal-like primary tumors: 124 ER-negative of 136 with known ER (91.2%, at least 90%)"},
+  {"claim_contains": "CYCLINB1", "verdict": "contradicted", "why": "mean CYCLINB1 is higher in Basal-like (0.072, n = 120) than Luminal A (-1.177, n = 330); the direction is reversed"},
+  {"claim_contains": "CDH1 is mutated", "verdict": "contradicted", "stated": 34.5, "why": "CDH1 is mutated in 102 of 791 (12.9%); 34.5% is PIK3CA's rate"},
+  {"claim_contains": "Deep deletions of PTEN", "verdict": "supported", "why": "PTEN GISTIC = -2 in 56 of 1080 (5.2%)"},
+  {"claim_contains": "roughly 71%", "verdict": "supported", "stated": 71, "why": "784 infiltrating ductal of 1,101 primaries (71.2%) or of 1096 with a histology (71.5%); largest category"},
+  {"claim_contains": "204 primary tumors", "verdict": "contradicted", "stated": 204, "why": "203 primary tumors are infiltrating lobular carcinoma, not 204"},
+  {"claim_contains": "majority of patients are postmenopausal", "verdict": "supported", "why": "705 postmenopausal: 70.0% of 1007 with a recorded status, 64.0% of all 1,101"},
+  {"claim_contains": "1988–2013", "verdict": "supported", "why": "year of diagnosis min 1988, max 2013; busiest year 2010 with 225"},
+  {"claim_contains": "neoadjuvant", "verdict": "insufficient_evidence", "why": "the release records whether neoadjuvant treatment was given but not the regimen or any response, so response by histology cannot be checked"},
+  {"claim_contains": "endocrine therapy", "verdict": "insufficient_evidence", "why": "the 273 of 791 (34.5%) figure is right, but the release has no drug-level endocrine-therapy or response data; 'gain the most' is a treatment-benefit claim"},
+  {"claim_contains": "Nottingham grade", "verdict": "insufficient_evidence", "why": "the release has no tumor grade field"}
+]

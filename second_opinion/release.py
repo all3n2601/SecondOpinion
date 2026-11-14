@@ -1,5 +1,6 @@
 """Load a TCGA-BRCA release folder (release A, a practice release, or an envelope's release/)."""
 
+import gzip
 import hashlib
 import zlib
 from dataclasses import dataclass, field
@@ -41,6 +42,7 @@ class Release:
     slides: pd.DataFrame | None = None  # slide_manifest.csv when the folder (or the one above) has it
     _mutation: pd.DataFrame | None = field(default=None, repr=False)
     _copy_number: pd.DataFrame | None = field(default=None, repr=False)
+    _rna_genes: int | None = field(default=None, repr=False)
 
     def mutation(self) -> pd.DataFrame:
         """Gene-level mutation calls: index = gene symbol, columns = sample ids, 1 = mutated. Read once, on first use."""
@@ -55,6 +57,13 @@ class Release:
                 RELEASE_FILES["copy_number"], lambda: _int8_matrix(self.folder / RELEASE_FILES["copy_number"])
             )
         return self._copy_number
+
+    def rna_gene_count(self) -> int:
+        """Rows (genes) of the RNA file, counted once by streaming it; the file is too large to load whole."""
+        if self._rna_genes is None:
+            with gzip.open(self.folder / RNA_FILE, "rt") as fh:
+                self._rna_genes = sum(1 for _ in fh) - 1
+        return self._rna_genes
 
     def primary_ids(self) -> list[str]:
         """Clinical sampleID where chars [13:15] == "01" (primary tumor), in clinical.tsv file order."""

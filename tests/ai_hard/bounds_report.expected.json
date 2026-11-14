@@ -1,0 +1,16 @@
+[
+  {"claim_contains": "At least 150 patients died", "verdict": "supported", "stated": 150, "why": "151 deaths (OS = 1) among primary tumours"},
+  {"claim_contains": "No more than 150 patients died", "verdict": "contradicted", "stated": 150, "why": "151 deaths, one more than 150"},
+  {"claim_contains": "Between 20% and 25%", "verdict": "contradicted", "stated": 20, "why": "stage III or IV is 270 of 1,075 staged (25.1%), just above 25%"},
+  {"claim_contains": "Over a quarter of staged", "verdict": "supported", "stated": 25, "why": "270 of 1,075 staged (25.1%)"},
+  {"claim_contains": "under 2%, are stage IV", "verdict": "supported", "stated": 2, "why": "stage IV is 20 of 1,075 staged (1.9%)"},
+  {"claim_contains": "The majority of primary tumours with a known ER", "verdict": "supported", "why": "808 of 1,046 with Positive or Negative (77.2%)"},
+  {"claim_contains": "recorded menopause status", "verdict": "supported", "why": "705 post of 973-1,007 with a status (70-72%)"},
+  {"claim_contains": "Nearly all lobular", "verdict": "supported", "why": "96.0% of lobular carcinomas with a known ER status are ER-positive"},
+  {"claim_contains": "Under a fifth", "verdict": "supported", "stated": 20, "why": "116 of 722 with all three receptors known (16.1%)"},
+  {"claim_contains": "None of the male patients", "verdict": "supported", "why": "male primary tumours are Luminal B 5, Luminal A 4, no call 3; none Basal-like"},
+  {"claim_contains": "Not a single primary tumour lacks", "verdict": "contradicted", "why": "4 of 1,101 primary tumours have no age at diagnosis"},
+  {"claim_contains": "Fewer than 300", "verdict": "supported", "stated": 300, "why": "297 primary tumours diagnosed under 50"},
+  {"claim_contains": "seven in ten primary tumours are infiltrating ductal", "verdict": "supported", "stated": 70, "why": "784 of 1,096 with a histology (71.5%)"},
+  {"claim_contains": "before 1990", "verdict": "supported", "stated": 1, "why": "3 of 1,095 with a diagnosis year (0.3%)"}
+]

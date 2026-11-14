@@ -16,12 +16,21 @@ from decimal import Decimal
 import pandas as pd
 
 from second_opinion.ai.plan import (
-    CompareMeansPlan, CountPlan, Filter, OrderPlan, QueryPlan, RankPlan, SharePlan, Stated, SummaryStatPlan,
+    CompareGroupsPlan, CompareMeansPlan, CountPlan, Filter, OrderPlan, QueryPlan, RankGroupsPlan, RankPlan, SharePlan,
+    Stated, SummaryStatPlan,
 )
+from second_opinion.checks.attributes import (
+    ATTRIBUTE_NOUNS, attribute_known, attribute_mask, attribute_values, clinical_frame, describe, gene_symbol,
+)
+from second_opinion.checks.base import CannotCheck
+from second_opinion.extract import ZERO_AMOUNT, bound_op, find_amounts
 from second_opinion.model import Claim, ClaimParams, ClaimType, Fact, Verdict
+from second_opinion.numwords import WORDS, fraction_amounts, word_numbers
 from second_opinion.release import RELEASE_FILES, RNA_FILE, Release
-from second_opinion.variants import normalise_subtype
-from second_opinion.verdict import _dec, _infer_decimals, _round_half_up, format_fact, judge
+from second_opinion.variants import PRIMARY_VARIANT, normalise_subtype
+from second_opinion.verdict import (
+    RATIO_TOLERANCE_EXACT, RATIO_TOLERANCE_FRACTION, _bounded, _dec, _infer_decimals, _round_half_up, format_fact, judge,
+)
 
 
 class PlanRejected(Exception):
@@ -42,16 +51,20 @@ _COLUMNS = {
     "er_status": "breast_carcinoma_estrogen_receptor_status",
     "her2_status": "lab_proc_her2_neu_immunohistochemistry_receptor_status",
     "age_years": "age_at_initial_pathologic_diagnosis",
+    "diagnosis_year": "year_of_initial_pathologic_diagnosis",
+    "positive_lymph_nodes": "number_of_lymphnodes_positive_by_he",
 }
+_NUMERIC_WORDS = {"age_years": "age at diagnosis", "diagnosis_year": "year of diagnosis",
+                  "positive_lymph_nodes": "number of positive lymph nodes"}
 _FIELD_WORDS = {
     "sample_type": "sample type", "sex": "sex", "subtype_rna": "PAM50 RNA-seq subtype",
     "subtype_2012": "2012 study PAM50 subtype", "er_status": "ER status", "her2_status": "HER2 status",
-    "has_layer": "data file", "age_years": "age at diagnosis",
+    "has_layer": "data file", **_NUMERIC_WORDS,
 }
 _AGE_OPS = {"eq": ("==", lambda s, v: s == v), "gt": (">", lambda s, v: s > v), "gte": (">=", lambda s, v: s >= v),
             "lt": ("<", lambda s, v: s < v), "lte": ("<=", lambda s, v: s <= v)}
 _AGE_WORDS = {"eq": "is", "gt": "is over", "gte": "is at least", "lt": "is under", "lte": "is at most"}
-_STATS = {"median": "median", "mean": "mean", "min": "youngest", "max": "oldest"}
+_STATS = {"median": "median", "mean": "mean", "min": "youngest", "max": "oldest", "range": "youngest and oldest"}
 _IMPORT_SUBTYPE = "from second_opinion.variants import normalise_subtype"
 _IMPORT_PANDAS = "import pandas as pd"
 
@@ -108,13 +121,19 @@ def _join(items: list[str]) -> str:
 def _compile(f: Filter, release: Release) -> _Cond:
     """Validate one filter against the whitelist and the release, and build it. PlanRejected if it is not legal."""
     fld, op = f.field, f.op
+    if op == "is_unknown":  # "lacks an age at diagnosis": the rows is_known leaves out
+        if f.value is not None:
+            raise PlanRejected(f"filter on {fld} with 'is_unknown' takes no value")
+        known = _compile(f.model_copy(update={"op": "is_known"}), release)
+        return _Cond(fld, lambda d: ~known.mask(d).astype(bool), lambda v: f"~({known.code(v)})",
+                     known.phrase.replace("has ", "has no ", 1), files=known.files, imports=known.imports)
     if op == "is_known":
         if f.value is not None:
             raise PlanRejected(f"filter on {fld} with 'is_known' takes no value")
     elif op not in ("eq", "in", "gt", "gte", "lt", "lte") or f.value is None:
         raise PlanRejected(f"filter on {fld} needs a value")
-    if fld != "age_years" and op in ("gt", "gte", "lt", "lte"):
-        raise PlanRejected(f"filter on {fld} cannot use '{op}'; only age can be compared with more or less")
+    if fld not in _NUMERIC_WORDS and op in ("gt", "gte", "lt", "lte"):
+        raise PlanRejected(f"filter on {fld} cannot use '{op}'; only numbers (age, year, lymph nodes) can be compared")
 
     if fld == "sample_type":
         if op == "is_known":
@@ -145,27 +164,31 @@ def _compile(f: Filter, release: Release) -> _Cond:
             f"is in the {_join([k.replace('_', ' ') for k in layers])} file", files=(RELEASE_FILES["clinical"], *files),
         )
 
+    if fld == "attribute":
+        return _attribute_filter(f, release)
+
     col = _COLUMNS[fld]
     _require_column(release, col)
     notna = (lambda d: d[col].notna(), lambda v: f"{v}[{col!r}].notna()")
 
-    if fld == "age_years":
+    if fld in _NUMERIC_WORDS:
+        words = _NUMERIC_WORDS[fld]
         known = (lambda d: pd.to_numeric(d[col], errors="coerce").notna(),
                  lambda v: f"pd.to_numeric({v}[{col!r}], errors='coerce').notna()")
         if op == "is_known":
-            return _Cond(fld, known[0], known[1], "has a recorded age at diagnosis", imports=(_IMPORT_PANDAS,))
+            return _Cond(fld, known[0], known[1], f"has a recorded {words}", imports=(_IMPORT_PANDAS,))
         if op not in _AGE_OPS:
-            raise PlanRejected(f"filter on age_years cannot use '{op}'")
+            raise PlanRejected(f"filter on {fld} cannot use '{op}'")
         value = f.value
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-            raise PlanRejected("age_years needs a number")
+            raise PlanRejected(f"{fld} needs a number")
         symbol, fn = _AGE_OPS[op]
         shown = int(value) if float(value).is_integer() else float(value)
         return _Cond(
             fld, lambda d: fn(pd.to_numeric(d[col], errors="coerce"), value),
             lambda v: f"(pd.to_numeric({v}[{col!r}], errors='coerce') {symbol} {shown!r})",
-            f"age at diagnosis {_AGE_WORDS[op]} {shown}", imports=(_IMPORT_PANDAS,),
-            known_mask=known[0], known_code=known[1], known_phrase="an age at diagnosis", needs_known=True,
+            f"{words} {_AGE_WORDS[op]} {shown}", imports=(_IMPORT_PANDAS,),
+            known_mask=known[0], known_code=known[1], known_phrase=f"a recorded {words}", needs_known=True,
         )
 
     if fld == "sex":
@@ -198,6 +221,64 @@ def _compile(f: Filter, release: Release) -> _Cond:
                    else f"{v}[{col!r}].map(normalise_subtype).isin({vals!r})"),
         f"{label} is {_join(vals)}", imports=(_IMPORT_SUBTYPE,),
         known_mask=known[0], known_code=known[1], known_phrase=f"a {label} call", needs_known=True,
+    )
+
+
+_GENE_ATTRIBUTES = ("mutation", "amplification", "deletion", "gain", "loss")
+_IMPORT_ATTRIBUTES = "from second_opinion.checks.attributes import attribute_known, attribute_mask"
+
+
+def _stage_name(value: str) -> str:
+    """"IV", "stage iv", "Stage 4" -> "Stage IV" (the spelling the attribute layer reads)."""
+    m = re.fullmatch(r"(?:stage\s*)?(IV|III|II|I|[1-4])([ABC])?", value.strip(), re.IGNORECASE)
+    if m is None:
+        return value
+    roman = {"1": "I", "2": "II", "3": "III", "4": "IV"}.get(m.group(1), m.group(1).upper())
+    return f"Stage {roman}{(m.group(2) or '').upper()}"
+
+
+def _attribute_filter(f: Filter, release: Release) -> _Cond:
+    """Any attribute the rules read, through the rules' own definitions (checks/attributes.py)."""
+    attr = f.attribute
+    if attr is None:
+        raise PlanRejected("an attribute filter needs an attribute name")
+    if f.op == "is_known":
+        if attr in _GENE_ATTRIBUTES:
+            raise PlanRejected(f"'is_known' on {attr} needs a gene; filter on the data file with has_layer instead")
+        categories: list[str | None] = [None]
+    elif f.op == "eq" and isinstance(f.value, str):
+        categories = [f.value.strip()]
+    elif f.op == "in" and isinstance(f.value, list) and f.value and all(isinstance(v, str) for v in f.value):
+        categories = [v.strip() for v in f.value]
+    else:
+        raise PlanRejected(f"filter on {attr} needs a text value, or a list of them with 'in'")
+    if attr == "stage":
+        categories = [_stage_name(c) if c else c for c in categories]
+    frame = clinical_frame(release.clinical)
+    hits, files = [], [RELEASE_FILES["clinical"]]
+    for category in categories:
+        try:
+            av = attribute_values(release, frame, attr, category, PRIMARY_VARIANT)
+        except CannotCheck as exc:
+            raise PlanRejected(str(exc)) from exc
+        labels = set(av.values.dropna().unique())
+        if category is not None and av.hit not in labels:
+            shown = ", ".join(sorted(str(x) for x in labels)[:8])
+            raise PlanRejected(f"'{category}' is not a value of {attr} in this release; it has {shown}")
+        hits.append(av.hit)
+        files += [x for x in av.files if x not in files]
+    words = _join([describe(attr, c) for c in categories]) if categories != [None] else f"a recorded {ATTRIBUTE_NOUNS[attr]}"
+    known_cat = categories[0]
+    known = (lambda d: attribute_known(release, d, attr, known_cat),
+             lambda v: f"attribute_known(r, {v}, {attr!r}, {known_cat!r})")
+    if categories == [None]:
+        return _Cond("attribute", known[0], known[1], f"has {words}", files=tuple(files), imports=(_IMPORT_ATTRIBUTES,))
+    cats = [c for c in categories if c is not None]
+    return _Cond(
+        "attribute", lambda d: attribute_mask(release, d, attr, cats),
+        lambda v: f"attribute_mask(r, {v}, {attr!r}, {cats!r})", f"is {words}", files=tuple(files),
+        imports=(_IMPORT_ATTRIBUTES,), known_mask=known[0], known_code=known[1],
+        known_phrase=f"a recorded {ATTRIBUTE_NOUNS[attr]}", needs_known=True,
     )
 
 
@@ -292,7 +373,14 @@ def _prepare(plan, release: Release) -> _Prepared:
             raise PlanRejected("the two groups being compared are the same")
         prep.extras = {"row": row, "col": col, "a": a, "b": b}
     elif isinstance(plan, SummaryStatPlan):
-        _require_column(release, _COLUMNS["age_years"])
+        _require_column(release, _COLUMNS[plan.field])
+    elif isinstance(plan, RankPlan) and plan.category_field == "mutated_gene":
+        gene = gene_symbol(plan.category.strip())
+        if gene not in release.mutation().index:
+            raise PlanRejected(f"the mutation file has no gene {plan.category!r}")
+        prep.extras = {"gene": gene}
+    elif isinstance(plan, (CompareGroupsPlan, RankGroupsPlan)):
+        _prepare_groups(plan, release, prep)
     elif isinstance(plan, RankPlan):
         _require_column(release, _COLUMNS[plan.category_field])
         prep.extras = {"col": _COLUMNS[plan.category_field], "cat": _subtype_name(plan.category)}
@@ -307,23 +395,36 @@ def _prepare(plan, release: Release) -> _Prepared:
     return prep
 
 
+def _prepare_groups(plan, release: Release, prep: _Prepared) -> None:
+    """The measure each group is reduced to (count, share with a numerator, or a statistic), and the groups."""
+    if plan.measure == "share":
+        if not plan.numerator:
+            raise PlanRejected("a share needs at least one numerator filter")
+        prep.numerator = [_compile(f, release) for f in plan.numerator]
+    elif plan.measure == "stat":
+        if plan.field is None or plan.stat is None:
+            raise PlanRejected("a statistic needs a numeric field and a stat")
+        _require_column(release, _COLUMNS[plan.field])
+    elif plan.numerator or plan.field:
+        raise PlanRejected("a count takes no numerator or field")
+    if isinstance(plan, CompareGroupsPlan):
+        prep.extras["a"] = [_compile(f, release) for f in plan.group_a]
+        prep.extras["b"] = [_compile(f, release) for f in plan.group_b]
+    else:
+        _require_column(release, _COLUMNS[plan.category_field])
+        prep.extras.update(col=_COLUMNS[plan.category_field], cat=_subtype_name(plan.category))
+
+
 # ------------------------------------------------------------------ the quote check
 
 
-_WORD_NUMBERS = {
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
-    "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
-    "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
-    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
-}
 _ORDINALS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7, "eighth": 8,
              "ninth": 9, "tenth": 10, "eleventh": 11, "twelfth": 12}
 _PARTS = {"half": 2, "halves": 2, "third": 3, "thirds": 3, "quarter": 4, "quarters": 4, "fourth": 4, "fourths": 4,
           "fifth": 5, "fifths": 5, "sixth": 6, "sixths": 6, "seventh": 7, "sevenths": 7, "eighth": 8, "eighths": 8,
           "ninth": 9, "ninths": 9, "tenth": 10, "tenths": 10}
 _NUM = re.compile(r"(?<![\w.])\d{1,3}(?:,\d{3})+(?:\.\d+)?|(?<![\w.])\d+(?:\.\d+)?")
-_WORD = "|".join(sorted(_WORD_NUMBERS, key=len, reverse=True))
-_IN_RE = re.compile(rf"\b(a|an|{_WORD}|\d+)[\s-]+in[\s-]+(a|{_WORD}|\d+)\b", re.I)
+_WORD = "|".join(sorted(WORDS, key=len, reverse=True))
 _PART_RE = re.compile(rf"\b(a|an|{_WORD})[\s-]+({'|'.join(_PARTS)})\b", re.I)
 _HALF_RE = re.compile(r"\bhalf\b", re.I)
 _ORD_RE = re.compile(rf"\b({'|'.join(_ORDINALS)})\b", re.I)
@@ -341,18 +442,14 @@ def _word_value(token: str) -> float | None:
     t = token.lower()
     if t in ("a", "an"):
         return 1.0
-    if t in _WORD_NUMBERS:
-        return float(_WORD_NUMBERS[t])
+    if t in WORDS:
+        return float(WORDS[t])
     return float(t) if t.isdigit() else None
 
 
 def _fractions(text: str) -> list[float]:
     """Percentages spelled as fractions: 'one in six' 16.7, 'half' 50, 'two thirds' 66.7, 'a quarter' 25."""
-    out = []
-    for m in _IN_RE.finditer(text):
-        top, bottom = _word_value(m.group(1)), _word_value(m.group(2))
-        if top is not None and bottom:
-            out.append(100 * top / bottom)
+    out = [f.value for f in fraction_amounts(text)]
     for m in _PART_RE.finditer(text):
         top = _word_value(m.group(1))
         if top is not None:
@@ -364,7 +461,7 @@ def _fractions(text: str) -> list[float]:
 
 def _literal_numbers(text: str) -> list[float]:
     nums = [float(m.group().replace(",", "")) for m in _NUM.finditer(text)]
-    nums += [float(_WORD_NUMBERS[w.lower()]) for w in re.findall(rf"\b(?:{_WORD})\b", text, re.I)]
+    nums += [w.value for w in word_numbers(text)]  # whole phrases: "ninety-seven" is 97, never 7 or 90
     return nums
 
 
@@ -381,6 +478,10 @@ def _rank_numbers(text: str) -> list[float]:
 
 
 def _derivable(value: float, sentence: str, kind: str) -> bool:
+    if value == 0 and ZERO_AMOUNT.search(sentence):  # "None of the", "Not a single", "No men"
+        return True
+    if kind == "percent" and any(a.words and abs(a.value - value) < 1e-6 for a in find_amounts(sentence)):
+        return True  # "most" 50, "nearly all" 90, "a minority" 50, read the rules' way
     literal = _literal_numbers(sentence)
     if kind == "number":
         literal += [-x for x in literal]
@@ -395,6 +496,7 @@ def _derivable(value: float, sentence: str, kind: str) -> bool:
 _KINDS = {
     "count": {"count", "number"}, "share": {"percent", "count"}, "compare_means": {"direction", "relation", "number"},
     "summary_stat": {"number"}, "rank": {"rank"}, "order": {"relation", "direction"},
+    "compare_groups": {"relation", "direction", "number"}, "rank_groups": {"rank"},
 }
 
 
@@ -412,11 +514,17 @@ def _check_kind(plan, stated: Stated) -> None:
         raise PlanRejected("a stated total can only be checked against a share plan")
 
 
-def _check_quote(stated: Stated, sentence: str) -> None:
+_SUPERLATIVE_RE = re.compile(
+    r"\b(?:most|least|highest|lowest|youngest|oldest|greatest|smallest|largest|rarest|commonest|fewest)\b", re.I)
+
+
+def _check_quote(stated: Stated, sentence: str, op: str | None = None) -> None:
     span = _squash(stated.span)
     if not span or span not in _squash(sentence):
         raise PlanRejected("the quoted span is not in the sentence")
     for name, value in (("number", stated.value), ("upper end", stated.high), ("total", stated.total)):
+        if op == "rank_groups" and name == "number" and value == 1 and _SUPERLATIVE_RE.search(stated.span):
+            continue  # "the youngest", "rarest in": first, in the plan's own order
         if value is not None and not _derivable(float(value), sentence, stated.kind):
             raise PlanRejected(f"the quoted {name} {value:g} is not in the sentence")
 
@@ -432,7 +540,7 @@ def validate_plan(qp: QueryPlan, sentence: str, release: Release) -> None:
         raise PlanRejected("the plan is missing")
     if qp.stated is None:
         raise PlanRejected("the plan does not say what the sentence claims")
-    _check_quote(qp.stated, sentence)
+    _check_quote(qp.stated, sentence, qp.plan.op)
     _check_kind(qp.plan, qp.stated)
     _prepare(qp.plan, release)
 
@@ -584,26 +692,33 @@ def _compare(release: Release, prep: _Prepared) -> Fact:
 
 def _summary(release: Release, prep: _Prepared) -> Fact:
     plan: SummaryStatPlan = prep.plan
-    col = _COLUMNS["age_years"]
+    col = _COLUMNS[plan.field]
     pop = _population(release, prep.where)
     ages = pd.to_numeric(pop[col], errors="coerce")
     used = pop[ages.notna()]
     ages = ages.dropna()
+    words = _NUMERIC_WORDS[plan.field]
     if ages.empty:
-        raise PlanRejected("no recorded ages among the matching samples")
-    value = float(getattr(ages, plan.stat)())
+        raise PlanRejected("no recorded ages among the matching samples" if plan.field == "age_years"
+                           else f"no recorded {words} among the matching samples")
+    stat = "min" if plan.stat == "range" else plan.stat
+    value = float(getattr(ages, stat)())
     lines = [*_imports(prep.where, _IMPORT_PANDAS), *_population_code(prep.where)]
     lines += [
         f"ages = pd.to_numeric(pop[{col!r}], errors='coerce').dropna()",
-        f"result = ages.{plan.stat}()",
+        "result = ages.min(), ages.max()" if plan.stat == "range" else f"result = ages.{plan.stat}()",
         "n = len(ages)",
         "n_no_age = len(pop) - n",
     ]
+    extra = {"n": len(ages), "stat": plan.stat, **_sex_note(release, prep.where)}
+    if plan.stat == "range":
+        extra["max"] = float(ages.max())
+    label = (f"{_STATS[plan.stat]} age at diagnosis in years" if plan.field == "age_years"
+             else f"{'smallest and largest' if plan.stat == 'range' else _STATS[plan.stat].replace('youngest', 'smallest').replace('oldest', 'largest')} {words}")
     return Fact(
-        label=f"{_STATS[plan.stat]} age at diagnosis in years, {_population_words(prep.where)}", value=value,
+        label=f"{label}, {_population_words(prep.where)}", value=value,
         numerator=len(ages), denominator=len(pop), sample_ids=_ids(used), files=_files(prep.where),
-        code="\n".join(lines), unknown_count=len(pop) - len(ages),
-        extra={"n": len(ages), "stat": plan.stat, **_sex_note(release, prep.where)},
+        code="\n".join(lines), unknown_count=len(pop) - len(ages), extra=extra,
     )
 
 
@@ -655,8 +770,128 @@ def _order(release: Release, prep: _Prepared) -> Fact:
     )
 
 
+def _measure(release: Release, prep: _Prepared, df: pd.DataFrame) -> float | None:
+    """One group reduced to its count, share or statistic; None when the group has nothing to measure."""
+    plan = prep.plan
+    if plan.measure == "count":
+        return float(len(df))
+    if plan.measure == "share":
+        called = df
+        for c in prep.numerator:
+            if c.needs_known and c.known_mask is not None:
+                called = called[c.known_mask(called)]
+        hit = called
+        for c in prep.numerator:
+            hit = hit[c.mask(hit)]
+        return 100 * len(hit) / len(called) if len(called) else None
+    values = pd.to_numeric(df[_COLUMNS[plan.field]], errors="coerce").dropna()
+    return float(getattr(values, plan.stat)()) if len(values) else None
+
+
+def _measure_code(prep: _Prepared) -> list[str]:
+    plan = prep.plan
+    if plan.measure == "count":
+        return ["def measure(df):", "    return len(df)"]
+    if plan.measure == "share":
+        known = [c for c in prep.numerator if c.needs_known and c.known_code is not None]
+        return [
+            "def measure(df):  # percent, among rows where it is recorded",
+            "    called = df[" + " & ".join(c.known_code("df") for c in known) + "]" if known else "    called = df",
+            "    hit = called[" + " & ".join(c.code("called") for c in prep.numerator) + "]",
+            "    return 100 * len(hit) / len(called)",
+        ]
+    col = _COLUMNS[plan.field]
+    return ["def measure(df):", f"    return pd.to_numeric(df[{col!r}], errors='coerce').dropna().{plan.stat}()"]
+
+
+def _measure_words(prep: _Prepared) -> str:
+    plan = prep.plan
+    if plan.measure == "count":
+        return "number of samples"
+    if plan.measure == "share":
+        return "percent where " + " and ".join(c.phrase for c in prep.numerator)
+    return f"{plan.stat} {_NUMERIC_WORDS[plan.field]}"
+
+
+def _compare_groups(release: Release, prep: _Prepared) -> Fact:
+    plan: CompareGroupsPlan = prep.plan
+    pop = _population(release, prep.where)
+    a, b = pop, pop
+    for c in prep.extras["a"]:
+        a = a[c.mask(a)]
+    for c in prep.extras["b"]:
+        b = b[c.mask(b)]
+    ma, mb = _measure(release, prep, a), _measure(release, prep, b)
+    if ma is None or mb is None:
+        raise PlanRejected("one of the two groups has nothing to measure")
+    if plan.compare == "ratio" and mb == 0:
+        raise PlanRejected("the second group measures zero, so there is no ratio")
+    value = ma / mb if plan.compare == "ratio" else ma - mb
+    conds = [*prep.where, *prep.numerator, *prep.extras["a"], *prep.extras["b"]]
+    lines = [*_imports(conds, _IMPORT_PANDAS), *_population_code(prep.where), *_measure_code(prep)]
+    lines += ["a = pop[" + " & ".join(c.code("pop") for c in prep.extras["a"]) + "]",
+              "b = pop[" + " & ".join(c.code("pop") for c in prep.extras["b"]) + "]",
+              "result = measure(a) " + ("/" if plan.compare == "ratio" else "-") + " measure(b)"]
+    words_a = " and ".join(c.phrase for c in prep.extras["a"])
+    words_b = " and ".join(c.phrase for c in prep.extras["b"])
+    return Fact(
+        label=f"{_measure_words(prep)}: samples where {words_a} {'divided by' if plan.compare == 'ratio' else 'minus'} "
+              f"samples where {words_b}, {_population_words(prep.where)}",
+        value=value, numerator=None, denominator=None, sample_ids=_ids(pd.concat([a, b])), files=_files(conds),
+        code="\n".join(lines), extra={"a": round(ma, 3), "b": round(mb, 3), "n_a": len(a), "n_b": len(b),
+                                     "words_a": words_a, "words_b": words_b},
+    )
+
+
+def _rank_groups(release: Release, prep: _Prepared) -> Fact:
+    plan: RankGroupsPlan = prep.plan
+    col, cat = prep.extras["col"], prep.extras["cat"]
+    pop = _population(release, prep.where)
+    calls = pop[col].map(normalise_subtype)
+    values = {name: v for name in SUBTYPES if (v := _measure(release, prep, pop[calls == name])) is not None}
+    if cat not in values:
+        raise PlanRejected(f"no {cat} samples to measure")
+    mine = values[cat]
+    beaten = sum(1 for v in values.values() if (v < mine if plan.order == "lowest" else v > mine))
+    rank = 1 + beaten
+    conds = [*prep.where, *prep.numerator]
+    lines = [*_imports(conds, _IMPORT_PANDAS, _IMPORT_SUBTYPE), *_population_code(prep.where), *_measure_code(prep)]
+    sign = "<" if plan.order == "lowest" else ">"
+    lines += [f"calls = pop[{col!r}].map(normalise_subtype)",
+              f"values = {{s: measure(pop[calls == s]) for s in {list(SUBTYPES)!r} if (calls == s).any()}}",
+              f"rank = 1 + sum(1 for v in values.values() if v {sign} values[{cat!r}])  # 1 = the {plan.order}"]
+    return Fact(
+        label=f"rank of {cat} by {_measure_words(prep)} ({plan.order} first), {_population_words(prep.where)}",
+        value=rank, numerator=None, denominator=None, sample_ids=_ids(pop[calls.notna()]), files=_files(conds),
+        code="\n".join(lines), extra={"order": plan.order, **{f"value_{k}": round(v, 2) for k, v in values.items()}},
+    )
+
+
+def _gene_rank(release: Release, prep: _Prepared) -> Fact:
+    gene = prep.extras["gene"]
+    pop = _population(release, prep.where)
+    calls = release.mutation()
+    ids = [i for i in calls.columns if i in set(pop["sampleID"].astype(str))]
+    counts = (calls[ids] > 0).sum(axis=1)
+    rank = 1 + int((counts > counts[gene]).sum())
+    top = counts.sort_values(ascending=False).head(max(5, rank))
+    lines = [*_imports(prep.where), *_population_code(prep.where),
+             "ids = [i for i in r.mutation().columns if i in set(pop['sampleID'].astype(str))]",
+             "counts = (r.mutation()[ids] > 0).sum(axis=1)  # tumors with a mutation, per gene",
+             f"rank = 1 + int((counts > counts[{gene!r}]).sum())  # 1 = most often mutated"]
+    return Fact(
+        label=f"rank of {gene} among genes by number of mutated samples, {_population_words(prep.where)}",
+        value=rank, numerator=int(counts[gene]), denominator=len(ids), sample_ids=[], files=_files(prep.where, RELEASE_FILES["mutation"]),
+        code="\n".join(lines), extra={"genes": ", ".join(f"{g} {int(n)}" for g, n in top.items())},
+    )
+
+
+def _rank_any(release: Release, prep: _Prepared) -> Fact:
+    return _gene_rank(release, prep) if "gene" in prep.extras else _rank(release, prep)
+
+
 _RUNNERS = {"count": _count, "share": _share, "compare_means": _compare, "summary_stat": _summary,
-            "rank": _rank, "order": _order}
+            "rank": _rank_any, "order": _order, "compare_groups": _compare_groups, "rank_groups": _rank_groups}
 
 
 def execute_plan(qp: QueryPlan, release: Release) -> Fact:
@@ -692,6 +927,21 @@ def _is_approximate(sentence: str, stated: Stated) -> bool:
     return bool(not written and _fractions(stated.span))
 
 
+def _sentence_bound(sentence: str, stated: Stated) -> str | None:
+    """"under", "more than", "at least" ... from the sentence's own words before the stated number (not the model's flag)."""
+    if stated.high is not None:
+        return None
+    vague = [a for a in find_amounts(stated.span) if a.words and a.bound]
+    if vague:  # "Most" is more than 50%, "nearly all" at least 90%: the word carries its own bound
+        return vague[0].bound
+    flat, span = _squash(sentence), _squash(stated.span)
+    at = flat.find(span)
+    if at < 0:
+        return None
+    first = re.search(rf"\d|\b(?:a|an|{_WORD})\b", span, re.I)
+    return bound_op(flat[: at + (first.start() if first else len(span))])
+
+
 def _num(x: float) -> str:
     return f"{x:,.0f}" if float(x).is_integer() else f"{x:,}"
 
@@ -702,15 +952,41 @@ def _ordinal(n: int) -> str:
 
 
 def _judge_number(sentence: str, stated: Stated, ours: float) -> bool:
-    """Equal after rounding to the span's precision; within 2% when hedged; inside the range when one is given."""
+    """Equal after rounding to the span's precision; within 2% when hedged; inside the range or past the bound when given."""
     value = stated.value
     if stated.high is not None:
         return value <= ours <= stated.high
+    bound = _sentence_bound(sentence, stated)
+    if bound:
+        return _bounded(_dec(ours), _dec(value), bound)
     if _is_approximate(sentence, stated):
         return abs(_dec(ours) - _dec(value)) <= Decimal("0.02") * abs(_dec(ours))
     decimals = _span_decimals(stated.span, value)
     decimals = _infer_decimals(value) if decimals is None else decimals
     return _round_half_up(ours, decimals) == _dec(value)
+
+
+def _judge_groups(sentence: str, plan: CompareGroupsPlan, stated: Stated, fact: Fact) -> tuple[Verdict, str | None]:
+    """A against B: "fewer than" by sign, "eight times as common" by the ratio (the rules' ratio tolerance)."""
+    ratio = plan.compare == "ratio"
+    if stated.kind in ("relation", "direction"):
+        more = fact.value > 1 if ratio else fact.value > 0
+        same = abs(fact.value - (1 if ratio else 0)) < 1e-12
+        ok = not same and more == (stated.relation == "more")
+    elif ratio:
+        bound = _sentence_bound(sentence, stated)
+        if bound:
+            ok = _bounded(_dec(fact.value), _dec(stated.value), bound)
+        else:
+            tol = RATIO_TOLERANCE_FRACTION if _is_approximate(sentence, stated) else RATIO_TOLERANCE_EXACT
+            ok = abs(fact.value - stated.value) <= tol * stated.value
+    else:
+        ok = _judge_number(sentence, stated, fact.value)
+    if ok:
+        return Verdict.SUPPORTED, None
+    x = fact.extra
+    shown = f"{fact.value:.2f} times" if ratio else f"difference {round(fact.value, 3):g}"
+    return Verdict.CONTRADICTED, f"{x['words_a']} {x['a']:g} vs {x['words_b']} {x['b']:g} ({shown})"
 
 
 def judge_plan(sentence: str, qp: QueryPlan, fact: Fact) -> tuple[Verdict, str | None]:
@@ -726,6 +1002,7 @@ def judge_plan(sentence: str, qp: QueryPlan, fact: Fact) -> tuple[Verdict, str |
             stated_value=stated.value, stated_high=stated.high, stated_total=stated.total,
             unit="percent" if stated.kind == "percent" else "count",
             decimals=_span_decimals(stated.span, stated.value), approximate=_is_approximate(sentence, stated),
+            bound=_sentence_bound(sentence, stated),
         )
         ctype = ClaimType.SHARE if stated.kind == "percent" else ClaimType.COUNT
         return judge(Claim("AI", sentence, 0, ctype, params), fact)
@@ -742,6 +1019,31 @@ def judge_plan(sentence: str, qp: QueryPlan, fact: Fact) -> tuple[Verdict, str |
         if n_a is not None and n_b is not None:
             text += f" ({int(n_a):,} vs {int(n_b):,} samples)"
         return Verdict.CONTRADICTED, text
+
+    if op == "summary_stat" and plan.stat == "range":  # "1988 to 2013": both ends, as written
+        if stated.high is None:
+            raise PlanRejected("a range claim needs both ends")
+        lo, hi = fact.value, fact.extra["max"]
+        if _round_half_up(lo, _infer_decimals(stated.value)) == _dec(stated.value) and \
+                _round_half_up(hi, _infer_decimals(stated.high)) == _dec(stated.high):
+            return Verdict.SUPPORTED, None
+        return Verdict.CONTRADICTED, f"{_num(lo)} to {_num(hi)}"
+
+    if op == "compare_groups":
+        return _judge_groups(sentence, plan, stated, fact)
+
+    if op == "rank_groups":
+        if abs(fact.value - stated.value) < 1e-9:
+            return Verdict.SUPPORTED, None
+        listing = ", ".join(f"{k[6:]} {v:g}" for k, v in sorted(
+            ((k, v) for k, v in fact.extra.items() if k.startswith("value_")), key=lambda kv: kv[1],
+            reverse=plan.order == "highest"))
+        return Verdict.CONTRADICTED, f"{_subtype_name(plan.category)} is {_ordinal(int(fact.value))} ({plan.order} first): {listing}"
+
+    if op == "rank" and plan.category_field == "mutated_gene":
+        if abs(fact.value - stated.value) < 1e-9:
+            return Verdict.SUPPORTED, None
+        return Verdict.CONTRADICTED, f"{gene_symbol(plan.category)} is {_ordinal(int(fact.value))}: {fact.extra['genes']}"
 
     if op == "summary_stat":
         if _judge_number(sentence, stated, fact.value):

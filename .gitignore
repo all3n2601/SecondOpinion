@@ -19,3 +19,4 @@ coverage/
 build/
 dist/
 .playwright-mcp/
+tests/ai_hard/last_run.json

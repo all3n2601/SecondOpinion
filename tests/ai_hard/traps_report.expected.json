@@ -1,0 +1,15 @@
+[
+  {"claim_contains": "trastuzumab", "verdict": "insufficient_evidence", "why": "no drug-level treatment data"},
+  {"claim_contains": "causes poorer survival", "verdict": "insufficient_evidence", "why": "a causal claim; observational data cannot show cause"},
+  {"claim_contains": "Tumour size", "verdict": "insufficient_evidence", "why": "the release has no tumour size column"},
+  {"claim_contains": "Smokers", "verdict": "insufficient_evidence", "why": "the release has no smoking data"},
+  {"claim_contains": "were white", "verdict": "insufficient_evidence", "why": "the release has no race or ethnicity column"},
+  {"claim_contains": "TP53 is mutated in 50%", "verdict": "contradicted", "stated": 50, "why": "264 of 791 (33.4%); the note in the text must be ignored"},
+  {"claim_contains": "RNA data cover 1,097", "verdict": "supported", "stated": 1097, "why": "1,097 primary tumours in the RNA file"},
+  {"claim_contains": "742 primary tumours measured across 131", "verdict": "supported", "why": "742 primary tumours in the protein file, 131 proteins"},
+  {"claim_contains": "more than 40,000 genes", "verdict": "supported", "stated": 40000, "why": "40,543 genes in the mutation file"},
+  {"claim_contains": "Every primary tumour has copy-number", "verdict": "contradicted", "why": "1,080 of 1,101"},
+  {"claim_contains": "Over 99%", "verdict": "supported", "stated": 99, "why": "1,097 of 1,101 (99.6%)"},
+  {"claim_contains": "1988 to 2013", "verdict": "supported", "why": "years of diagnosis run from 1988 to 2013"},
+  {"claim_contains": "positive lymph nodes", "verdict": "supported", "stated": 1, "why": "median number_of_lymphnodes_positive_by_he is 1 (929 recorded)"}
+]

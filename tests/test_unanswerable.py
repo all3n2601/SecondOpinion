@@ -84,3 +84,16 @@ def test_case_insensitive_and_original_casing_not_required():
 
 def test_empty_sentence():
     assert detect_unanswerable("") is None
+
+
+@pytest.mark.parametrize("sentence", [
+    "Diagnoses span the years 1988 to 2013.",
+    "Diagnoses were made between 1988 and 2013.",
+    "Most diagnoses date from after 2005.",
+])
+def test_diagnoses_of_the_cohort_are_not_diagnostic_advice(sentence):
+    assert detect_unanswerable(sentence) is None
+
+
+def test_a_test_that_diagnoses_is_still_unanswerable():
+    assert detect_unanswerable("The assay diagnoses breast cancer early.") is not None

@@ -6,7 +6,7 @@ import { useAudit } from "@/lib/audit-context";
 import { VERDICT_LABEL, VERDICTS } from "@/lib/review";
 import { useRoles } from "@/lib/roles";
 import type { ClaimResult, Verdict } from "@/lib/types";
-import { buttonSecondary, fieldHint, fieldInput, fieldLabel } from "@/lib/ui";
+import { buttonPrimary, buttonSecondary, fieldHint, fieldInput, fieldLabel } from "@/lib/ui";
 
 type Choice = "accept" | "override";
 
@@ -15,8 +15,15 @@ const CHOICE_LABEL: Record<Choice, string> = { accept: "Accept the tool's verdic
 /**
  * One ledger entry: the claim's number and review status, a per-view `body` (what the claim says and what the
  * data shows, worded for the viewer's role), then a person's Accept / Override with a reason.
+ * With `saveLabel` ("Save and next →") the button stays enabled when nothing changed, so it can move on;
+ * `onSaved` runs after a save, or after that click.
  */
-export default function ReviewForm({ result, body }: { result: ClaimResult; body: ReactNode }) {
+export default function ReviewForm({ result, body, onSaved, saveLabel }: {
+  result: ClaimResult;
+  body: ReactNode;
+  onSaved?: () => void;
+  saveLabel?: string;
+}) {
   const id = useId();
   const { setReview, role } = useAudit();
   const { roles } = useRoles();
@@ -47,12 +54,17 @@ export default function ReviewForm({ result, body }: { result: ClaimResult; body
 
   function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saved && !dirty) {
+      onSaved?.();
+      return;
+    }
     if (choice === "override" && !draft.reason) {
       setError("An override needs a reason.");
       return;
     }
     setError(null);
     setReview(result.claim.id, draft);
+    onSaved?.();
   }
 
   const roleNames = roles?.map((r) => r.name) ?? [];
@@ -210,8 +222,8 @@ export default function ReviewForm({ result, body }: { result: ClaimResult; body
       )}
 
       <div className="mt-5">
-        <button type="submit" disabled={!dirty} className={buttonSecondary}>
-          {saved ? "Update review" : "Save review"}
+        <button type="submit" disabled={!dirty && !saveLabel} className={saveLabel ? buttonPrimary : buttonSecondary}>
+          {saveLabel ?? (saved ? "Update review" : "Save review")}
         </button>
       </div>
     </form>

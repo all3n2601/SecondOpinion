@@ -100,15 +100,16 @@ def unseal(number: str, code: str) -> OpenedEnvelope:
     output = (done.stdout or "") + (done.stderr or "")
     if done.returncode != 0:
         if "No module named 'cryptography'" in output:
+            python = r".venv\Scripts\python.exe" if os.name == "nt" else ".venv/bin/python"
             raise EnvelopeError(
                 "Unsealing needs the cryptography package, which this install is missing. "
-                "Run: .venv/bin/python -m pip install -r requirements.txt"
+                f"Run: {python} -m pip install -r requirements.txt"
             )
         raise EnvelopeError(_failure(output))
 
     opened = repo / "envelopes" / "opened" / name
     checks = [line.strip().lstrip("✓").strip() for line in output.splitlines() if line.strip().startswith("✓")]
-    files = sorted(str(p.relative_to(opened)) for p in opened.rglob("*") if p.is_file())
+    files = sorted(p.relative_to(opened).as_posix() for p in opened.rglob("*") if p.is_file())
     notes: list[str] = []
     report_path = opened / REPORT_FILE
     if not report_path.is_file() and name == "practice" and (repo / PRACTICE_BRIEF).is_file():

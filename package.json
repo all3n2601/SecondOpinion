@@ -7,13 +7,13 @@
   "scripts": {
     "dev": "concurrently --kill-others -n web,api \"npm run dev:web\" \"npm run dev:api\"",
     "dev:web": "npm run dev --workspace apps/web",
-    "dev:api": ".venv/bin/python -m uvicorn apps.api.app.main:app --reload --reload-dir apps/api --reload-dir second_opinion --host 127.0.0.1 --root-path /api",
+    "dev:api": "node scripts/py.mjs -m uvicorn apps.api.app.main:app --reload --reload-dir apps/api --reload-dir second_opinion --host 127.0.0.1 --root-path /api",
     "build": "npm run build --workspace apps/web",
     "start:web": "npm run start --workspace apps/web",
-    "start:api": ".venv/bin/python -m uvicorn apps.api.app.main:app --host 0.0.0.0 --root-path /api",
+    "start:api": "node scripts/py.mjs -m uvicorn apps.api.app.main:app --host 0.0.0.0 --root-path /api",
     "lint": "npm run lint --workspace apps/web",
     "typecheck": "npm run typecheck --workspace apps/web",
-    "test": ".venv/bin/python -m pytest",
+    "test": "node scripts/py.mjs -m pytest",
     "test:web": "npm run test --workspace apps/web"
   },
   "engines": {

@@ -1,0 +1,108 @@
+{
+ "source": "tests/ai_hard/blindB3_report.md",
+ "reportText": "# Key findings: TCGA-BRCA cohort review\r\n\r\n*A fictional research report written for testing. It describes the TCGA-BRCA files of release A.*\r\n\r\n## Key findings\r\n\r\n- Data completeness: 535 of the 1,247 primary tumors have all five data layers (survival, mutation, copy number, RNA and protein).\r\n- Every one of the 742 primary tumors with protein data also has RNA-seq data.\r\n- Mortality: 202 deaths among the 1,236 patients with survival data (16.3%).\r\n- Mean overall-survival follow-up is 843 days.\r\n- HER2-enriched tumors have the highest crude death rate of any RNA subtype (20.9%).\r\n- Normal-like is a sizeable subtype: 119 tumors, 12.4% of RNA subtype calls.\r\n- Basal-like tumors are almost all ER-negative: 124 of 136 with a known ER status (91.2%).\r\n- Mean cyclin B1 protein (RPPA CYCLINB1) is lower in Basal-like than in Luminal A tumors.\r\n- CDH1 is mutated in 34.5% of sequenced primary tumors.\r\n- Deep deletions of PTEN are seen in 56 tumors (5.2% of tumors with copy-number data).\r\n- Infiltrating ductal carcinoma is the dominant histology, at roughly 71% of primary tumors.\r\n- 204 primary tumors are infiltrating lobular carcinoma.\r\n- The majority of patients are postmenopausal.\r\n- Diagnosis years span 1988–2013, and 2010 is the busiest single year with 225 diagnoses.\r\n- Lobular tumors respond poorly to neoadjuvant chemotherapy compared with ductal tumors.\r\n- PIK3CA-mutant tumors (273 of 791 sequenced, 34.5%) gain the most from endocrine therapy, so PIK3CA status should guide treatment choice.\r\n- About 38% of tumors are Nottingham grade 3.\r\n",
+ "claims": [
+  {
+   "id": "C1",
+   "text": "Data completeness: 535 of the 1,247 primary tumors have all five data layers (survival, mutation, copy number, RNA and protein).",
+   "original_text": "Data completeness: 535 of the 1,247 primary tumors have all five data layers (survival, mutation, copy number, RNA and protein).",
+   "sentence_index": 2
+  },
+  {
+   "id": "C2",
+   "text": "Every one of the 742 primary tumors with protein data also has RNA-seq data.",
+   "original_text": "Every one of the 742 primary tumors with protein data also has RNA-seq data.",
+   "sentence_index": 3
+  },
+  {
+   "id": "C3",
+   "text": "Mortality: 202 deaths among the 1,236 patients with survival data (16.3%).",
+   "original_text": "Mortality: 202 deaths among the 1,236 patients with survival data (16.3%).",
+   "sentence_index": 4
+  },
+  {
+   "id": "C4",
+   "text": "Mean overall-survival follow-up is 843 days.",
+   "original_text": "Mean overall-survival follow-up is 843 days.",
+   "sentence_index": 5
+  },
+  {
+   "id": "C5",
+   "text": "HER2-enriched tumors have the highest crude death rate of any RNA subtype (20.9%).",
+   "original_text": "HER2-enriched tumors have the highest crude death rate of any RNA subtype (20.9%).",
+   "sentence_index": 6
+  },
+  {
+   "id": "C6",
+   "text": "Normal-like is a sizeable subtype: 119 tumors, 12.4% of RNA subtype calls.",
+   "original_text": "Normal-like is a sizeable subtype: 119 tumors, 12.4% of RNA subtype calls.",
+   "sentence_index": 7
+  },
+  {
+   "id": "C7",
+   "text": "Basal-like tumors are almost all ER-negative: 124 of 136 with a known ER status (91.2%).",
+   "original_text": "Basal-like tumors are almost all ER-negative: 124 of 136 with a known ER status (91.2%).",
+   "sentence_index": 8
+  },
+  {
+   "id": "C8",
+   "text": "Mean cyclin B1 protein (RPPA CYCLINB1) is lower in Basal-like than in Luminal A tumors.",
+   "original_text": "Mean cyclin B1 protein (RPPA CYCLINB1) is lower in Basal-like than in Luminal A tumors.",
+   "sentence_index": 9
+  },
+  {
+   "id": "C9",
+   "text": "CDH1 is mutated in 34.5% of sequenced primary tumors.",
+   "original_text": "CDH1 is mutated in 34.5% of sequenced primary tumors.",
+   "sentence_index": 10
+  },
+  {
+   "id": "C10",
+   "text": "Deep deletions of PTEN are seen in 56 tumors (5.2% of tumors with copy-number data).",
+   "original_text": "Deep deletions of PTEN are seen in 56 tumors (5.2% of tumors with copy-number data).",
+   "sentence_index": 11
+  },
+  {
+   "id": "C11",
+   "text": "Infiltrating ductal carcinoma is the dominant histology, at roughly 71% of primary tumors.",
+   "original_text": "Infiltrating ductal carcinoma is the dominant histology, at roughly 71% of primary tumors.",
+   "sentence_index": 12
+  },
+  {
+   "id": "C12",
+   "text": "204 primary tumors are infiltrating lobular carcinoma.",
+   "original_text": "204 primary tumors are infiltrating lobular carcinoma.",
+   "sentence_index": 13
+  },
+  {
+   "id": "C13",
+   "text": "The majority of patients are postmenopausal.",
+   "original_text": "The majority of patients are postmenopausal.",
+   "sentence_index": 14
+  },
+  {
+   "id": "C14",
+   "text": "Diagnosis years span 1988–2013, and 2010 is the busiest single year with 225 diagnoses.",
+   "original_text": "Diagnosis years span 1988–2013, and 2010 is the busiest single year with 225 diagnoses.",
+   "sentence_index": 15
+  },
+  {
+   "id": "C15",
+   "text": "Lobular tumors respond poorly to neoadjuvant chemotherapy compared with ductal tumors.",
+   "original_text": "Lobular tumors respond poorly to neoadjuvant chemotherapy compared with ductal tumors.",
+   "sentence_index": 16
+  },
+  {
+   "id": "C16",
+   "text": "PIK3CA-mutant tumors (273 of 791 sequenced, 34.5%) gain the most from endocrine therapy, so PIK3CA status should guide treatment choice.",
+   "original_text": "PIK3CA-mutant tumors (273 of 791 sequenced, 34.5%) gain the most from endocrine therapy, so PIK3CA status should guide treatment choice.",
+   "sentence_index": 17
+  },
+  {
+   "id": "C17",
+   "text": "About 38% of tumors are Nottingham grade 3.",
+   "original_text": "About 38% of tumors are Nottingham grade 3.",
+   "sentence_index": 18
+  }
+ ]
+}

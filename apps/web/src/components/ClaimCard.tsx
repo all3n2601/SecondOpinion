@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ChevronRight, Clock, FileSearch, Sparkles, UserCheck } from "lucide-react";
+import { ChevronRight, Clock, FileSearch, FileText, Sparkles, UserCheck } from "lucide-react";
 import { formatResultFact, resultTypeLabel, VERDICT_LABEL } from "@/lib/claim-format";
+import { reportHref } from "@/lib/report-nav";
 import type { ClaimResult } from "@/lib/types";
-import { buttonSecondary, focusRing } from "@/lib/ui";
+import { buttonQuiet, buttonSecondary, focusRing } from "@/lib/ui";
 import { AiAssistedStamp } from "./AiStamp";
 import LadderText, { ladderChanges } from "./LadderText";
 import GlossaryTerm from "./GlossaryTerm";
@@ -191,10 +192,17 @@ export default function ClaimCard({ result, plain }: { result: ClaimResult; plai
                 : "Not reviewed yet."}
             </span>
           </p>
-          <Link href={`/board/${encodeURIComponent(claim.id)}`} className={buttonSecondary}>
-            <FileSearch aria-hidden="true" className="size-4" />
-            Open evidence for {claim.id}
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+            {/* Summary to source: the sentence where it sits in the report. */}
+            <Link href={reportHref(claim.id)} className={buttonQuiet}>
+              <FileText aria-hidden="true" className="size-4" />
+              Show in report<span className="sr-only">: {claim.id}</span>
+            </Link>
+            <Link href={`/board/${encodeURIComponent(claim.id)}`} className={buttonSecondary}>
+              <FileSearch aria-hidden="true" className="size-4" />
+              Open evidence for {claim.id}
+            </Link>
+          </div>
         </div>
       </div>
     </article>

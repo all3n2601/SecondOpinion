@@ -1,0 +1,24 @@
+{
+ "source": "docs/challenge/products/research-claim-auditor/practice_brief.md",
+ "reportText": "# Practice brief: Molecular coverage in TCGA breast cancer\r\n\r\n*A short fictional research summary written by the organizers for practice. It describes the TCGA-BRCA files in this repository (release A from `fetch.py`).*\r\n\r\nTCGA's breast cancer cohort is one of the most widely used public cancer datasets. Of the 1,101 primary tumors in the release, 535 have survival, mutation, copy number, RNA and protein data.\r\n\r\nLuminal A is the largest RNA subtype, accounting for about 62% of primary tumors with an RNA subtype call.\r\n\r\nProtein measurements add a useful layer. Patients whose tumors had the highest ER-alpha protein responded best to hormone therapy, which suggests protein data could guide treatment research.\r\n\r\nWe recommend future work combine all available layers.\r\n",
+ "claims": [
+  {
+   "id": "C1",
+   "text": "Of the 1,101 primary tumors in the release, 535 have survival, mutation, copy number, RNA and protein data.",
+   "original_text": "Of the 1,101 primary tumors in the release, 535 have survival, mutation, copy number, RNA and protein data.",
+   "sentence_index": 3
+  },
+  {
+   "id": "C2",
+   "text": "Luminal A is the largest RNA subtype, accounting for about 62% of primary tumors with an RNA subtype call.",
+   "original_text": "Luminal A is the largest RNA subtype, accounting for about 62% of primary tumors with an RNA subtype call.",
+   "sentence_index": 4
+  },
+  {
+   "id": "C3",
+   "text": "Patients whose tumors had the highest ER-alpha protein responded best to hormone therapy, which suggests protein data could guide treatment research.",
+   "original_text": "Patients whose tumors had the highest ER-alpha protein responded best to hormone therapy, which suggests protein data could guide treatment research.",
+   "sentence_index": 6
+  }
+ ]
+}

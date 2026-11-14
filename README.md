@@ -337,7 +337,12 @@ Open <http://localhost:3000> and choose **Start an audit**. The Start page (`/st
 3. **Audit board:** one entry per claim with the verdict, how solid it is and the Claim Ladder.
    **Open evidence** shows the calculation, the "report vs data" gauge, the files and checksums, the
    code that reproduces the number, the sample IDs (CSV download), the eight ways of counting and the
-   skeptic tests.
+   skeptic tests. Switch the board to **Report** (`/board/report`) to read the report as written with
+   each claim marked where it sits by its verdict icon and word (the final verdict, after any review).
+   Click a marked sentence to open its evidence; **Back to the report**, the browser's Back button and a
+   reload all return you to the same sentence (its place is in the address, `#mark-C2`). **Show in
+   report** on a board entry jumps the other way. Claims that can't be found in the text (the report was
+   edited after the audit) are listed under the report so none is hidden.
 4. **Review:** accept or override each verdict (an override needs a reason and your role). The page is a list
    of claims beside one open entry: it opens on the role's **Overview**, **Start reviewing** opens the first
    claim not yet reviewed, and **Save and next** moves on until every claim is done. The open claim is in the

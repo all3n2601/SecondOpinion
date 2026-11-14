@@ -1,11 +1,8 @@
 import { CircleCheck, CircleHelp, CircleX, TriangleAlert } from "lucide-react";
-import { formatFact, VERDICT_LABEL, variantWords } from "@/lib/claim-format";
+import { formatFact, PRIMARY_VARIANT_ID, VERDICT_LABEL, variantWords } from "@/lib/claim-format";
 import type { ClaimResult, Verdict } from "@/lib/types";
 import { statedShare } from "./ClaimVsData";
 import GlossaryTerm from "./GlossaryTerm";
-
-/** Mirrors PRIMARY_VARIANT in second_opinion/variants.py: the organizers' definition. */
-export const PRIMARY_VARIANT_ID = "rna_call|everyone|primary_tumors";
 
 const ICON = { supported: CircleCheck, contradicted: CircleX, insufficient_evidence: CircleHelp } as const;
 const TEXT: Record<Verdict, string> = {

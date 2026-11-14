@@ -289,6 +289,18 @@ verdict, how solid it is (in plain words), whether a person overrode it, the rep
 names of the blanks that claim has a value for. Anything that fails the checker
 (`second_opinion/ai/narrate.py`) falls back to the template wording.
 
+Each checked share or count also gets three readings, worked out in the browser from numbers the audit
+already returns (`apps/web/src/lib/insights.ts`), at each view's level of detail:
+
+- **Every way of counting:** one dot per way the claim was recounted, on a number line beside the
+  report's figure and what "about" allows.
+- **What the number rests on:** counted, checked but not counted, and left out for a missing value.
+  For a share with values missing, the range the true share must lie in whatever the missing values are.
+- **Where the report's figure might come from** (contradicted claims): which other way of counting, or
+  common slip (missing values counted one way or the other, the share outside the group, everyone
+  checked instead of the group), gives the stated figure, or the nearest one when none does. A match is
+  a clue, not proof.
+
 The app keeps your work if you refresh the page. It is stored only in that browser tab
 (`sessionStorage`); closing the tab clears it, and **Start over** clears it on demand.
 

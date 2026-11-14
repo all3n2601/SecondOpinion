@@ -98,6 +98,17 @@ export function flipWords(flip: string): string {
   return words;
 }
 
+/** Mirrors PRIMARY_VARIANT in second_opinion/variants.py: the organizers' definition. */
+export const PRIMARY_VARIANT_ID = "rna_call|everyone|primary_tumors";
+
+/** The choices a way of counting changes from the primary one, as flips: ["sample_scope=all_samples"]. */
+export function variantChanges(variantId: string): string[] {
+  const primary = PRIMARY_VARIANT_ID.split("|");
+  return variantId
+    .split("|")
+    .flatMap((option, i) => (option !== primary[i] && CHOICE_ORDER[i] ? [`${CHOICE_ORDER[i]}=${option}`] : []));
+}
+
 /** "rna_call|women_only|primary_tumors" -> "RNA-seq subtype label · women only · primary tumors only". */
 export function variantWords(variantId: string): string {
   return variantId

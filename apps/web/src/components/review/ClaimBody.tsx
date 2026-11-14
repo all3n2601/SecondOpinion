@@ -4,6 +4,7 @@ import { AiWordingStamp } from "@/components/AiStamp";
 import ClaimVsData from "@/components/ClaimVsData";
 import SolidityExplained from "@/components/SolidityExplained";
 import VerdictBadge from "@/components/VerdictBadge";
+import ClaimInsights from "@/components/review/Insights";
 import {
   CodeFor,
   CorrectedWording,
@@ -170,14 +171,11 @@ function RawBody({ result, sentence }: { result: ClaimResult; sentence: Sentence
 
 /** What a claim row shows above the Accept / Override form, worded for the viewer's role. */
 export default function ClaimBody({ view, result, sentence }: { view: RoleView; result: ClaimResult; sentence: Sentence }) {
-  switch (view) {
-    case "story":
-      return <StoryBody result={result} sentence={sentence} />;
-    case "checklist":
-      return <ChecklistBody result={result} sentence={sentence} />;
-    case "evidence":
-      return <EvidenceBody result={result} sentence={sentence} />;
-    case "raw":
-      return <RawBody result={result} sentence={sentence} />;
-  }
+  const Body = { story: StoryBody, checklist: ChecklistBody, evidence: EvidenceBody, raw: RawBody }[view];
+  return (
+    <>
+      <Body result={result} sentence={sentence} />
+      <ClaimInsights view={view} result={result} />
+    </>
+  );
 }

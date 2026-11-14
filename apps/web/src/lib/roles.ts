@@ -3,7 +3,8 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { getRoles } from "./api";
-import type { Role } from "./types";
+import { useAudit } from "./audit-context";
+import type { Role, RoleView } from "./types";
 
 /** Must match VALID_SECTIONS in second_opinion/roles.py. */
 export const ROLE_SECTIONS: { id: string; label: string }[] = [
@@ -26,6 +27,22 @@ export const DETAIL_LABEL: Record<Role["detail"], string> = {
   standard: "Standard",
   full: "Full",
 };
+
+/** Must match VALID_VIEWS in second_opinion/roles.py. */
+export const ROLE_VIEWS: { id: RoleView; label: string; description: string }[] = [
+  { id: "story", label: "Story", description: "A short written summary of what held up and what did not." },
+  { id: "checklist", label: "Checklist", description: "Claims in a list to accept or override, one by one." },
+  { id: "evidence", label: "Evidence", description: "Each claim next to the numbers and checks behind it." },
+  { id: "raw", label: "Raw data", description: "Plain tables and files with no written summary." },
+];
+
+const VIEW_IDS = new Set<string>(ROLE_VIEWS.map((v) => v.id));
+
+/** The view for a role name. Unknown name, roles not loaded, or a hand-edited unknown value all read as "checklist". */
+export function viewFor(roles: Role[] | null, name: string): RoleView {
+  const view = roles?.find((r) => r.name === name)?.view;
+  return view !== undefined && VIEW_IDS.has(view) ? view : "checklist";
+}
 
 interface RolesSnapshot {
   roles: Role[] | null;
@@ -68,4 +85,11 @@ export function useRoles() {
     error: current.error,
     setRoles: (roles: Role[]) => emit({ roles, error: null }),
   };
+}
+
+/** The view of the role currently chosen on the Review page. */
+export function useRoleView(): RoleView {
+  const { role } = useAudit();
+  const { roles } = useRoles();
+  return viewFor(roles, role);
 }

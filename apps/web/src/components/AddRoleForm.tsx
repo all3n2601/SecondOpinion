@@ -3,8 +3,8 @@
 import { Check, CircleAlert } from "lucide-react";
 import { useId, useState } from "react";
 import { saveRole } from "@/lib/api";
-import { DETAIL_LABEL, ROLE_SECTIONS } from "@/lib/roles";
-import type { Role } from "@/lib/types";
+import { DETAIL_LABEL, ROLE_SECTIONS, ROLE_VIEWS } from "@/lib/roles";
+import type { Role, RoleView } from "@/lib/types";
 import { buttonSecondary, fieldInput, fieldLabel } from "@/lib/ui";
 
 /** Add a reviewer role without touching code. Saved to roles.yaml by the API. */
@@ -13,6 +13,7 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
   const [name, setName] = useState("");
   const [sections, setSections] = useState<string[]>([]);
   const [detail, setDetail] = useState<Role["detail"]>("standard");
+  const [view, setView] = useState<RoleView>("checklist");
   const [explainTerms, setExplainTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -29,11 +30,12 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
     setError(null);
     try {
       const ordered = ROLE_SECTIONS.map((s) => s.id).filter((s) => sections.includes(s));
-      const roles = await saveRole({ name: name.trim(), sections: ordered, detail, explain_terms: explainTerms });
+      const roles = await saveRole({ name: name.trim(), sections: ordered, detail, explain_terms: explainTerms, view });
       const added = roles[roles.length - 1];
       setName("");
       setSections([]);
       setDetail("standard");
+      setView("checklist");
       setExplainTerms(false);
       onAdded(roles, added);
     } catch (err) {
@@ -111,6 +113,28 @@ export default function AddRoleForm({ onAdded }: { onAdded: (roles: Role[], adde
               </label>
             );
           })}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className={fieldLabel}>How it looks</legend>
+        <div className="mt-1">
+          {ROLE_VIEWS.map((option) => (
+            <label key={option.id} className="flex min-h-11 cursor-pointer items-start gap-3 py-2 text-sm text-ink">
+              <input
+                type="radio"
+                name={`${id}-view`}
+                value={option.id}
+                checked={view === option.id}
+                onChange={() => setView(option.id)}
+                className="mt-0.5 size-5 shrink-0 cursor-pointer accent-pen"
+              />
+              <span>
+                <span className="font-medium">{option.label}</span>
+                <span className="block text-ink-soft">{option.description}</span>
+              </span>
+            </label>
+          ))}
         </div>
       </fieldset>
 

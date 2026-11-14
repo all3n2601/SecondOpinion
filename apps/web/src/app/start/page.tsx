@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, ClipboardCheck, FileText, LayoutList } from "lucide-react";
+import { CircleAlert, ClipboardCheck, FileText, LayoutList, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -267,6 +267,10 @@ export default function StartPage() {
           <p className="text-sm text-ink-faint">The first time, this downloads about 70 MB.</p>
         )}
         {dataNote && !running && <p className="text-sm text-ink-faint">{dataNote}</p>}
+        <Link href="/demo" className={`${buttonQuiet} -my-1 sm:ml-auto`}>
+          <Play aria-hidden="true" size={16} strokeWidth={1.75} />
+          Watch it as a storyboard
+        </Link>
       </div>
 
       <div className="mt-8 grid gap-x-10 gap-y-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,25rem)] xl:items-start">

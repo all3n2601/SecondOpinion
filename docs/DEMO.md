@@ -8,6 +8,29 @@ envelope). Before you start, run `npm run dev`, open http://localhost:3000, chec
 **API connected**, and set **Viewing as** to *Data-use reviewer*. Close other tabs and hide
 notifications.
 
+## The storyboard take (recommended, about 1 minute 15 seconds)
+
+The landing page's **Watch an audit** (or http://localhost:3000/demo) plays the whole audit by itself.
+You click three times; everything between plays on its own clock. Space pauses, the arrow keys step.
+
+| Time | Scene | You do |
+| --- | --- | --- |
+| 0:00 | Cover | **Play the practice audit** |
+| 0:02 | It reads the report: the three claims light up in the text | nothing |
+| 0:10 | It recounts the data: release A, six files with checksums, then 1 / 1 / 1 verdicts | nothing |
+| 0:15 | C1, C2, C3: the sentence, what the data shows, the verdict, the honest wording (C2: 62% struck, 49.9% (421 of 844) written in) | nothing (pause on C2 if you want longer) |
+| 0:45 | What it found | nothing |
+| 0:50 | A person confirms each verdict | **Accept all 3 verdicts** |
+| 0:55 | The tool suggests: Fix a problem, why, who signs off | **Sign off: Fix a problem** |
+| 1:00 | The report after the decision, with **Download audit.json** | download it, end |
+
+The decision reason is filled in from the tool's rule ("Agreed with the tool's suggestion (Rule 2: ...)
+after reviewing every verdict"), so nothing is typed on screen. **Override one instead** and **Choose a
+different decision** open the full Review and Decision screens. After the take, **Open the full
+workspace** shows the same audit on the board, review and decision screens.
+
+## The full-workspace take (about 3 minutes)
+
 | Time | Do this | Pause on |
 | --- | --- | --- |
 | 0:00 | Landing page → **Start an audit** | The report text and the research-only banner |

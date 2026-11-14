@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, Play } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { buttonSecondary } from "@/lib/ui";
@@ -31,10 +31,17 @@ export default function FinalCta() {
             Bring a report and the TCGA-BRCA data folder it describes, or run the practice report to see a whole audit
             first.
           </p>
-          <div className="mt-8">
-            <Link href="/start" className={`${buttonSecondary} min-h-12 px-6 text-base active:scale-[0.98]`}>
+          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <Link href="/demo" className={`${buttonSecondary} min-h-12 px-6 text-base active:scale-[0.98]`}>
+              <Play aria-hidden="true" size={18} strokeWidth={1.75} />
+              Watch an audit
+            </Link>
+            <Link
+              href="/start"
+              className="inline-flex min-h-11 items-center gap-2 rounded-control px-1 text-[0.9375rem] font-medium text-white underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
               <ClipboardCheck aria-hidden="true" size={18} strokeWidth={1.75} />
-              Start an audit
+              Start your own audit
             </Link>
           </div>
         </Reveal>

@@ -1,10 +1,10 @@
 "use client";
 
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, Play } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { buttonPrimary, focusRing } from "@/lib/ui";
+import { buttonPrimary, buttonSecondary, focusRing } from "@/lib/ui";
 import CohortFigure from "./CohortFigure";
 import { EASE } from "./motion";
 import { LAST, useDemoStage } from "./useDemoStage";
@@ -124,11 +124,15 @@ export default function Hero() {
 
             <motion.div {...rise(1.15)} className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
               <Link
-                href="/start"
+                href="/demo"
                 className={`${buttonPrimary} min-h-12 px-6 text-base shadow-[0_10px_24px_-12px_rgb(158_42_94/0.6)] active:scale-[0.98]`}
               >
+                <Play aria-hidden="true" size={18} strokeWidth={1.75} />
+                Watch an audit
+              </Link>
+              <Link href="/start" className={`${buttonSecondary} min-h-12 px-6 text-base active:scale-[0.98]`}>
                 <ClipboardCheck aria-hidden="true" size={18} strokeWidth={1.75} />
-                Start an audit
+                Start your own audit
               </Link>
               <a
                 href="#why"

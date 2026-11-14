@@ -1,14 +1,24 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Breadcrumb from "@/components/Breadcrumb";
 import DecisionPanel from "@/components/DecisionPanel";
 import NoAuditNotice from "@/components/NoAuditNotice";
 import RolePicker from "@/components/RolePicker";
 import { useAudit } from "@/lib/audit-context";
+import { unreviewedIds } from "@/lib/review";
 import { pageTitle, pageWidth } from "@/lib/ui";
 
 export default function DecisionPage() {
-  const { audit } = useAudit();
+  const { audit, hydrated } = useAudit();
+  const router = useRouter();
+  // The decision comes after the review: until every claim is reviewed, this page sends you to Review.
+  const locked = audit !== null && unreviewedIds(audit.claims).length > 0;
+
+  useEffect(() => {
+    if (hydrated && locked) router.replace("/review");
+  }, [hydrated, locked, router]);
 
   return (
     <main className={pageWidth}>
@@ -21,7 +31,13 @@ export default function DecisionPage() {
       <div className="mb-8 mt-6">
         <RolePicker />
       </div>
-      {audit ? <DecisionPanel audit={audit} /> : <NoAuditNotice />}
+      {locked || !hydrated ? (
+        <div aria-hidden="true" className="min-h-40 max-w-prose" />
+      ) : audit ? (
+        <DecisionPanel audit={audit} />
+      ) : (
+        <NoAuditNotice />
+      )}
     </main>
   );
 }

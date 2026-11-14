@@ -1,0 +1,387 @@
+[
+ {
+  "report": "r1.md",
+  "claim_contains": "1,247 samples drawn from 1,101 patients",
+  "verdict": "supported",
+  "truth": "1,247 samples; 1,101 unique patients; 1,101 primary tumors, one per patient",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "808 were ER-positive, roughly 77%",
+  "verdict": "supported",
+  "truth": "ER Positive 808 / (808+238=1,046) = 77.25%",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "at about 64% of tumors",
+  "verdict": "contradicted",
+  "truth": "PR Positive 699 / (699+344=1,043) = 67.02%; 64% is 3.0 points off (the 'lower than ER' part is true)",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "was positive in 164 tumors",
+  "verdict": "supported",
+  "truth": "HER2 IHC Positive 164 / (164+564=728) = 22.53%; Equivocal 179",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "116 of 722 were triple-negative",
+  "verdict": "supported",
+  "truth": "ER, PR and HER2 IHC all Positive/Negative: 722; all three Negative: 116 = 16.07%",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "the most common subtype at 421",
+  "verdict": "supported",
+  "truth": "PAM50 subtyped primary 844; LumA 421 = 49.88%, the largest",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "second-largest group, ahead of Luminal B",
+  "verdict": "contradicted",
+  "truth": "LumB 192 (22.75%) is second; Basal 141 (16.71%) is third",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "by more than six to one",
+  "verdict": "supported",
+  "truth": "LumA 421 / Her2 67 = 6.28",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "Luminal A tumors (393 of 402)",
+  "verdict": "supported",
+  "truth": "LumA ER+ 393/402 = 97.76%; Basal ER+ 12/136 = 8.82%",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "responded better to endocrine therapy",
+  "verdict": "insufficient_evidence",
+  "truth": "no endocrine therapy or treatment-response data in release A",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "available for 791 primary tumors",
+  "verdict": "supported",
+  "truth": "mutation file: 791 samples, all primary (sample code 01); 0 normal-tissue samples",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "TP53 was the most frequently mutated",
+  "verdict": "contradicted",
+  "truth": "TP53 264/791 = 33.38% is second; PIK3CA 273/791 = 34.51% is most frequent",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "PIK3CA mutations were found in about 35%",
+  "verdict": "supported",
+  "truth": "PIK3CA 273/791 = 34.51%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "102 tumors and GATA3 in 98",
+  "verdict": "contradicted",
+  "truth": "CDH1 102 (12.90%) correct; GATA3 97 (12.26%), not 98",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "turned up in roughly 8% of tumors",
+  "verdict": "supported",
+  "truth": "MAP3K1 66/791 = 8.34%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "90 of 106 carried a TP53 mutation",
+  "verdict": "supported",
+  "truth": "Basal with mutation data 106, TP53 mutated 90 = 84.91%; LumA 31/301 = 10.30%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "only 7 of the 106 basal-like tumors",
+  "verdict": "supported",
+  "truth": "PIK3CA LumA 146/301 = 48.50%; Basal 7/106 = 6.60%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "Not a single basal-like or HER2-enriched",
+  "verdict": "supported",
+  "truth": "GATA3 mutated: Basal 0/106, Her2 0/42",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "85 of 144 profiled tumors were mutated",
+  "verdict": "contradicted",
+  "truth": "Infiltrating Lobular with mutation data 144, CDH1 mutated 85 = 59.03%, not about 52%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "grow faster than luminal tumors",
+  "verdict": "insufficient_evidence",
+  "truth": "causal claim; no growth-rate data; a mutation-rate difference cannot show causation",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "calls cover 1,080 primary tumors",
+  "verdict": "supported",
+  "truth": "copy-number file: 1,080 primary tumors",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "MYC amplification was present in 229",
+  "verdict": "supported",
+  "truth": "MYC GISTIC=2: 229/1,080 = 21.20%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "ERBB2 was amplified in 133 tumors",
+  "verdict": "supported",
+  "truth": "ERBB2 GISTIC=2: 133/1,080 = 12.31%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "CCND1 amplification was less common than",
+  "verdict": "contradicted",
+  "truth": "CCND1 amplified 177 (16.39%) vs ERBB2 133 (12.31%): CCND1 is more common",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "PTEN was found in 56 tumors",
+  "verdict": "contradicted",
+  "truth": "PTEN GISTIC=-2: 56 (5.19%) correct; CDKN2A deep deletion 47 (4.35%), not 45",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "just over half (87 of 162)",
+  "verdict": "supported",
+  "truth": "HER2 IHC Positive in CN file 162, ERBB2 amplified 87 = 53.70%; HER2 IHC Negative 9/556 = 1.62%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "151 deaths among the 1,097 primary",
+  "verdict": "supported",
+  "truth": "survival.tsv primary tumors 1,097; OS==1: 151",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "overall death rate of roughly 16%",
+  "verdict": "contradicted",
+  "truth": "151/1,097 = 13.76%; 16% is 2.24 points off",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "highest share of deaths, 14 of 67",
+  "verdict": "supported",
+  "truth": "OS deaths: Her2 14/67 = 20.90%; LumB 32/192 = 16.67%; Basal 19/140 = 13.57%; LumA 55/420 = 13.10%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "should be prioritised for HER2-targeted",
+  "verdict": "insufficient_evidence",
+  "truth": "prognosis/treatment recommendation; no treatment-outcome data; ERBB2 vs survival not established by the report",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "tumors come from male patients",
+  "verdict": "supported",
+  "truth": "gender MALE 12 (FEMALE 1,085, missing 4); all 12 ER Positive",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "The median age at diagnosis was 58 years",
+  "verdict": "supported",
+  "truth": "age_at_initial_pathologic_diagnosis: median 58, min 26, max 90 (n=1,097)",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "Fewer than 6% of patients were diagnosed",
+  "verdict": "contradicted",
+  "truth": "age < 40: 76/1,097 = 6.93% (6.90% of 1,101); not fewer than 6%",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "younger median age (54) than Luminal A",
+  "verdict": "supported",
+  "truth": "median age Basal 54, LumA 61",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "Black patients were more likely",
+  "verdict": "insufficient_evidence",
+  "truth": "no race/ethnicity field in release A",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "Stage II disease dominated",
+  "verdict": "supported",
+  "truth": "pathologic_stage grouped: II 622 / 1,075 staged I-IV = 57.86%; III 250, I 183, IV 20",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "Stage IV tumors were rare, with 24 cases",
+  "verdict": "contradicted",
+  "truth": "Stage IV: 20 primary tumors",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "made up about 71% of primary tumors",
+  "verdict": "supported",
+  "truth": "Infiltrating Ductal 784/1,101 = 71.21% (784/1,096 non-missing = 71.53%); Infiltrating Lobular 203",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "1,133 are diagnostic FFPE sections",
+  "verdict": "supported",
+  "truth": "slide_manifest 3,111 slides; diagnostic (FFPE) 1,133",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "every primary tumor has at least one",
+  "verdict": "contradicted",
+  "truth": "frozen top 1,418 is the most common kind (true), but only 1,098 of 1,101 primary tumors have a slide; 3 have none",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "742 have RPPA protein data and 535",
+  "verdict": "supported",
+  "truth": "primary tumors with protein 742; with survival+mutation+CN+RNA+protein 535",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "All 742 tumors with protein data also",
+  "verdict": "supported",
+  "truth": "primary with protein and RNA: 742 = all 742",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "Mean ER-alpha protein was 2.18",
+  "verdict": "supported",
+  "truth": "ERALPHA mean ER+ 2.179 (n=529), ER- -0.872 (n=169), difference 3.051",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "mean 1.41 vs 0.16",
+  "verdict": "supported",
+  "truth": "HER2 protein mean HER2 IHC+ 1.408 (n=119) vs IHC- 0.156 (n=385)",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "GATA3 protein averaged 2.36",
+  "verdict": "supported",
+  "truth": "GATA3 protein mean ER+ 2.363 (n=529) vs ER- 0.744 (n=169)",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "Mean p53 protein was higher",
+  "verdict": "contradicted",
+  "truth": "P53 protein mean ER+ -0.229 vs ER- 0.139: higher in ER-negative",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "higher in Luminal A than in Luminal B",
+  "verdict": "contradicted",
+  "truth": "ERALPHA protein mean LumA 2.275 (n=330) vs LumB 2.510 (n=162): higher in Luminal B",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "more often histological grade 3",
+  "verdict": "insufficient_evidence",
+  "truth": "no tumor grade field in release A",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "each from a patient who also has",
+  "verdict": "supported",
+  "truth": "139 normal-tissue samples from 139 patients, all of whom have a primary tumor sample",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "Metastatic samples: 8 in total",
+  "verdict": "contradicted",
+  "truth": "7 metastatic samples (code 06); 8 is the number of slides from metastases",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "RNA-seq: 1,097 primary tumors and 114",
+  "verdict": "supported",
+  "truth": "rna_hiseq: 1,097 primary, 114 normal, 7 metastatic",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "missing mutation data: 301",
+  "verdict": "contradicted",
+  "truth": "1,101 - 791 = 310 primary tumors without mutation data",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "TP53 mutation frequency: 24%",
+  "verdict": "contradicted",
+  "truth": "TP53 264/791 = 33.38% of profiled primary tumors (24% comes from dividing by 1,101)",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "PTEN deep deletion: about 5%",
+  "verdict": "supported",
+  "truth": "PTEN GISTIC=-2: 56/1,080 = 5.19%",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "patients who received trastuzumab",
+  "verdict": "insufficient_evidence",
+  "truth": "no drug names in release A (targeted_molecular_therapy is YES/NO only); treatment-effect claim",
+  "debatable": false
+ }
+]

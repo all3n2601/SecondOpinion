@@ -1,0 +1,166 @@
+[
+ {
+  "report": "r1.md",
+  "contains": "Who is in the data"
+ },
+ {
+  "report": "r1.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r1.md",
+  "contains": "links clinical records, molecular profiles"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Molecular coverage is uneven"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Combining layers shrinks the cohort"
+ },
+ {
+  "report": "r1.md",
+  "contains": "Pathology images round out"
+ },
+ {
+  "report": "r1.md",
+  "contains": "We recommend that every analysis"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Intrinsic subtypes and receptor status"
+ },
+ {
+  "report": "r2.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r2.md",
+  "contains": "one of five intrinsic subtypes"
+ },
+ {
+  "report": "r2.md",
+  "contains": "The balance between groups is striking"
+ },
+ {
+  "report": "r2.md",
+  "contains": "receptor testing tells a consistent"
+ },
+ {
+  "report": "r2.md",
+  "contains": "Subtype also matters for treatment"
+ },
+ {
+  "report": "r2.md",
+  "contains": "We recommend reporting subtype"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Recurrent somatic mutations"
+ },
+ {
+  "report": "r3.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r3.md",
+  "contains": "let us compare the most common driver"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Subtype shapes the mutation landscape"
+ },
+ {
+  "report": "r3.md",
+  "contains": "Histology and receptor status add"
+ },
+ {
+  "report": "r3.md",
+  "contains": "obvious therapeutic interest"
+ },
+ {
+  "report": "r3.md",
+  "contains": "We recommend that mutation frequencies"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Copy number, outcomes and clinical"
+ },
+ {
+  "report": "r4.md",
+  "contains": "A short fictional research summary"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Focal amplifications are a hallmark"
+ },
+ {
+  "report": "r4.md",
+  "contains": "Follow-up data allow a first look"
+ },
+ {
+  "report": "r4.md",
+  "contains": "typical of a surgical breast cancer"
+ },
+ {
+  "report": "r4.md",
+  "contains": "We recommend that outcome analyses"
+ },
+ {
+  "report": "r5.md",
+  "contains": "Protein-level correlates of receptor"
+ },
+ {
+  "report": "r5.md",
+  "contains": "offers a measurement layer between"
+ },
+ {
+  "report": "r5.md",
+  "contains": "deserve a place in future multi-omic"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Figure legends and table notes"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Data-layer coverage of primary tumors"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Bar colors distinguish molecular"
+ },
+ {
+  "report": "r6.md",
+  "contains": "PAM50 composition"
+ },
+ {
+  "report": "r6.md",
+  "contains": "conventional PAM50 palette"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Figure 3. Pathology slides"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Thumbnails are shown at reduced"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Table 1 notes"
+ },
+ {
+  "report": "r6.md",
+  "contains": "rounded to one decimal place"
+ },
+ {
+  "report": "r6.md",
+  "contains": "Table 2 notes"
+ },
+ {
+  "report": "r6.md",
+  "contains": "GISTIC thresholded values"
+ }
+]

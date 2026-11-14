@@ -1,0 +1,387 @@
+[
+ {
+  "report": "r1.md",
+  "claim_contains": "ER-positive, 393 of 402",
+  "verdict": "supported",
+  "truth": "LumA: ER Positive 393, Negative 9 (402 with a result)",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "12 were nonetheless recorded",
+  "verdict": "supported",
+  "truth": "Basal: ER Positive 12 (Negative 124)",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "with 21 ER-positive and 40 ER-negative",
+  "verdict": "supported",
+  "truth": "Her2-enriched: ER Positive 21, Negative 40 (2 indeterminate)",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "also PR-positive, 682 in all",
+  "verdict": "supported",
+  "truth": "ER Positive and PR Positive: 682 (of 808 ER-positive)",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "Only 16 tumors were ER-negative",
+  "verdict": "supported",
+  "truth": "ER Negative and PR Positive: 16",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "About 30% of primary tumors with a PR",
+  "verdict": "contradicted",
+  "truth": "PR Negative 344/(699+344) = 33.0%, more than 2 pp from 30%",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "equivocal in 197 tumors",
+  "verdict": "contradicted",
+  "truth": "HER2 IHC Equivocal: 179 primary tumors",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "the largest share came from the HER2",
+  "verdict": "contradicted",
+  "truth": "HER2 IHC Positive 164 by PAM50: LumA 46, Her2 43, LumB 33, Basal 9, Normal 1, unsubtyped 32; Luminal A is largest",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "77 of the 116 carried that label",
+  "verdict": "supported",
+  "truth": "triple-negative (ER-, PR-, HER2- all Negative) 116; Basal 77 of them",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "who received tamoxifen lived longer",
+  "verdict": "insufficient_evidence",
+  "truth": "no drug-level (tamoxifen) treatment data in release A",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "together affecting 480 of 791 tumors",
+  "verdict": "supported",
+  "truth": "PIK3CA 273 and TP53 264 are the top two; either mutated in 480 of 791",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "SYNE1 was mutated in 50 tumors",
+  "verdict": "supported",
+  "truth": "SYNE1 50, PTEN 48 of 791",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "the same number as SF3B1",
+  "verdict": "contradicted",
+  "truth": "CBFB 18 (true), SF3B1 17",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "nearly twice as frequent in ER-positive",
+  "verdict": "supported",
+  "truth": "KMT2C: ER+ 63/567 = 11.1%, ER- 11/178 = 6.2% (ratio 1.8)",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "at about 6.5% and 6.2%",
+  "verdict": "supported",
+  "truth": "PTEN mutation: ER+ 37/567 = 6.5%, ER- 11/178 = 6.2%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "43.8% versus 34.4%",
+  "verdict": "supported",
+  "truth": "TP53: HER2 IHC Positive 42/96 = 43.8%, Negative 136/395 = 34.4%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "MDM2 was amplified in 63 tumors",
+  "verdict": "contradicted",
+  "truth": "MDM2 GISTIC=2: 36 of 1,080",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "IGF1R amplification occurred in 51",
+  "verdict": "supported",
+  "truth": "IGF1R GISTIC=2: 51/1,080 = 4.7%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "rarely amplified, in 3.5% of tumors",
+  "verdict": "contradicted",
+  "truth": "ESR1 GISTIC=2: 27/1,080 = 2.5%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "EGFR amplification (23 tumors)",
+  "verdict": "contradicted",
+  "truth": "EGFR GISTIC=2 23 (true) but KRAS 24, so EGFR is not twice as common",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "151 died during follow-up",
+  "verdict": "supported",
+  "truth": "OS==1: 151 of 1,097 primary tumors with survival data",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "3.5% in Stage IA and 75% in Stage IV",
+  "verdict": "supported",
+  "truth": "OS==1: Stage IA 3/86 = 3.5%; Stage IV 15/20 = 75.0%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "Stage IIIA disease died at a rate",
+  "verdict": "supported",
+  "truth": "Stage IIIA 26/156 = 16.7%; Stage IIA 34/358 = 9.5%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "(11.3% versus 13.5%)",
+  "verdict": "supported",
+  "truth": "OS==1: lobular 23/203 = 11.3%; ductal 106/784 = 13.5%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "nearly double that of Luminal B",
+  "verdict": "contradicted",
+  "truth": "Her2 14/67 = 20.9% and LumB 32/192 = 16.7% are true, but ratio is 1.25, not nearly double",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "Luminal A patients had the lowest",
+  "verdict": "supported",
+  "truth": "OS==1 rates: LumA 13.1%, Basal 13.6%, LumB 16.7%, Her2 20.9%, Normal 21.7%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "recorded for 83 patients",
+  "verdict": "contradicted",
+  "truth": "DSS==1 83 (true) of 1,078 with DSS = 7.7%, not about 10%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "greater efficacy of endocrine therapy",
+  "verdict": "insufficient_evidence",
+  "truth": "causal treatment-efficacy claim; no treatment data",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "MCL1 was amplified at a high level",
+  "verdict": "supported",
+  "truth": "MCL1 GISTIC=2: 147/1,080",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "5.0% of the copy-number cohort",
+  "verdict": "supported",
+  "truth": "PIK3CA GISTIC=2: 54/1,080 = 5.0%",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "TP53 deep deletion was seen in 51",
+  "verdict": "contradicted",
+  "truth": "TP53 GISTIC=-2: 15/1,080",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "the most PTEN deep deletions",
+  "verdict": "supported",
+  "truth": "PTEN GISTIC=-2 by subtype: Basal 23/135, LumB 11, LumA 6, Her2 1, Normal 1",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "the same number of FGFR1 amplifications",
+  "verdict": "supported",
+  "truth": "FGFR1 GISTIC=2: LumA 41, LumB 41",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "(mean 0.36 versus 0.11)",
+  "verdict": "supported",
+  "truth": "HER3 protein mean LumA 0.355 (n=330) vs Basal 0.113 (n=120)",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "with means of 1.33 and 0.38",
+  "verdict": "supported",
+  "truth": "AR protein mean ER+ 1.335 (n=529) vs ER- 0.383 (n=169)",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "averaged 1.26 in HER2-positive",
+  "verdict": "supported",
+  "truth": "HER2PY1248 mean HER2 IHC Positive 1.257 (n=119) vs Negative 0.269 (n=385)",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "PTEN protein was lower in Luminal A",
+  "verdict": "contradicted",
+  "truth": "PTEN protein mean LumA 0.155 vs Basal -0.018: higher in LumA",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "confirmed by FISH in a random 10%",
+  "verdict": "insufficient_evidence",
+  "truth": "no FISH validation data in release A",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "344 patients aged 65 or over",
+  "verdict": "supported",
+  "truth": "median age 58.0 (n=1,097); age >= 65: 344",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "Fewer than one in twenty patients",
+  "verdict": "contradicted",
+  "truth": "age < 40: 76/1,097 = 6.9%, more than one in twenty (5%)",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "median age of 54 compared with 61",
+  "verdict": "supported",
+  "truth": "median age Basal 54.0, LumA 61.0",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "youngest of all, with a median age of 49",
+  "verdict": "contradicted",
+  "truth": "Normal-like median age 53.0 (youngest group, but not 49)",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "by more than five to one",
+  "verdict": "supported",
+  "truth": "menopause Pre 229 vs Peri 39 = 5.9 to 1",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "represented by only 14 cases",
+  "verdict": "contradicted",
+  "truth": "gender MALE: 12 primary tumors",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "primary tumors, 1,061 of 1,101",
+  "verdict": "supported",
+  "truth": "1,061 primary tumors with at least one diagnostic (FFPE) slide",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "germline BRCA1 variants",
+  "verdict": "insufficient_evidence",
+  "truth": "only somatic mutation calls; no germline data",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "789 also have RNA data",
+  "verdict": "supported",
+  "truth": "primary tumors in mutation and RNA files: 789 of 791",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "available for 783 primary tumors",
+  "verdict": "supported",
+  "truth": "mutation, copy number and RNA: 783",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "overlap in 538 primary tumors",
+  "verdict": "supported",
+  "truth": "mutation and protein: 538",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "copy number overlap in 742",
+  "verdict": "contradicted",
+  "truth": "copy number and protein: 730 (742 is protein alone)",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "Just two primary tumors lack every",
+  "verdict": "supported",
+  "truth": "2 primary tumors in none of mutation, copy number, RNA, protein",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "RNA for seven and protein for five",
+  "verdict": "supported",
+  "truth": "7 metastatic samples: RNA 7, protein 5, mutation 0",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "account for 399 of the slides",
+  "verdict": "supported",
+  "truth": "slides on -11 samples: 399",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "most common slide kind, with 1,814",
+  "verdict": "contradicted",
+  "truth": "frozen top section is most common (true) with 1,418 slides, not 1,814",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "before 2005 have lower RNA quality",
+  "verdict": "insufficient_evidence",
+  "truth": "no RNA quality metric in release A",
+  "debatable": false
+ }
+]

@@ -1,0 +1,387 @@
+[
+ {
+  "report": "r1.md",
+  "claim_contains": "full set of 1,236 survival records",
+  "verdict": "supported",
+  "truth": "survival.tsv has 1,236 rows; 132 are normal tissue (-11) samples",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "The RNA file contains 1,218 samples",
+  "verdict": "supported",
+  "truth": "RNA file: 1,218 samples, 114 normal tissue",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "None of the 139 normal tissue samples",
+  "verdict": "supported",
+  "truth": "sample_manifest: 0 of 139 normal samples have mutation or copy-number data",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "six of them also have protein data",
+  "verdict": "contradicted",
+  "truth": "all 7 metastatic samples have RNA (true), but only 5 have protein data",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "The protein file profiles 131",
+  "verdict": "supported",
+  "truth": "protein_rppa.tsv: 131 antibody rows",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "span more than 25,000 genes",
+  "verdict": "contradicted",
+  "truth": "copy_number_gistic.tsv: 24,776 genes",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "copy number and protein data number 742",
+  "verdict": "contradicted",
+  "truth": "primary tumors in both copy-number and protein files: 730 (742 is protein alone)",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "Every primary tumor in the release has",
+  "verdict": "supported",
+  "truth": "all 1,101 primary tumors (all 1,247 samples) have a clinical row",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "Only three primary tumors lack any",
+  "verdict": "supported",
+  "truth": "3 primary tumors with slides_for_sample = 0; 1,098 have at least one slide",
+  "debatable": false
+ },
+ {
+  "report": "r1.md",
+  "claim_contains": "Re-consent was obtained from all",
+  "verdict": "insufficient_evidence",
+  "truth": "no consent information in the data",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "TTN is the third most frequently",
+  "verdict": "supported",
+  "truth": "PIK3CA 273, TP53 264, TTN 137 of 791",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "so roughly one in four",
+  "verdict": "contradicted",
+  "truth": "TTN 137/791 = 17.3% (about one in six), not one in four (25%)",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "essentially tied, 78 versus 77",
+  "verdict": "supported",
+  "truth": "MUC16 78, KMT2C 77 of 791",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "BRCA1 is mutated in 22 tumors",
+  "verdict": "contradicted",
+  "truth": "BRCA1 22 (true), BRCA2 20 (not 25)",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "The median tumor carries 35 mutated",
+  "verdict": "supported",
+  "truth": "median number of genes with value 1 per primary tumor = 35 (n=791)",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "Only 57 tumors carry both TP53",
+  "verdict": "supported",
+  "truth": "TP53 and PIK3CA both mutated: 57 of 791",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "relapsed earlier because the two",
+  "verdict": "insufficient_evidence",
+  "truth": "causal claim; data cannot establish cooperation or causation",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "more than three quarters of ER-negative",
+  "verdict": "supported",
+  "truth": "TP53: ER-negative 138/178 = 77.5%; ER-positive 114/567 = 20.1%",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "three times more common in ductal",
+  "verdict": "contradicted",
+  "truth": "FOXA1: lobular 11/144 = 7.6%, ductal 13/560 = 2.3%; more common in lobular (direction reversed)",
+  "debatable": false
+ },
+ {
+  "report": "r2.md",
+  "claim_contains": "PIK3CA is mutated in 46.5% of lobular",
+  "verdict": "contradicted",
+  "truth": "PIK3CA: lobular 67/144 = 46.5% (true), ductal 181/560 = 32.3% (not 38.3%)",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "All 12 male patients in the cohort",
+  "verdict": "supported",
+  "truth": "12 MALE primary tumors, all ER Positive",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "ranged from 44 to 84 years",
+  "verdict": "supported",
+  "truth": "male ages 44 to 84",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "while 24 carried a Stage IV label",
+  "verdict": "contradicted",
+  "truth": "pathologic_M M1: 22 (true); pathologic_stage Stage IV: 20 (not 24)",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "Death was recorded in 15 of the 20",
+  "verdict": "supported",
+  "truth": "Stage IV: OS==1 in 15 of 20",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "More than half of the tumors were",
+  "verdict": "supported",
+  "truth": "pathologic_T T2: 633/1,101 = 57.5% (635 incl. T2a/T2b)",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "Median age was 61 years for lobular",
+  "verdict": "supported",
+  "truth": "median age: lobular 61.0 (n=203), ductal 58.0 (n=784)",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "at the oldest median age, 70 years",
+  "verdict": "contradicted",
+  "truth": "mucinous carcinoma median age 74.0 (n=17), oldest group but not 70",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "41 of 238 (17.2%) compared with 12.4%",
+  "verdict": "supported",
+  "truth": "OS==1: ER-negative 41/238 = 17.2%; ER-positive 100/808 = 12.4%",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "Disease-specific deaths numbered 93",
+  "verdict": "contradicted",
+  "truth": "DSS==1 among primary tumors: 83",
+  "debatable": false
+ },
+ {
+  "report": "r3.md",
+  "claim_contains": "Hormone therapy adherence exceeded",
+  "verdict": "insufficient_evidence",
+  "truth": "no hormone therapy adherence data",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "FGFR1 amplification was present in 135",
+  "verdict": "supported",
+  "truth": "FGFR1 GISTIC=2: 135/1,080 = 12.5%",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "amplified slightly more often, in 145",
+  "verdict": "supported",
+  "truth": "ZNF703 GISTIC=2: 145/1,080 (vs FGFR1 135)",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "Co-amplification of CCND1 and FGFR1",
+  "verdict": "supported",
+  "truth": "CCND1 and FGFR1 both GISTIC=2: 37/1,080 = 3.4%",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "AKT3 and MCL1 amplifications were",
+  "verdict": "supported",
+  "truth": "AKT3 149/1,080 = 13.8%; MCL1 147/1,080 = 13.6%",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "Overall, 870 primary tumors had",
+  "verdict": "supported",
+  "truth": "870 of 1,080 primary tumors with any gene GISTIC=2",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "158 of 796 ER-positive tumors",
+  "verdict": "supported",
+  "truth": "CCND1 GISTIC=2: ER-positive 158/796, ER-negative 12/233",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "most frequent in HER2-enriched tumors",
+  "verdict": "contradicted",
+  "truth": "RB1 GISTIC=-2: Her2 5/67 = 7.5%, but Basal 15/135 = 11.1% is highest",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "amplified in 1.9%",
+  "verdict": "contradicted",
+  "truth": "CDKN2A: deep deletion 47/1,080 = 4.4% (true), amplification 10/1,080 = 0.9% (not 1.9%)",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "in the 96 tumors with high-level ERBB2",
+  "verdict": "supported",
+  "truth": "HER2 protein mean: ERBB2 GISTIC=2 2.12 (n=96) vs others 0.20 (n=634), primary tumors with CN and protein",
+  "debatable": false
+ },
+ {
+  "report": "r4.md",
+  "claim_contains": "PTEN-deleted tumors had higher PTEN",
+  "verdict": "contradicted",
+  "truth": "PTEN protein mean: PTEN deep-deleted -0.204 (n=39) vs not deleted 0.138 (n=691); lower, not higher",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "mean 1.38 vs -0.06",
+  "verdict": "supported",
+  "truth": "AR protein mean LumA 1.384 (n=330), Basal -0.056 (n=120)",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "P53 protein showed the reverse",
+  "verdict": "supported",
+  "truth": "P53 protein mean Basal 0.180 vs LumA -0.306",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "TP53-mutant tumors (n = 190)",
+  "verdict": "supported",
+  "truth": "P53 protein mean TP53-mutant 0.069 (n=190) vs wild-type -0.292 (n=348)",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "EGFR protein was higher in ER-positive",
+  "verdict": "contradicted",
+  "truth": "EGFR protein mean ER-positive -0.411 (n=529) vs ER-negative -0.114 (n=169); lower in ER-positive",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "more than eight times the Luminal A",
+  "verdict": "contradicted",
+  "truth": "HER2 protein mean Her2 2.020 (n=61) true, LumA 0.310 (n=330); ratio 6.5, not more than 8",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "P-cadherin protein was higher in",
+  "verdict": "supported",
+  "truth": "PCADHERIN mean ER-negative 0.114 vs ER-positive -0.093",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "at 0.39 versus -0.13 in basal-like",
+  "verdict": "supported",
+  "truth": "ERALPHAPS118 mean LumA 0.392 vs Basal -0.126",
+  "debatable": false
+ },
+ {
+  "report": "r5.md",
+  "claim_contains": "improved relapse prediction beyond",
+  "verdict": "insufficient_evidence",
+  "truth": "no prediction models in the data; not checkable",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "events were recorded for 145 primary",
+  "verdict": "supported",
+  "truth": "PFI==1 among primary tumors: 145",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "available for 953 tumors, with 84",
+  "verdict": "supported",
+  "truth": "DFI non-missing 953 primary tumors, DFI==1 84",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "more than three times the 229",
+  "verdict": "supported",
+  "truth": "menopause Post 705, Pre 229; ratio 3.08",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "Patients under 40 numbered 67",
+  "verdict": "contradicted",
+  "truth": "age < 40: 76 primary-tumor patients",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "median of about 1 GB versus 338 MB",
+  "verdict": "supported",
+  "truth": "median size_mb: diagnostic 1,017.9; all slides 337.6",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "640 were scanned at 20x",
+  "verdict": "contradicted",
+  "truth": "objective 20x: 521 slides (40x 2,583; 7 missing)",
+  "debatable": false
+ },
+ {
+  "report": "r6.md",
+  "claim_contains": "re-reviewed by a second pathologist",
+  "verdict": "insufficient_evidence",
+  "truth": "no pathology review information in the data",
+  "debatable": false
+ }
+]

@@ -5,7 +5,7 @@
 > Research prototype. Not a clinical decision system. Verdicts need human review.
 > No diagnosis, treatment advice or risk scores.
 
-**Demo video:** _link to be added_ (about 3 minutes, silent screen recording; shot list in [docs/DEMO.md](docs/DEMO.md))
+**Demo video:** <https://youtu.be/JQrZGETIs98> (silent screen recording; shot list in [docs/DEMO.md](docs/DEMO.md))
 
 ## How to run it, step by step
 

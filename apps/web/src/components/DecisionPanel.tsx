@@ -17,6 +17,7 @@ import MarkedReport from "@/components/MarkedReport";
 import VerdictBadge from "@/components/VerdictBadge";
 import { exportAudit, suggestDecision } from "@/lib/api";
 import { useAudit } from "@/lib/audit-context";
+import { download } from "@/lib/download";
 import { actionSummary, DECISION_HEADLINE } from "@/lib/decision-report";
 import { DECISIONS, plural, unreviewedIds } from "@/lib/review";
 import { useRoles } from "@/lib/roles";
@@ -30,17 +31,6 @@ const DECISION_MEANING: Record<Decision, string> = {
   "Narrow the question": "The data cannot answer everything. Limit the report to what it can answer.",
   Stop: "Something basic is wrong, such as the data files. Do not publish until it is resolved.",
 };
-
-function download(filename: string, text: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
 
 interface Suggested {
   audit: AuditResult;

@@ -7,13 +7,14 @@ import StepNav from "@/components/StepNav";
 import Wordmark from "@/components/Wordmark";
 
 /**
- * The audit's frame: the step rail on every screen except the front door. The landing page ("/") is not a
- * step, so it gets the whole width and no rail; the steps appear once you start an audit.
+ * The audit's frame: the step rail on every screen except the front door and the storyboard. The landing page
+ * ("/") is not a step, and the storyboard ("/demo") plays every step itself, so both get the whole width and no
+ * rail; the steps appear once you start an audit.
  */
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === "/") {
+  if (pathname === "/" || pathname === "/demo") {
     return (
       <div id="content" tabIndex={-1} className="min-w-0 focus:outline-none">
         {children}

@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const apiOrigin = process.env.API_ORIGIN ?? "http://127.0.0.1:8000";
 
 const nextConfig: NextConfig = {
+  // Bottom-left (the default) sits on the storyboard's play controls at /demo; errors still show from up here.
+  devIndicators: { position: "top-right" },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiOrigin}/:path*` }];
   },

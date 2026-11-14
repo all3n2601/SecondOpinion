@@ -89,12 +89,17 @@ export function claimSlots(result: ClaimResult): Record<string, string> {
   else if (result.verdict === "supported") dataShows = formatResultFact(result);
   if (dataShows) slots.data_shows = dataShows;
 
-  const said = result.claim.params.stated_value;
-  const found = result.fact?.value;
-  if ((result.claim.type === "SHARE" || result.claim.type === "COUNT") && !result.parts?.length) {
+  // A single-value comparison misleads for a range or a figure out of a stated total, and "the same as" next to
+  // a contradicted verdict (the gap is in the total or the rounding) reads as a contradiction of itself.
+  const p = result.claim.params;
+  const single = p.stated_high === null && p.stated_total === null && !result.ai_plan?.stated?.high && !result.ai_plan?.stated?.total;
+  if ((result.claim.type === "SHARE" || result.claim.type === "COUNT") && !result.parts?.length && single) {
+    const said = p.stated_value;
+    const found = result.fact?.value;
     if (typeof said === "number" && typeof found === "number") {
       const [a, b] = [round1(found), round1(said)];
-      slots.direction = a > b ? "higher than" : a < b ? "lower than" : "the same as";
+      const direction = a > b ? "higher than" : a < b ? "lower than" : "the same as";
+      if (!(direction === "the same as" && result.verdict === "contradicted")) slots.direction = direction;
     }
   }
 
@@ -311,7 +316,18 @@ export function renderNarration(view: RoleView, claims: ClaimResult[], ai: Slott
   };
 }
 
-/** Changes whenever the view or any final verdict changes: the cue to ask the AI for new wording. */
+/** FNV-1a (32-bit) of a string, in hex. Deterministic and dependency-free; a cache key, not a security measure. */
+function hash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+/** Changes whenever the view, any final verdict or any claim text changes: the cue to ask the AI for new wording. */
 export function narrationKey(view: RoleView, claims: ClaimResult[]): string {
-  return `${view}|${claims.map((c) => `${c.claim.id}:${finalVerdict(c)}`).join(",")}`;
+  const texts = hash(claims.map((c) => c.claim.text).join("\u0001"));
+  return `${view}|${texts}|${claims.map((c) => `${c.claim.id}:${finalVerdict(c)}`).join(",")}`;
 }

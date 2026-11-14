@@ -153,6 +153,30 @@ describe("claimSlots", () => {
     expect(claimSlots(same).direction).toBe("the same as");
     expect(claimSlots(rank)).not.toHaveProperty("direction");
   });
+  it("omits direction when a contradicted claim would read as the same as the report", () => {
+    const sameCount = result({ type: "COUNT", verdict: "contradicted", correct_value: "7 of 15", fact: { ...result().fact!, value: 7 } });
+    sameCount.claim.params.stated_value = 7;
+    sameCount.claim.params.stated_total = 12;
+    sameCount.claim.params.unit = "count";
+    expect(claimSlots(sameCount)).not.toHaveProperty("direction");
+    const rounded = result({ verdict: "contradicted", correct_value: "62.0% (62 of 100)" });
+    expect(claimSlots(rounded)).not.toHaveProperty("direction");
+    for (const view of VIEWS) {
+      const text = templateFor(view, [sameCount]).claims[sameCount.claim.id];
+      expect(fillSlots(text, { ...auditSlots([sameCount]), ...claimSlots(sameCount) }), view).not.toMatch(/same as/);
+    }
+  });
+  it("omits direction for a range or a stated total, but keeps it for a supported same-as", () => {
+    const range = result({ fact: { ...result().fact!, value: 48 } });
+    range.claim.params.stated_value = 60;
+    range.claim.params.stated_high = 70;
+    expect(claimSlots(range)).not.toHaveProperty("direction");
+    const total = result({ type: "COUNT", fact: { ...result().fact!, value: 5 } });
+    total.claim.params.stated_value = 7;
+    total.claim.params.stated_total = 12;
+    expect(claimSlots(total)).not.toHaveProperty("direction");
+    expect(claimSlots(result()).direction).toBe("the same as");
+  });
   it("agree and ways come from the variants, only when there are variants", () => {
     const [a, b] = mixed();
     expect(claimSlots(a)).not.toHaveProperty("agree");
@@ -262,6 +286,15 @@ describe("narrationKey", () => {
     const base = [result({ id: "a" })];
     const kept = [{ ...base[0], review: review("supported") }];
     expect(narrationKey("story", kept)).toBe(narrationKey("story", base));
+  });
+  it("differs when the same ids and verdicts carry different claim text", () => {
+    const a = [result({ id: "a" })];
+    const b = [result({ id: "a" })];
+    b[0].claim.text = "A different report sentence.";
+    expect(narrationKey("story", b)).not.toBe(narrationKey("story", a));
+    const c = [result({ id: "a" })];
+    c[0].claim.text = a[0].claim.text;
+    expect(narrationKey("story", c)).toBe(narrationKey("story", a));
   });
   it("differs by view", () => {
     const base = [result({ id: "a" })];

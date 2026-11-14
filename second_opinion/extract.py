@@ -245,7 +245,8 @@ ALL_LAYERS = re.compile(
 )
 HAVE_WORDS = re.compile(r"\b(?:have|has|had|having|with|include|includes|included|carry|carries|contain|contains)\b", re.IGNORECASE)
 AVAILABLE_WORDS = re.compile(
-    r"\b(?:available|availability|exists?|present|profiled|measured|covered|covers?|assayed|sequenced)\b", re.IGNORECASE
+    r"\b(?:available|availability|exists?|present|profiled|measured|covered|covers?|assayed|sequenced|overlap\w*|shared|joined|joinable)\b",
+    re.IGNORECASE,
 )
 EVERY_WORDS = re.compile(
     r"\b(?:every|each|all)\b(?:\s+[\d,]+)?\s+(?:of\s+the\s+)?(?:[\d,]+\s+)?(?:primary\s+)?"
@@ -375,6 +376,7 @@ def find_numbers(text: str) -> list[StatedNumber]:
     # numbers inside a definition "(GISTIC 1 or 2)" or an age cut-off "over 60" are not stated figures
     taken: list[tuple[int, int]] = [m.span() for m in _DEFINITION.finditer(text)]
     taken += [m.span() for m in age_thresholds(text)]
+    taken += [m.span() for m in AGE_RANGE.finditer(text)]  # "between the ages of 26 and 89": read by _rule_statistic
 
     def context(start: int) -> tuple[bool, bool, bool]:
         before = text[:start]
@@ -790,7 +792,7 @@ WORD_AMOUNTS: tuple[tuple[str, float, str | None], ...] = (
 )
 _WORD_AMOUNTS = [(re.compile(p, re.IGNORECASE), v, b) for p, v, b in WORD_AMOUNTS]
 ZERO_AMOUNT = re.compile(
-    r"\bnot\s+(?:a\s+)?single\b|\bno\s+(?:primary\s+)?(?:tumou?rs?|samples?|patients?|cases?|women|men)\b"
+    r"\bnot\s+(?:a\s+)?single\b|\bno\s+(?:[\w-]+\s+){0,2}?(?:tumou?rs?|samples?|patients?|cases?|women|men)\b"
     r"|\bnone\s+of\s+the\b|\bzero\b|\bnobody\b",
     re.IGNORECASE,
 )
@@ -849,6 +851,21 @@ def _genes(text: str) -> list[tuple[int, int, str]]:
             if _GENE_CONTEXT.search(near) and not re.fullmatch(r"[A-Z]", name):
                 out.append((m.start(), m.end(), name.upper()))
     return sorted(out)
+
+
+def _gene_kind(words: str) -> str | None:
+    """Which gene-level call a stretch of words names, if any."""
+    if GAIN_WORDS.search(words) and not re.search(r"\bhigh[\s-]level\s+gains?\b", words, re.IGNORECASE):
+        return "gain"
+    if AMPLIFICATION_WORDS.search(words):
+        return "amplification"
+    if DELETION_WORDS.search(words) or re.search(r"\bhomozygous(?:ly)?\b", words, re.IGNORECASE):
+        return "deletion"
+    if LOSS_WORDS.search(words):
+        return "loss"
+    if MUTATION_WORDS.search(words):
+        return "mutation"
+    return None
 
 
 def find_entities(text: str) -> list[Entity]:
@@ -930,8 +947,12 @@ def find_entities(text: str) -> list[Entity]:
             # "TP53 and PIK3CA mutations co-occurred in 57 tumours": tumours with all of them
             add(genes[0][0], genes[-1][1], "mutation", "+".join(name for _, _, name in genes))
         if kind:
-            for start, end, name in genes:
-                add(start, end, kind, name)
+            # "CCND1 was amplified in 177 tumors and PTEN homozygously deleted in 56": each gene takes the
+            # copy-number or mutation word nearest to it, the sentence's word only when its own words name none
+            for k, (start, end, name) in enumerate(genes):
+                after = text[end: genes[k + 1][0] if k + 1 < len(genes) else len(text)]
+                before = text[genes[k - 1][1] if k > 0 else 0: start]
+                add(start, end, _gene_kind(after) or _gene_kind(before) or kind, name)
     sex = SEX_ENTITY.search(text)
     if sex:
         word = sex.group(0).split()[-1].lower()
@@ -1057,6 +1078,12 @@ def _split_subgroup(text: str, entities: list[Entity]) -> tuple[list[Entity], En
     """
     if len(entities) < 2:
         return entities, None
+    lead = re.match(r"^\s*(?:among|in|of|within|for)\b([^,]*),", text, re.IGNORECASE)
+    if lead:  # "Among tumors scored HER2-positive by immunohistochemistry, 87 show ERBB2 amplification"
+        inside = [e for e in entities if e.end <= lead.end()]
+        outside = [e for e in entities if e.start >= lead.end()]
+        if len(inside) == 1 and outside and all((e.attribute, e.category) != (inside[0].attribute, inside[0].category) for e in outside):
+            return outside, inside[0]
     cells = text.split(" | ")
     if len(cells) >= 3:  # a table row "Measure | Group | Value": the middle cell names the group
         group_start = len(cells[0]) + 3
@@ -1299,6 +1326,10 @@ STAT_PHRASE = re.compile(
 _STAT_WORD = re.compile(
     r"\b(?P<w>median|mean|average|youngest|oldest|range[ds]?|ranging)\b", re.IGNORECASE
 )
+AGE_RANGE = re.compile(
+    r"\b(?:between\s+the\s+ages\s+of\s+|aged\s+(?:between\s+)?|ages?\s+(?:ranged?\s+)?(?:from\s+)?)(\d{1,3})\s*(?:and|to|-|–)\s*(\d{1,3})\b",
+    re.IGNORECASE,
+)
 _OS_TIME = re.compile(r"\b(?:overall\s+)?survival\s+time|\bfollow[\s-]?up(?:\s+time)?|\bOS\s+time|\btime\s+to\s+death", re.IGNORECASE)
 _YEARS_VALUE = re.compile(
     r"(?<![\w.])(?P<n>\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:-\s*(?P<hi>\d+(?:\.\d+)?)\s*)?"
@@ -1313,12 +1344,38 @@ def _rule_statistic(info: SentenceInfo, claim_id: str, numbers: list[StatedNumbe
     Ages are years at diagnosis; "median survival time / follow-up" reads survival.tsv OS.time in years.
     """
     text = info.text
+    span = AGE_RANGE.search(text)
+    if span is not None and not _STAT_WORD.search(text) and not find_entities(text):
+        # "Patients were diagnosed between the ages of 26 and 89": the youngest and the oldest
+        parts = []
+        for stat, raw in (("min", span.group(1)), ("max", span.group(2))):
+            params = ClaimParams(unit="years", measure=stat, stated_value=float(raw), decimals=0, subject="primary_tumors")
+            label = f"{'youngest' if stat == 'min' else 'oldest'} {raw}"
+            parts.append(_part(Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.STATISTIC,
+                                     params=params), label, len(parts) + 1))
+        return _compound(info, claim_id, parts)
     if not _STAT_WORD.search(text):
         return None
     os_time = bool(_OS_TIME.search(text))
     if not os_time and not re.search(r"\bage|\baged|\byears?\s+old\b|\byears\b", text, re.IGNORECASE):
         return None
     entities = [e for e in find_entities(text) if e.attribute != "vital_status"]
+    pair = [e for e in entities if e.attribute == (entities[0].attribute if entities else None)]
+    values = [m for m in re.finditer(r"(?<![\w.])(\d{2}(?:\.\d+)?)(?![\w.])", text)
+              if not any(a <= m.start() < b for a, b in [x.span() for x in _DEFINITION.finditer(text)])]
+    if len(entities) == 2 and len(pair) == 2 and pair[0].category != pair[1].category and len(values) == 2:
+        # "Basal-like patients were diagnosed younger than Luminal A patients, with median ages of 54 and 61 years"
+        stat = {"average": "mean"}.get(_STAT_WORD.search(text).group("w").lower(), _STAT_WORD.search(text).group("w").lower())
+        if stat in ("median", "mean"):
+            parts = []
+            for entity, value in zip(pair, values):
+                raw = value.group(1)
+                params = ClaimParams(unit="years", measure=("os_" if os_time else "") + stat, stated_value=float(raw),
+                                     decimals=len(raw.split(".")[1]) if "." in raw else 0, subject="primary_tumors",
+                                     within_attribute=entity.attribute, within_category=entity.category)
+                parts.append(_part(Claim(id=claim_id, text=text, sentence_index=info.index, type=ClaimType.STATISTIC,
+                                         params=params), f"{entity.category}: {stat} {raw}", len(parts) + 1))
+            return _compound(info, claim_id, parts)
     group = None
     if " | " in text and len(entities) == 1:  # a table row: "Median age at diagnosis | Basal tumours | 54 years"
         group = entities[0]
@@ -1506,6 +1563,11 @@ def _rule_compound(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
     else:
         paired = [None] * len(amounts)
 
+    # "Copy number profiles are available for 1,080 primary tumors and protein profiles for 724": layers and
+    # figures named in the same order pair up in that order.
+    layer_marks = sorted((m.start(), layer) for layer, pattern in LAYERS.items() for m in re.finditer(pattern, text, re.IGNORECASE))
+    ordered_layers = [layer for _, layer in layer_marks] if (not pairing and len(layer_marks) == len(amounts)
+                                                             and not ALL_LAYERS.search(text)) else []
     parts: list[Claim] = []
     for k, amount in enumerate(amounts):
         nxt = amounts[k + 1].start if k + 1 < len(amounts) else len(text)
@@ -1528,6 +1590,8 @@ def _rule_compound(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber
         window_layers = [layer for layer, pattern in LAYERS.items() if re.search(pattern, window, re.IGNORECASE)]
         if not window_layers:
             window_layers = [layer for layer, pattern in LAYERS.items() if re.search(pattern, text[prev:amount.start], re.IGNORECASE)]
+        if ordered_layers:
+            window_layers = [ordered_layers[k]]
         stated = dict(stated_value=amount.value, stated_high=amount.high, approximate=amount.approximate,
                       bound=amount.bound, decimals=amount.decimals)
         if same_as_previous[k] and parts and parts[-1].params.attribute is None and entity is None:
@@ -1799,6 +1863,26 @@ def _rule_every_slide(info: SentenceInfo, claim_id: str, numbers: list[StatedNum
     params = ClaimParams(attribute="slide_kind", category=kinds[0].category, subject="slides", unit="percent",
                          stated_value=100.0, decimals=0)
     return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.SHARE, params=params)
+
+
+LAYER_SUBSET = re.compile(
+    r"\b(?:every|each|all(?:\s+of\s+the)?|any)\s+(?:primary\s+)?(?:tumou?rs?|samples?|patients?|cases?)\s+(?:that\s+(?:has|have)|with)\s+(?P<a>.+?)"
+    r"\s+(?:data\s+|profiles?\s+|measurements?\s+)?(?:also\s+)?(?:has|have|had|is\s+in|are\s+in)\s+(?P<b>.+?)\s*(?:data|profiles?|measurements?)?\s*[.!]?$",
+    re.IGNORECASE,
+)
+
+
+def _rule_layer_subset(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
+    """"Every primary tumor with protein data also has RNA data": coverage of one layer among samples with another."""
+    m = LAYER_SUBSET.search(info.text)
+    if m is None or numbers:
+        return None
+    a = [layer for layer, pattern in LAYERS.items() if re.search(pattern, m.group("a"), re.IGNORECASE)]
+    b = [layer for layer, pattern in LAYERS.items() if re.search(pattern, m.group("b"), re.IGNORECASE)]
+    if len(a) != 1 or len(b) != 1 or a == b:
+        return None
+    params = ClaimParams(subject=f"has_{b[0]}", unit="all", within_attribute="layer", within_category=a[0])
+    return Claim(id=claim_id, text=info.text, sentence_index=info.index, type=ClaimType.COVERAGE, params=params)
 
 
 def _rule_protein_first(info: SentenceInfo, claim_id: str, numbers: list[StatedNumber]) -> Claim | None:
@@ -2100,7 +2184,7 @@ def _rule_speculation(info: SentenceInfo, claim_id: str, numbers: list[StatedNum
 
 RULES = (
     _rule_not_answerable_first, _rule_speculation, _rule_protein_first, _rule_protein_rank, _rule_rate_rank,
-    _rule_most_in, _rule_every_slide, _rule_subtype_calls, _rule_all_of_them, _rule_only_in, _rule_clauses,
+    _rule_most_in, _rule_every_slide, _rule_layer_subset, _rule_subtype_calls, _rule_all_of_them, _rule_only_in, _rule_clauses,
     _rule_of_them, _rule_compound,
     _rule_share_alone, _rule_rank,
     _rule_ratio, _rule_comparison, _rule_share_comparison, _rule_subgroup_coverage, _rule_attribute,

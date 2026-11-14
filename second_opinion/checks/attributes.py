@@ -94,6 +94,8 @@ def describe(attribute: str, category: str | None) -> str:
         return "progression or recurrence event"
     if attribute == "slide_kind":
         return f"with a {category} slide"
+    if attribute == "layer":
+        return f"{(category or '').replace('_', '-')}-profiled"
     if attribute == "gain":
         return f"{category}-gained"
     if attribute == "loss":
@@ -280,6 +282,18 @@ def _attribute_values(
 
     if attribute in ("dss_status", "pfi_status"):
         return _survival_event(release, frame, attribute)
+
+    if attribute == "layer":  # "every tumor with protein data ...": whether the sample is in that data file
+        layer = (category or "").lower()
+        if layer == "rna" and release.rna_ids is None:
+            raise CannotCheck("no RNA file in this release")
+        try:
+            have = release.layer_ids(layer)
+        except KeyError:
+            raise CannotCheck(f"no {category} data layer in this release") from None
+        vals = pd.Series([layer if s in have else f"no {layer}" for s in frame.index], index=frame.index, dtype="object")
+        code = f'vals = pop.sampleID.map(lambda s: "{layer}" if s in r.{layer}_ids else "no {layer}")'
+        return AttributeValues(vals, layer, [CLINICAL], code, f"{layer} data file")
 
     if attribute == "slide_kind":
         return _slide_kind(release, frame, category)

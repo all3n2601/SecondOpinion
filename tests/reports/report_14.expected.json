@@ -1,0 +1,44 @@
+[
+  {
+    "claim_contains": "1,247 samples",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "1,247 / 1,101 / 139 / 7 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "844 carry",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "844 PAM50 calls (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "about 50%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "LumA 49.9%, LumB second 22.7% (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "three to one",
+    "type": "RATIO",
+    "verdict": "contradicted",
+    "why": "141/67 = 2.1 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "smallest group",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "Normal-like 23 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "91% are ER-negative",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "124/136 = 91.2%, 393/402 = 97.8% (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "chemotherapy",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no response data (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  }
+]

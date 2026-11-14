@@ -1,0 +1,51 @@
+[
+  {
+    "claim_contains": "protein profiles for 724",
+    "type": "COVERAGE",
+    "verdict": "contradicted",
+    "why": "copy number 1,080 right; protein 742 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "also has RNA data",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "742 of 742 (blind test 4: written and answered with pandas by an independent referee before any tool ran)",
+    "verdict_no_rna": "insufficient_evidence"
+  },
+  {
+    "claim_contains": "about 12% of primary tumors with copy",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "133/1,080 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "MYC amplification is less",
+    "type": "RATIO",
+    "verdict": "contradicted",
+    "why": "MYC 229 > ERBB2 133 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "87 show",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "87 of 162 HER2-positive (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "ER-alpha is markedly higher",
+    "type": "COMPARISON",
+    "verdict": "supported",
+    "why": "3.051 (529 vs 169) (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "E-cadherin",
+    "type": "COMPARISON",
+    "verdict": "contradicted",
+    "why": "lower in lobular (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "Ki-67",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no Ki-67 data (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  }
+]

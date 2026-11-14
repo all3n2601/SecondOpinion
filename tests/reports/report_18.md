@@ -1,0 +1,5 @@
+# Results
+
+*A fictional results paragraph for testing. It describes the TCGA-BRCA files (release A).*
+
+Survival data cover 1,097 primary tumors, and 151 of those patients died during follow-up, about 14%. All five data layers overlap in 536 primary tumors. Mutation and copy number data overlap in 785 tumors. Luminal A tumors outnumber Luminal B tumors roughly two to one (421 versus 192). PIK3CA mutations were found in 48.5% of Luminal A tumors versus 6.6% of Basal-like tumors. Among ER-negative tumors 77.5% carry a TP53 mutation, compared with 30.1% of ER-positive tumors. CDH1 is mutated in about 15% of tumors. About 15% of tumors were HER2-positive by immunohistochemistry. CCND1 was amplified in 177 tumors and PTEN homozygously deleted in 56. Patients were diagnosed between the ages of 26 and 89. Basal-like patients were diagnosed younger than Luminal A patients, with median ages of 54 and 61 years. Patients with HER2-enriched tumors had the highest death rate of any subtype. Stage IV disease was reported in 2% of staged tumors. These results suggest that ERBB2-amplified tumors would respond to trastuzumab.

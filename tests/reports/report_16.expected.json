@@ -1,0 +1,50 @@
+[
+  {
+    "claim_contains": "791 primary",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "791 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "TP53 is the most frequently",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "PIK3CA 273 > TP53 264 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "found in 273",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "273 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "Basal-like tumors (85%)",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "84.9% vs 10.3% (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "about 59%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "85/144 vs 9/560 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "roughly 14%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "12.3% is within 2 points of 14 (debatable: near the limit); 0 of 106 Basal-like (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "MAP3K1",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "66 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "PI3K inhibitors",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no treatment data (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  }
+]

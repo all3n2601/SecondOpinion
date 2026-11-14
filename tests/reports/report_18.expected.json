@@ -1,0 +1,86 @@
+[
+  {
+    "claim_contains": "cover 1,097",
+    "type": "COVERAGE",
+    "verdict": "supported",
+    "why": "1,097, 151 = 13.8% (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "536",
+    "type": "COUNT",
+    "verdict": "contradicted",
+    "why": "535 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "overlap in 785",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "785 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "roughly two to one",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "421/192 = 2.19 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "48.5%",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "146/301 vs 7/106 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "77.5%",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "ER-positive 20.1%, not 30.1% (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "CDH1 is mutated in about 15%",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "12.9% (debatable: 2.1 points) (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "HER2-positive by immunohistochemistry",
+    "type": "SHARE",
+    "verdict": "contradicted",
+    "why": "22.5% (debatable: 14.9% of all 1,101) (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "CCND1",
+    "type": "COUNT",
+    "verdict": "supported",
+    "why": "177; PTEN -2 = 56 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "26 and 89",
+    "type": "STATISTIC",
+    "verdict": "contradicted",
+    "why": "oldest 90 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "median ages of 54 and 61",
+    "type": "STATISTIC",
+    "verdict": "supported",
+    "why": "54 and 61 (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "highest death rate",
+    "type": "RANK",
+    "verdict": "contradicted",
+    "why": "Normal-like 21.7% > HER2-enriched 20.9% (debatable: n=23) (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "2% of staged",
+    "type": "SHARE",
+    "verdict": "supported",
+    "why": "20/1,075 = 1.9% (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  },
+  {
+    "claim_contains": "trastuzumab",
+    "type": "NOT_ANSWERABLE",
+    "verdict": "insufficient_evidence",
+    "why": "no response data (blind test 4: written and answered with pandas by an independent referee before any tool ran)"
+  }
+]

@@ -14,7 +14,7 @@ from second_opinion.ai.client import AIError, ChatClient, make_client
 from second_opinion.ai.executor import PlanRejected, run_plan
 from second_opinion.ai.planner import plan_claim
 from second_opinion.checks import CHECKS, CannotCheck
-from second_opinion.extract import find_numbers
+from second_opinion.coverage import missing, reading_uses
 from second_opinion.model import (
     AuditResult,
     Claim,
@@ -369,21 +369,10 @@ def _honest_need(need: str) -> str:
 
 
 def _ai_failed(claim: Claim, why: str) -> ClaimResult:
+    if claim.coverage_gaps and claim.needed_data:  # a gated claim keeps the gate's reason, not a generic one
+        return _insufficient(claim, claim.needed_data)
     why = " ".join(why.split()).rstrip(".")
     return _insufficient(claim, AI_COULD_NOT.format(why=(why or "the answer was not usable") + "."))
-
-
-def _unchecked_numbers(text: str, span: str, total: float | None) -> list[str]:
-    """Numbers the sentence states outside the span the AI plan tested (a plan tests one figure)."""
-    start = text.lower().find(" ".join(span.split()).lower())
-    if start == -1:
-        return []
-    end = start + len(" ".join(span.split()))
-    return [
-        text[n.start:n.end].strip()
-        for n in find_numbers(text)
-        if not (start <= n.start and n.end <= end) and not n.is_total and n.value != total
-    ]
 
 
 def _ai_checked(claim: Claim, release: Release, client: ChatClient) -> ClaimResult:
@@ -394,14 +383,12 @@ def _ai_checked(claim: Claim, release: Release, client: ChatClient) -> ClaimResu
             result = _insufficient(claim, _honest_need((qp.needed_data or "").strip()) or "Data this release does not contain")
         else:
             fact, verdict, correct_value = run_plan(claim.text, qp, release)
-            untested = (
-                _unchecked_numbers(claim.text, qp.stated.span, qp.stated.total)
-                if verdict == Verdict.SUPPORTED and qp.stated is not None
-                else []
-            )
-            if untested:  # a contradicted part would already show; "supported" needs every part checked
+            # The coverage gate: a plan that leaves part of the sentence unused gives no verdict, contradicted
+            # included (the unused part could change what the sentence says).
+            gaps = missing(claim.text, reading_uses(claim, plan=qp))
+            if gaps:
                 result = _insufficient(
-                    claim, AI_PARTLY_CHECKED.format(span=qp.stated.span, numbers=", ".join(untested))
+                    claim, AI_PARTLY_CHECKED.format(span=qp.stated.span, numbers=", ".join(gaps))
                 )
                 result.ai_plan = qp.model_dump(mode="json")
                 return result

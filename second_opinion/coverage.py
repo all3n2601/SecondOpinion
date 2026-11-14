@@ -307,6 +307,14 @@ def _filter_value(value: Any) -> list:
     return value if isinstance(value, list) else [value]
 
 
+def _number(value: Any) -> float | None:
+    """A filter value as a figure, or None when it is not a number."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _add_filters(uses: Uses, filters: list) -> None:
     for f in filters:
         for value in _filter_value(f.value):
@@ -321,12 +329,16 @@ def _add_filters(uses: Uses, filters: list) -> None:
             elif f.field == "attribute":
                 _add_group(uses, f.attribute, str(value))
             elif f.field in ("age_years", "diagnosis_year"):
-                number = float(value)
+                number = _number(value)
+                if number is None:  # "sixty": not a figure we can match, so the reading did not use one
+                    continue
                 uses.figures.add(number)
                 attribute = "age_group" if f.field == "age_years" else "diagnosis_year"
                 uses.groups.add(f"{attribute}:{f.op}{number:g}")
             elif f.field == "positive_lymph_nodes":
-                uses.figures.add(float(value))
+                number = _number(value)
+                if number is not None:
+                    uses.figures.add(number)
             elif f.field == "sample_type" and value != "primary":
                 uses.counted.add("samples")
 
@@ -340,6 +352,10 @@ def _add_plan(uses: Uses, text: str, query: QueryPlan) -> None:
             if isinstance(value, list):
                 _add_filters(uses, value)
         if plan.op == "count" and plan.of == "samples":
+            uses.counted.add("samples")
+        # Without a sample_type filter a plan reads every sample, which is what "samples" names (the executor
+        # defaults to primary tumors only for compare_means).
+        if plan.op != "compare_means" and not any(f.field == "sample_type" for f in plan.where):
             uses.counted.add("samples")
         if plan.op == "compare_means":
             uses.groups.update({f"{plan.group_field}:{plan.group_a}", f"{plan.group_field}:{plan.group_b}"})

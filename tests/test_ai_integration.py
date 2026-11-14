@@ -94,10 +94,13 @@ def test_a_supported_plan_that_leaves_a_stated_number_unchecked_is_not_supported
     assert result.ai_plan is not None  # the reviewer can still see what the plan tested
 
 
-def test_a_contradicted_part_still_contradicts_the_whole_sentence(mini_release):
+def test_a_contradicted_plan_that_leaves_a_stated_number_unchecked_is_not_contradicted(mini_release):
+    # The coverage gate (audit._ai_checked): a plan that skips part of the sentence gives no verdict, contradicted
+    # included, because the unchecked part could change what the sentence says.
     sentence = LUMA_WRONG[:-1] + ", and 10 samples have no call."
     result = audit_claims([unmapped(sentence)], mini_release, ai_client=ScriptedClient([share_answer("42%", 42)])).claims[0]
-    assert result.verdict == Verdict.CONTRADICTED
+    assert result.verdict == Verdict.INSUFFICIENT_EVIDENCE and result.correct_value is None
+    assert "Not checked: 10" in result.missing_evidence and result.ai_plan is not None
 
 
 def test_the_ai_judges_the_sentence_not_the_claim_params(mini_release):

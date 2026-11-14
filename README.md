@@ -322,14 +322,13 @@ It runs the organizers' own `envelopes/unseal.py`, lists the fingerprint checks 
 `claim_auditor_report.md` into the report box and sets the data folder to release A (or the envelope's
 own release, if you pick it). Then press **Run the audit now**. **Rehearse with the practice envelope**
 does the same with the public practice code. The challenge repository must sit next to this one (or set
-`SO_CHALLENGE_DIR`), with release A fetched and its requirements installed in `.venv`.
+`SO_CHALLENGE_DIR`), with release A fetched. The `cryptography` package that unsealing needs comes with
+our own `requirements.txt` (Step 3), so there is nothing extra to install.
 
-**From the terminal**, in the challenge repository (unsealing needs its own requirements, which include
-`cryptography`):
+**From the terminal**, in the challenge repository, with our `.venv` (it already has `cryptography`):
 
 ```bash
 cd ../oncosys-hackathon-challenge
-../SecondOpinion/.venv/bin/python -m pip install -r requirements.txt
 ../SecondOpinion/.venv/bin/python envelopes/unseal.py <number> <four words>
 ```
 

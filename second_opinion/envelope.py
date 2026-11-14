@@ -101,8 +101,8 @@ def unseal(number: str, code: str) -> OpenedEnvelope:
     if done.returncode != 0:
         if "No module named 'cryptography'" in output:
             raise EnvelopeError(
-                "Unsealing needs the cryptography package. Run: .venv/bin/python -m pip install -r "
-                "../oncosys-hackathon-challenge/requirements.txt"
+                "Unsealing needs the cryptography package, which this install is missing. "
+                "Run: .venv/bin/python -m pip install -r requirements.txt"
             )
         raise EnvelopeError(_failure(output))
 

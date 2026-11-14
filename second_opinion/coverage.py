@@ -465,6 +465,19 @@ def missing(text: str, uses: Uses) -> list[str]:
     A back reference is used only when the reading says it resolved one (a rules reading never does); a
     qualifier only when a reading names it as a group, which the rules cannot.
     """
+    return [p.words for p in _unused(text, uses)]
+
+
+def missing_outside_parts(text: str, uses: Uses) -> list[str]:
+    """For the join: the words `missing` names that also sit outside every part's span (`Uses.part_spans`).
+
+    Each part was already read completely against its own statement, so a piece inside a part's span is that
+    part's to check; a piece outside every span was checked by no part.
+    """
+    return [p.words for p in _unused(text, uses) if not _inside(p.start, uses.part_spans)]
+
+
+def _unused(text: str, uses: Uses) -> list[Piece]:
     d = sentence_demands(text)
     unused: list[Piece] = [
         f for f in d.figures
@@ -475,4 +488,4 @@ def missing(text: str, uses: Uses) -> list[str]:
     unused += [q for q in d.qualifiers if q.key not in uses.groups]
     if d.back_reference is not None and not uses.resolves_back_reference:
         unused.append(d.back_reference)
-    return [p.words for p in sorted(unused, key=lambda p: p.start)]
+    return sorted(unused, key=lambda p: p.start)

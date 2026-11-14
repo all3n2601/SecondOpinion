@@ -104,7 +104,7 @@ def split_sentence(sentence: str, previous: str | None, client: ChatClient) -> l
     parts, problems = _parse(client.complete_json(_SYSTEM, user))
     problems = problems or _problems(parts, sentence, previous)
     if not problems:
-        return parts
+        return _verbatim(parts, sentence)
     retry_user = (
         f"{user}\n\nYour previous answer was rejected:\n- " + "\n- ".join(problems[:10])
         + "\nReturn the corrected JSON only."
@@ -113,7 +113,16 @@ def split_sentence(sentence: str, previous: str | None, client: ChatClient) -> l
     problems = problems or _problems(parts, sentence, previous)
     if problems:
         raise SplitRejected("The AI did not split this sentence into parts we could check")
-    return parts
+    return _verbatim(parts, sentence)
+
+
+def _verbatim(parts: list[SplitPart], sentence: str) -> list[SplitPart]:
+    """Each span as the sentence writes it (case and spacing), so the join finds it word for word."""
+    out = []
+    for part in parts:
+        a, b = _locate(part.span, sentence)[0]
+        out.append(SplitPart(span=sentence[a:b], statement=part.statement))
+    return out
 
 
 def _part(claim: Claim, k: int, part: SplitPart) -> Claim:

@@ -12,9 +12,10 @@ from typing import Any, Callable
 
 from second_opinion.ai.client import AIError, ChatClient, make_client
 from second_opinion.ai.executor import PlanRejected, run_plan
+from second_opinion.ai.plan import QueryPlan
 from second_opinion.ai.planner import plan_claim
 from second_opinion.checks import CHECKS, CannotCheck
-from second_opinion.coverage import missing, reading_uses
+from second_opinion.coverage import Uses, missing, missing_outside_parts, reading_uses
 from second_opinion.extract import _quoted_list
 from second_opinion.model import (
     AuditResult,
@@ -39,6 +40,11 @@ AI_COULD_NOT = "The AI helper could not turn this into a check we can run: {why}
 AI_PARTLY_CHECKED = (
     "The AI helper's check covered only {span}. Not checked: {words}. "
     "A sentence gets a verdict only when every part of it is checked; a person should check the rest."
+)
+# Every part agrees, but some of the sentence sits in no part: no verdict on what no part checked.
+PARTS_DO_NOT_COVER = (
+    "Every part that was checked agrees with the data, but no part covers {words}. "
+    "A sentence counts as supported only when its parts cover all of it; a person should check the rest."
 )
 STANDARD_RELEASE_FOLDER = "raw"  # where fetch.py puts the organizers' release; it is "release A"
 STANDARD_RELEASE_NAME = "A"
@@ -302,9 +308,42 @@ def _close_call_notes(claim: Claim, fact: Fact, verdict: Verdict) -> list[str]:
     return notes
 
 
+def _parts_uses(claim: Claim, parts: list[ClaimResult]) -> Uses:
+    """What the parts used of the sentence: their rules readings, the groups their AI plans named, their spans."""
+    uses = reading_uses(claim)
+    for r in parts:
+        if r.ai_plan and r.ai_plan.get("answerable"):
+            try:
+                plan_uses = reading_uses(r.claim, plan=QueryPlan.model_validate(r.ai_plan))
+            except Exception:  # noqa: BLE001 - a plan we cannot re-read names nothing; its span still counts
+                continue
+            uses.groups |= plan_uses.groups  # figures and quoted spans are the statement's, not the sentence's
+            uses.counted |= plan_uses.counted
+    return uses
+
+
+def _not_covered(claim: Claim, parts: list[ClaimResult]) -> ClaimResult | None:
+    """The join: an all-supported sentence with a demanded piece that no part covers is "can't check"."""
+    gaps = missing_outside_parts(claim.text, _parts_uses(claim, parts))
+    if not gaps:
+        return None
+    result = _insufficient(replace(claim, coverage_gaps=gaps), PARTS_DO_NOT_COVER.format(words=_quoted_list(gaps)))
+    result.parts = parts
+    result.notes = list(dict.fromkeys(n for r in parts for n in r.notes))
+    return result
+
+
 def _combine_parts(claim: Claim, parts: list[ClaimResult]) -> ClaimResult:
-    """One result for a sentence with several checks: its worst part decides, every part is kept."""
+    """One result for a sentence with several checks: its worst part decides, every part is kept.
+
+    A complete contradicted part keeps the sentence contradicted. A sentence whose parts all agree is supported
+    only when the parts cover it (`_not_covered`).
+    """
     worst = min(parts, key=lambda r: _SEVERITY_ORDER[r.verdict])
+    if worst.verdict == Verdict.SUPPORTED:
+        uncovered = _not_covered(claim, parts)
+        if uncovered is not None:
+            return uncovered
     verdict = worst.verdict
     deciding = [r for r in parts if r.verdict == verdict]
     labelled = len(parts) > 1

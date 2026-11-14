@@ -1,11 +1,9 @@
 "use client";
 
 import { Check, CircleAlert, CircleCheck, Circle, PencilLine } from "lucide-react";
-import { useId, useState } from "react";
-import SolidityExplained from "@/components/SolidityExplained";
-import VerdictBadge from "@/components/VerdictBadge";
+import { useId, useState, type ReactNode } from "react";
 import { useAudit } from "@/lib/audit-context";
-import { keyNumber, VERDICT_LABEL, VERDICTS } from "@/lib/review";
+import { VERDICT_LABEL, VERDICTS } from "@/lib/review";
 import { useRoles } from "@/lib/roles";
 import type { ClaimResult, Verdict } from "@/lib/types";
 import { buttonSecondary, fieldHint, fieldInput, fieldLabel } from "@/lib/ui";
@@ -14,8 +12,11 @@ type Choice = "accept" | "override";
 
 const CHOICE_LABEL: Record<Choice, string> = { accept: "Accept the tool's verdict", override: "Override" };
 
-/** One ledger entry: the tool's verdict and key number, and a person's Accept / Override with a reason. */
-export default function ReviewForm({ result }: { result: ClaimResult }) {
+/**
+ * One ledger entry: the claim's number and review status, a per-view `body` (what the claim says and what the
+ * data shows, worded for the viewer's role), then a person's Accept / Override with a reason.
+ */
+export default function ReviewForm({ result, body }: { result: ClaimResult; body: ReactNode }) {
   const id = useId();
   const { setReview, role } = useAudit();
   const { roles } = useRoles();
@@ -107,12 +108,9 @@ export default function ReviewForm({ result }: { result: ClaimResult }) {
   return (
     <form onSubmit={save} aria-labelledby={titleId} className="p-5 sm:p-6" noValidate>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 id={titleId} className="num font-mono text-base font-semibold text-ink">
-            {result.claim.id}
-          </h2>
-          <VerdictBadge verdict={result.verdict} />
-        </div>
+        <h2 id={titleId} className="num font-mono text-base font-semibold text-ink">
+          {result.claim.id}
+        </h2>
         <p role="status" className="text-sm">
           {saved && !dirty ? (
             <span className="inline-flex items-center gap-1.5 font-semibold text-supported">
@@ -133,16 +131,7 @@ export default function ReviewForm({ result }: { result: ClaimResult }) {
         </p>
       </div>
 
-      <blockquote className="reported mt-3 max-w-prose text-ink">{result.claim.text}</blockquote>
-
-      <dl className="mt-4 grid items-center gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
-        <dt className="font-semibold text-ink">Key number</dt>
-        <dd className="num text-ink">{keyNumber(result)}</dd>
-        <dt className="font-semibold text-ink">Solidity</dt>
-        <dd>
-          <SolidityExplained result={result} />
-        </dd>
-      </dl>
+      <div className="mt-3">{body}</div>
 
       <fieldset className="mt-5">
         <legend className={fieldLabel}>Your review</legend>

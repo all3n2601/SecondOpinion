@@ -5,12 +5,30 @@ import Breadcrumb from "@/components/Breadcrumb";
 import NoAuditNotice from "@/components/NoAuditNotice";
 import ReviewForm from "@/components/ReviewForm";
 import RolePicker from "@/components/RolePicker";
+import ClaimBody from "@/components/review/ClaimBody";
+import { claimAnchor } from "@/components/review/ChecklistOverview";
+import ReviewOverview from "@/components/review/ReviewOverview";
 import { useAudit } from "@/lib/audit-context";
 import { plural, unreviewedIds } from "@/lib/review";
+import { useRoleView } from "@/lib/roles";
+import type { RoleView } from "@/lib/types";
+import { useNarration } from "@/lib/use-narration";
 import { buttonPrimary, pageTitle, pageWidth } from "@/lib/ui";
 
+const INTRO: Record<RoleView, string> = {
+  story: "A short read on what the audit found. Look at each claim, then accept the check or change it with a reason.",
+  checklist: "Accept the tool's verdict or override it with a reason. Both verdicts are kept.",
+  evidence:
+    "Each claim with its corrected wording, how many ways of counting agree and what the skeptic tests found. " +
+    "Accept the verdict or override it with a reason; both are kept.",
+  raw: "Counts, sample IDs, file checksums and the code behind each check. Accept each verdict or override it with a reason; both are kept.",
+};
+
 export default function ReviewPage() {
-  const { audit } = useAudit();
+  const { audit, hydrated } = useAudit();
+  const view = useRoleView();
+  // The hook reads sessionStorage while rendering, so it only gets the claims once saved state has loaded.
+  const narration = useNarration(view, hydrated && audit ? audit.claims : null);
   const total = audit?.claims.length ?? 0;
   const left = audit ? unreviewedIds(audit.claims).length : 0;
   const done = total - left;
@@ -20,9 +38,7 @@ export default function ReviewPage() {
       <title>Review | SecondOpinion</title>
       <Breadcrumb items={[{ label: "Audit board", href: "/board" }, { label: "Review" }]} />
       <h1 className={pageTitle}>Review every verdict</h1>
-      <p className="mt-2 max-w-prose text-ink-soft">
-        Accept the tool&apos;s verdict or override it with a reason. Both verdicts are kept.
-      </p>
+      <p className="mt-2 max-w-prose text-ink-soft">{INTRO[view]}</p>
       <div className="mt-6">
         <RolePicker />
       </div>
@@ -33,6 +49,11 @@ export default function ReviewPage() {
         </div>
       ) : (
         <>
+          {hydrated && (
+            <div className="mt-8">
+              <ReviewOverview view={view} audit={audit} narration={narration} />
+            </div>
+          )}
           <div className="mt-8">
             <p role="status" aria-live="polite" className="num text-base font-semibold text-ink">
               {done} of {total} reviewed
@@ -55,7 +76,18 @@ export default function ReviewPage() {
           {total > 0 && (
             <div className="mt-6 divide-y divide-rule rounded-panel border border-rule bg-sheet">
               {audit.claims.map((result) => (
-                <ReviewForm key={result.claim.id} result={result} />
+                <div key={result.claim.id} id={claimAnchor(result.claim.id)} className="scroll-mt-6">
+                  <ReviewForm
+                    result={result}
+                    body={
+                      <ClaimBody
+                        view={view}
+                        result={result}
+                        sentence={narration.claims[result.claim.id] ?? { text: "", ai: false }}
+                      />
+                    }
+                  />
+                </div>
               ))}
             </div>
           )}

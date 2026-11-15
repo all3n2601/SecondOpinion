@@ -25,6 +25,7 @@ A research claim auditor. It reads a report, recomputes every figure from the un
 
 ## Contents
 
+- [Demo](#demo)
 - [What it does](#what-it-does)
 - [See it work](#see-it-work)
 - [How a verdict is decided](#how-a-verdict-is-decided)
@@ -33,6 +34,12 @@ A research claim auditor. It reads a report, recomputes every figure from the un
 - [Limitations](#limitations)
 - [Team](#team)
 - [Data credits and third-party code](#data-credits-and-third-party-code)
+
+## Demo
+
+[![Watch the SecondOpinion demo on YouTube](docs/images/demo-thumbnail.jpg)](https://youtu.be/JQrZGETIs98)
+
+*Click the picture to watch the demo on YouTube.*
 
 ## What it does
 

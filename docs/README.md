@@ -1,5 +1,12 @@
 # Documentation
 
+## Using SecondOpinion
+
+- [Getting started](GETTING_STARTED.md): step-by-step setup for macOS, Linux and Windows
+- [User guide](USER_GUIDE.md): auditing your own report, review, decision, role views, sealed envelopes
+- [How a verdict is decided](HOW_VERDICTS_WORK.md): tolerance rules and claim types
+- [Development](DEVELOPMENT.md): configuration, tests, troubleshooting, architecture, API
+
 ## Project
 
 - [Build plan and scope](PLAN.md)

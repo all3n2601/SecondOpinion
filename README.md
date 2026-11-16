@@ -189,12 +189,15 @@ These are shown in the product next to the claims they affect, not only here.
 
 ## Team
 
+Team TechMinds.
+
 | Name | Built |
 | --- | --- |
-| Allen | Audit engine: release loader, checks, verdict rules, robustness, `/audit`, CLI, integration |
-| Benoy | Reading the report: sentence splitting, claim typing, "data can't answer" detection, skeptic tests, Claim Ladder wording |
-| Akshaya | Web app: start screen, claims list, audit board with the Claim Ladder, evidence panel, accessibility |
-| Meghana | Decisions and outputs: decision rules, `audit.json` export, Decision Record, roles, review queue, decision screen, docs |
+| Allen | Audit engine: contracts, release loader, checks, verdict rules, the eight recounts, `/audit`, CLI and integration. The optional AI helper, the coverage gate that says "can't check" for half-read sentences, the blind-set scorer, role-aware Review views with AI narration, and the landing page |
+| Benoy | Reading the report: sentence splitting, claim typing and number parsing, "data can't answer" detection, skeptic tests, Claim Ladder rewriting, PDF reports, test reports with known answers, the report view that marks each claim (before and after the decision), the AI split switch, Windows support |
+| Akshayaa | Web app: app shell and API client, start screen, claims list, audit board with the Claim Ladder, evidence panel, saved state, opening a sealed envelope from the Start page, the visual system, accessibility pass, the storyboard demo (`/demo`), step-by-step setup instructions |
+| Meghana | Decisions and outputs: decision rules, `audit.json` export and Decision Record, roles with the add-a-role form, review queue and its gate, decision screen, the practice-data run, the AI sentence split and the join for multi-part sentences, README and third-party list |
+| Bhavishya | Research and testing |
 
 ## Data credits and third-party code
 
